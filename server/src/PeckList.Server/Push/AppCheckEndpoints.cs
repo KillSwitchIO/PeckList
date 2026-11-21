@@ -4,6 +4,7 @@ using PeckList.Core.Accounts;
 using PeckList.Core.Notifications;
 using PeckList.Core.Push;
 using PeckList.Core.Sharing;
+using PeckList.Core.Text;
 using PeckList.Server.Auth;
 
 namespace PeckList.Server.Push;
@@ -36,7 +37,7 @@ public static class AppCheckEndpoints
     {
         api.MapGet("/app/check", async (string? after, string? zone, string? reminders, ClaimsPrincipal user, INotificationStore store,
             IAccountStore accounts, SharingState sharing, TimeProvider time, Core.Push.IPushStore push,
-            Core.Configuration.ServerSettings settings, CancellationToken cancellation) =>
+            Core.Configuration.ServerSettings settings, Text.ServerWords serverWords, HttpRequest request, CancellationToken cancellation) =>
         {
             var me = user.UserId();
             // The Android app sends its device's zone with every check: the server keeps it, so it
@@ -44,6 +45,8 @@ public static class AppCheckEndpoints
             await DeviceZones.ReportAsync(push, user, zone, cancellation);
             var index = sharing.Index;
             var mine = ReminderSender.SettingsOf(index, me);
+            // Their language, else the phone's (its Accept-Language), else English (PL-148).
+            var words = TextLanguage.For(serverWords.Catalog, mine, AcceptLanguage.Tags(request.Headers.AcceptLanguage));
             // A first check starts from now (a ULID sorts by time), taken before looking so nothing slips past.
             var start = after ?? Ids.NewUlid(time);
             var latest = await store.ListAsync(me, NotificationEndpoints.FeedSize, cancellation);
@@ -67,8 +70,8 @@ public static class AppCheckEndpoints
                 {
                     actor = names[actorId] = (await accounts.FindByIdAsync(actorId, cancellation))?.Username;
                 }
-                var (body, url) = NotificationText.Of(each, actor, index);
-                notifications.Add(new AppCheckNotification(each.Id, each.Kind, "PeckList", body, url, NotificationText.ActionsOf(each, url)));
+                var (body, url) = NotificationText.Of(each, actor, index, words);
+                notifications.Add(new AppCheckNotification(each.Id, each.Kind, "PeckList", body, url, NotificationText.ActionsOf(each, url, words)));
             }
 
             // With the app on screen it asks for none (reminders=0): the web app sets them then, and
@@ -82,7 +85,7 @@ public static class AppCheckEndpoints
             var device = DeviceZones.Valid(zone) ?? (settings.TimeZoneChosen ? null : await push.DeviceZoneAsync(me, cancellation));
             // Past the window too: a snooze later than it still puts off a reminder in it (0.14.0).
             var snoozes = await push.SnoozesAsync(now - ServerReminders.RepeatsLast, now + ServerReminders.SnoozesAhead, me, cancellation);
-            var upcoming = ReminderSender.UpcomingFor(index, me, now, now + Ahead, device, settings.TimeZoneChosen, snoozes)
+            var upcoming = ReminderSender.UpcomingFor(index, me, now, now + Ahead, device, settings.TimeZoneChosen, snoozes, words)
                 .Take(AheadMax)
                 .Select(each => new AppCheckReminder(each.Key, each.Title, each.Body, each.At.ToUnixTimeMilliseconds(), each.Url, each.Constant, each.Repeats))
                 .ToList();

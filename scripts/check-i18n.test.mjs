@@ -110,15 +110,20 @@ test('finds keys used as literals and prefixes of keys built at run time', () =>
     't(\'nav.today\'); const label = "list.sort.title";',
     't(`audit.outcome.${entry.outcome}` as MessageKey)',
     "t(('serverSettings.' + key) as MessageKey)",
+    // The server's C#: a literal, and an interpolated string.
+    'words["reminder.today"]; words[$"date.month.{date.Month}"];',
   ]);
   assert.ok(used.literals.has('nav.today'));
   assert.ok(used.literals.has('list.sort.title'));
-  assert.deepEqual([...used.prefixes].sort(), ['audit.outcome.', 'serverSettings.']);
+  assert.ok(used.literals.has('reminder.today'));
+  assert.deepEqual([...used.prefixes].sort(), ['audit.outcome.', 'date.month.', 'serverSettings.']);
   const english = {
     'nav.today': '',
     'list.sort.title': '',
     'audit.outcome.ok': '',
     'serverSettings.smtp': '',
+    'reminder.today': '',
+    'date.month.11': '',
     'theme.toggle': '',
   };
   assert.deepEqual(unusedKeys(english, used), ['theme.toggle']);
@@ -152,6 +157,28 @@ test('passes good catalogs and reports how much of each language is done', async
   assert.equal(failures, 0);
   assert.ok(lines.includes('  de: 1 of 2 translated (50%)'), lines.join('\n'));
   assert.equal(lines.at(-1), 'Catalogs OK.');
+});
+
+test('reads a catalog used from other files, such as the server C#', async () => {
+  const lines = [];
+  const catalog = fixture('csharp', {
+    english: { 'mail.test.subject': 'Test from {server}', 'only.inTypeScript': 'Unused here' },
+    source: "t('only.inTypeScript');",
+  });
+  mkdirSync(join(root, 'csharp/src/bin'));
+  writeFileSync(
+    join(root, 'csharp/src/Mail.cs'),
+    'words.Get("mail.test.subject", ("server", server));',
+  );
+  // Build output doesn't count.
+  writeFileSync(join(root, 'csharp/src/bin/Old.cs'), 'words["only.inTypeScript"];');
+  const failures = await check({
+    root,
+    catalogs: [{ ...catalog, files: /\.cs$/ }],
+    log: (line) => lines.push(line),
+  });
+  assert.equal(failures, 1, lines.join('\n'));
+  assert.match(lines.join('\n'), /en only\.inTypeScript: not used anywhere/);
 });
 
 test('counts every problem: bad English ICU, unused keys, a broken translation', async () => {

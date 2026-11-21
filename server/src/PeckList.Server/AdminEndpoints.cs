@@ -573,8 +573,10 @@ public static class AdminEndpoints
                 if (sendTo is null) return Results.Ok(made);
                 try
                 {
-                    var from = (await accounts.FindByIdAsync(user.UserId(), cancellation))?.Username ?? "An admin";
-                    await mail.SendAsync(Core.Mail.MailTemplates.Invite(sendTo, live.Current.PublicUrl?.Host ?? "your server", from, url, invite.Expires), cancellation);
+                    // In the sending admin's language (PL-148): they write to someone they know.
+                    var words = context.RequestServices.GetRequiredService<Text.ServerWords>().For(user.UserId(), context.Request);
+                    var from = (await accounts.FindByIdAsync(user.UserId(), cancellation))?.Username ?? words["mail.invite.fromFallback"];
+                    await mail.SendAsync(Core.Mail.MailTemplates.Invite(sendTo, EmailEndpoints.ServerName(live, words), from, url, invite.Expires, words), cancellation);
                     context.Audit().Detail += $", emailed to {sendTo}";
                     return Results.Ok(made with { Sent = true });
                 }

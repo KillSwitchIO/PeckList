@@ -7,6 +7,7 @@ using PeckList.Core.Sharing;
 using PeckList.Core.Storage;
 using PeckList.Core.Sync;
 using PeckList.Core.Tasks;
+using PeckList.Core.Text;
 using PeckList.Server.Auth;
 
 namespace PeckList.Server.Push;
@@ -43,14 +44,16 @@ public static class PushEndpoints
             new PushKey((await vapid.GetAsync(cancellation)).Public))
             .WithSummary("The server's Web Push public key (VAPID), for subscribing a browser");
 
-        api.MapPost("/push/subscriptions", async (PushSubscribe request, ClaimsPrincipal user, IPushStore store, CancellationToken cancellation) =>
+        api.MapPost("/push/subscriptions", async (PushSubscribe request, ClaimsPrincipal user, IPushStore store, HttpRequest http, CancellationToken cancellation) =>
         {
             if (!Uri.TryCreate(request.Endpoint, UriKind.Absolute, out var endpoint) || endpoint.Scheme != Uri.UriSchemeHttps
                 || string.IsNullOrWhiteSpace(request.Keys?.P256dh) || string.IsNullOrWhiteSpace(request.Keys?.Auth))
             {
                 return Results.BadRequest(new { error = "invalid_subscription" });
             }
-            await store.SaveAsync(new PushSubscription(user.UserId(), request.Endpoint!, request.Keys.P256dh, request.Keys.Auth), cancellation);
+            // The browser's own languages (PL-148): a push in the person's automatic language follows this device.
+            var languages = AcceptLanguage.Join(AcceptLanguage.Tags(http.Headers.AcceptLanguage));
+            await store.SaveAsync(new PushSubscription(user.UserId(), request.Endpoint!, request.Keys.P256dh, request.Keys.Auth, languages), cancellation);
             return Results.NoContent();
         }).Doc("Save this browser's push subscription, as PushSubscription.toJSON() gives it").Refuses(StatusCodes.Status400BadRequest);
 

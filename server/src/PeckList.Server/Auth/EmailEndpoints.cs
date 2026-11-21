@@ -4,7 +4,9 @@ using PeckList.Core.Accounts;
 using PeckList.Core.Audit;
 using PeckList.Core.Configuration;
 using PeckList.Core.Mail;
+using PeckList.Core.Text;
 using PeckList.Server.Audit;
+using PeckList.Server.Text;
 
 namespace PeckList.Server.Auth;
 
@@ -35,21 +37,23 @@ public static class EmailEndpoints
 
     private static string Origin(LiveSettings live) => live.Current.PublicUrl!.ToString().TrimEnd('/');
 
-    private static string ServerName(LiveSettings live) => live.Current.PublicUrl?.Host ?? "your server";
+    internal static string ServerName(LiveSettings live, Words words) => live.Current.PublicUrl?.Host ?? words["mail.serverFallback"];
 
-    /// <summary>Send a reset link to an account's confirmed email.</summary>
-    internal static async Task SendResetAsync(Account account, AccountEmails emails, IMailSender mail, LiveSettings live, CancellationToken cancellation)
+    /// <summary>Send a reset link to an account's confirmed email, in <paramref name="words"/>' language (PL-148).</summary>
+    internal static async Task SendResetAsync(Account account, AccountEmails emails, IMailSender mail, LiveSettings live, Words words,
+        CancellationToken cancellation)
     {
         var token = await emails.ResetTokenAsync(account, cancellation);
-        await mail.SendAsync(MailTemplates.Reset(account.VerifiedEmail!, ServerName(live), account.Username,
-            $"{Origin(live)}/reset/{token}", AccountEmails.ResetLifetime), cancellation);
+        await mail.SendAsync(MailTemplates.Reset(account.VerifiedEmail!, ServerName(live, words), account.Username,
+            $"{Origin(live)}/reset/{token}", AccountEmails.ResetLifetime, words), cancellation);
     }
 
-    private static async Task SendConfirmAsync(Account account, AccountEmails emails, IMailSender mail, LiveSettings live, CancellationToken cancellation)
+    private static async Task SendConfirmAsync(Account account, AccountEmails emails, IMailSender mail, LiveSettings live, Words words,
+        CancellationToken cancellation)
     {
         var token = await emails.ConfirmTokenAsync(account, cancellation);
-        await mail.SendAsync(MailTemplates.Confirm(account.Email!, ServerName(live), account.Username,
-            $"{Origin(live)}/auth/confirm-email/{token}"), cancellation);
+        await mail.SendAsync(MailTemplates.Confirm(account.Email!, ServerName(live, words), account.Username,
+            $"{Origin(live)}/auth/confirm-email/{token}", words), cancellation);
     }
 
     /// <summary><c>/auth/forgot</c>, <c>/auth/reset</c> and <c>/auth/confirm-email</c>: reached signed out.</summary>
@@ -58,7 +62,7 @@ public static class EmailEndpoints
         // The same answer whether or not an account matched, and the mail goes out after it, so
         // neither the words nor the time taken tell who has an account here.
         auth.MapPost("/forgot", (ForgotRequest request, AccountEmails emails, IMailSender mail, LiveSettings live, IMemoryCache cache,
-            ILoggerFactory logs, HttpContext context) =>
+            ILoggerFactory logs, ServerWords serverWords, HttpContext context) =>
         {
             var login = Core.SafeText.Clean(request.Login ?? "").Trim();
             context.Audit().On(null, Core.SafeText.Cut(login, 100)).Anonymous = true;
@@ -66,6 +70,8 @@ public static class EmailEndpoints
             if (login.Length > 0)
             {
                 var logger = logs.CreateLogger("PeckList.Mail");
+                // The account's language, else this browser's (PL-148): read now, before the request ends.
+                var browser = AcceptLanguage.Tags(context.Request.Headers.AcceptLanguage);
                 _ = Task.Run(async () =>
                 {
                     try
@@ -74,7 +80,7 @@ public static class EmailEndpoints
                         {
                             if (cache.TryGetValue($"reset-sent:{account.Id}", out _)) continue;
                             cache.Set($"reset-sent:{account.Id}", true, ResetEvery);
-                            await SendResetAsync(account, emails, mail, live, CancellationToken.None);
+                            await SendResetAsync(account, emails, mail, live, serverWords.For(account.Id, browser), CancellationToken.None);
                             logger.LogInformation("Sent a password reset link for {Username}", account.Username);
                         }
                     }
@@ -155,18 +161,19 @@ public static class EmailEndpoints
             }
             context.Audit().On(null, account.Email ?? "(removed)");
             if (account.Email == before.Email) return Results.Ok(new AccountEmailView(account.Email, account.EmailVerifiedAt is not null, LinksWork(mail, live)));
-            return Results.Ok(await ConfirmViewAsync(account, emails, mail, live, cancellation));
+            var words = context.RequestServices.GetRequiredService<ServerWords>().For(account.Id, context.Request);
+            return Results.Ok(await ConfirmViewAsync(account, emails, mail, live, words, cancellation));
         }).Doc<AccountEmailView>("Change your email; a new one gets a confirmation email when mail is set up").Refuses(StatusCodes.Status400BadRequest).Missing()
             .Audited("account.email-changed", targetRoute: null);
 
         api.MapPost("/account/email/confirm", async (ClaimsPrincipal user, IAccountStore accounts, AccountEmails emails, IMailSender mail,
-            LiveSettings live, CancellationToken cancellation) =>
+            LiveSettings live, ServerWords serverWords, HttpRequest request, CancellationToken cancellation) =>
         {
             if (await accounts.FindByIdAsync(user.UserId(), cancellation) is not { Email: not null, EmailVerifiedAt: null } account)
             {
                 return Results.Conflict(new AuthError("nothing_to_confirm"));
             }
-            return Results.Ok(await ConfirmViewAsync(account, emails, mail, live, cancellation));
+            return Results.Ok(await ConfirmViewAsync(account, emails, mail, live, serverWords.For(account.Id, request), cancellation));
         }).Doc<AccountEmailView>("Send the confirmation email again").Refuses(StatusCodes.Status409Conflict).Missing()
             .RequireRateLimiting(AuthSetup.LoginRateLimit);
 
@@ -175,13 +182,13 @@ public static class EmailEndpoints
 
     /// <summary>Send the confirmation link when there is an email to confirm and mail works; the view says how it went.</summary>
     private static async Task<AccountEmailView> ConfirmViewAsync(Account account, AccountEmails emails, IMailSender mail, LiveSettings live,
-        CancellationToken cancellation)
+        Words words, CancellationToken cancellation)
     {
         var works = LinksWork(mail, live);
         if (account.Email is null || !works) return new AccountEmailView(account.Email, false, works);
         try
         {
-            await SendConfirmAsync(account, emails, mail, live, cancellation);
+            await SendConfirmAsync(account, emails, mail, live, words, cancellation);
             return new AccountEmailView(account.Email, false, works, Sent: true);
         }
         catch (MailException error)
@@ -194,14 +201,15 @@ public static class EmailEndpoints
     public static RouteGroupBuilder MapAdminEmail(this RouteGroupBuilder admin)
     {
         admin.MapPost("/users/{id}/reset-link", async (string id, ClaimsPrincipal user, IAccountStore store, AccountEmails emails, IMailSender mail,
-            LiveSettings live, HttpContext context, CancellationToken cancellation) =>
+            LiveSettings live, ServerWords serverWords, HttpContext context, CancellationToken cancellation) =>
             await AdminEndpoints.OnAccountAsync(id, user, store, async account =>
             {
                 if (!LinksWork(mail, live)) return Results.Conflict(new AdminError("mail_not_set_up", "Set up email and PUBLIC_URL first."));
                 if (account.VerifiedEmail is null) return Results.Conflict(new AdminError("no_confirmed_email", "This person has no confirmed email."));
                 try
                 {
-                    await SendResetAsync(account, emails, mail, live, cancellation);
+                    // The person's own language; with none picked, the admin's browser's (PL-148).
+                    await SendResetAsync(account, emails, mail, live, serverWords.For(account.Id, context.Request), cancellation);
                     context.Audit().Detail = account.VerifiedEmail;
                     return Results.NoContent();
                 }

@@ -6,6 +6,8 @@ using PeckList.Core.Notifications;
 using PeckList.Core.Push;
 using PeckList.Core.Sharing;
 using PeckList.Core.Sync;
+using PeckList.Core.Text;
+using PeckList.Server.Text;
 
 namespace PeckList.Server.Push;
 
@@ -22,7 +24,8 @@ public sealed class ReminderSender(
     IPushSender push,
     TimeProvider time,
     ILogger<ReminderSender> logger,
-    Core.Sync.IChangeNotifier notifier)
+    Core.Sync.IChangeNotifier notifier,
+    ServerWords words)
     : PeriodicService("Sending reminders", TimeSpan.Zero, Every, time, logger, LogLevel.Warning)
 {
     public static readonly TimeSpan Every = TimeSpan.FromSeconds(30);
@@ -159,9 +162,13 @@ public sealed class ReminderSender(
         if (!await store.MarkReminderSentAsync($"{userId}|{sent}", now, cancellation)) return;
         // Complete on every reminder (Ben, 2026-11-20): the service worker hands the press to the
         // app under a one-time name, and the app completes the task; a constant one adds Snooze and
-        // Dismiss after it (sw-notifications.js).
-        var payload = new PushPayload(TitleOf(task), BodyOf(task, at, zone, mine), tag, $"/today?task={taskId}", constant,
-            [new PushAction("complete", "Complete", "/today", taskId)]);
+        // Dismiss after it (sw-notifications.js). Worded for each device (PL-148).
+        PushPayload PayloadFor(string? languages)
+        {
+            var said = TextLanguage.For(words.Catalog, mine, AcceptLanguage.Split(languages));
+            return new PushPayload(TitleOf(task, said), BodyOf(task, at, zone, mine, said), tag, $"/today?task={taskId}", constant,
+                [new PushAction("complete", said["reminder.complete"], "/today", taskId)]);
+        }
         if (at == first)
         {
             var made = new Notification
@@ -177,7 +184,7 @@ public sealed class ReminderSender(
             // Open streams hear at once: a Home Assistant automation can say the reminder aloud.
             Core.Sync.InProcessChangeNotifier.Notify(notifier, [made]);
         }
-        await push.SendAsync(userId, payload, cancellation);
+        await push.SendAsync(userId, PayloadFor, cancellation);
     }
 
     /// <summary>Each run tries again, so a lasting failure warns once and then only shows at Debug.</summary>
@@ -192,9 +199,10 @@ public sealed class ReminderSender(
     /// their zone by <see cref="ZoneOf"/>, with <paramref name="deviceZone"/> as the device's.
     /// </summary>
     /// <paramref name="snoozes"/>: the person's snoozes (audit B3), which come as reminders do.
+    /// <paramref name="words"/>: the language they're worded in (PL-148), English when not given.
     public static IReadOnlyList<Upcoming> UpcomingFor(
         SharingIndex index, string userId, DateTimeOffset from, DateTimeOffset to, string? deviceZone, bool serverZoneChosen,
-        IReadOnlyCollection<ReminderSnooze>? snoozes = null)
+        IReadOnlyCollection<ReminderSnooze>? snoozes = null, Words? words = null)
     {
         var mine = SettingsOf(index, userId);
         if (!NotificationSwitches.Allows(mine, NotificationKind.Reminder)) return [];
@@ -229,7 +237,7 @@ public sealed class ReminderSender(
 
         void Add(string taskId, JsonObject task, IEnumerable<ReminderTime> times)
         {
-            var title = TitleOf(task);
+            var title = TitleOf(task, words);
             var repeats = (string?)task["recurrence"] is { Length: > 0 };
             foreach (var (at, first, constant) in times)
             {
@@ -237,7 +245,7 @@ public sealed class ReminderSender(
                 var tag = $"{taskId}@{first.ToUnixTimeMilliseconds()}";
                 var again = (int)((at - first) / ServerReminders.ConstantEvery);
                 found.Add(new Upcoming(again == 0 ? tag : $"{tag}#{again}", title,
-                    BodyOf(task, at, zone, mine), at, $"/today?task={taskId}", constant, repeats));
+                    BodyOf(task, at, zone, mine, words), at, $"/today?task={taskId}", constant, repeats));
             }
         }
     }
@@ -264,7 +272,8 @@ public sealed class ReminderSender(
             ? clocks.Select(pair => (string?)pair.Value).Where(Hlc.IsValid).Max(Comparer<string?>.Create(Hlc.Compare))
             : null;
 
-    private static string TitleOf(JsonObject task) => (string?)task["title"] is { Length: > 0 } named ? named : "Untitled task";
+    private static string TitleOf(JsonObject task, Words? words) =>
+        (string?)task["title"] is { Length: > 0 } named ? named : (words ?? Words.English)["reminder.untitled"];
 
     /// <summary>
     /// The zone the server works in for a person, in the apps' order (Device Time Zone Design): their
@@ -292,24 +301,29 @@ public sealed class ReminderSender(
     /// as the app words it: "Due 3:00 PM" today, "Due tomorrow, 6:00 AM", "Due Thu, Nov 26, 6:00 AM",
     /// "Due today" for a whole day, "Starts ..." when the reminders count from the task's start, and
     /// "Reminder" for a task with no date. The person's clock format, and their date format (Settings
-    /// &gt; Dates, <see cref="DatePattern"/>) for a day further off, as the app does; days in English,
-    /// as the rest of what the server sends.
+    /// &gt; Dates, <see cref="DatePattern"/>) for a day further off, as the app does; the words, the
+    /// day and month names and the default date shape in <paramref name="words"/>' language (PL-148).
     /// </summary>
-    internal static string BodyOf(JsonObject task, DateTimeOffset shownAt, TimeZoneInfo zone, JsonObject? settings)
+    internal static string BodyOf(JsonObject task, DateTimeOffset shownAt, TimeZoneInfo zone, JsonObject? settings, Words? words = null)
     {
-        if (ServerReminders.TaskDate(task, zone) is not { } found) return "Reminder";
+        words ??= Words.English;
+        if (ServerReminders.TaskDate(task, zone) is not { } found) return words["reminder.noDate"];
         var (starts, day, time) = found;
-        var word = starts ? "Starts" : "Due";
+        var key = starts ? "reminder.starts" : "reminder.due";
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(shownAt, zone).DateTime);
-        var clock = time is { } at
-            ? at.ToString((string?)settings?["clockFormat"] == "24h" ? "HH:mm" : "h:mm tt", CultureInfo.InvariantCulture)
-            : null;
-        if (clock is not null && day == today) return $"{word} {clock}";
-        var dayText = day == today ? "today"
-            : day == today.AddDays(1) ? "tomorrow"
-            : day == today.AddDays(-1) ? "yesterday"
-            : DatePattern.Of((string?)settings?["dateFormat"]) is { } pattern ? DatePattern.Format(day, pattern)
-            : day.ToString(day.Year == today.Year ? "ddd, MMM d" : "MMM d, yyyy", CultureInfo.InvariantCulture);
-        return clock is null ? $"{word} {dayText}" : $"{word} {dayText}, {clock}";
+        var clock = time is { } at ? Clock(at, (string?)settings?["clockFormat"] == "24h", words) : null;
+        if (clock is not null && day == today) return words.Get(key, ("when", clock));
+        var dayText = day == today ? words["reminder.today"]
+            : day == today.AddDays(1) ? words["reminder.tomorrow"]
+            : day == today.AddDays(-1) ? words["reminder.yesterday"]
+            : DatePattern.Format(day, DatePattern.Of((string?)settings?["dateFormat"])
+                ?? words[day.Year == today.Year ? "reminder.datePattern" : "reminder.datePatternYear"], words);
+        return words.Get(key, ("when", clock is null ? dayText : words.Get("reminder.dayAndTime", ("day", dayText), ("time", clock))));
     }
+
+    /// <summary>A time of day: 15:00 on a 24-hour clock, else "3:00 PM" in the language's words.</summary>
+    private static string Clock(TimeOnly at, bool twentyFour, Words words) => twentyFour
+        ? at.ToString("HH:mm", CultureInfo.InvariantCulture)
+        : words.Get("time.clock12", ("hour", (at.Hour % 12 == 0 ? 12 : at.Hour % 12).ToString(CultureInfo.InvariantCulture)),
+            ("minute", at.Minute.ToString("00", CultureInfo.InvariantCulture)), ("period", words[at.Hour < 12 ? "time.am" : "time.pm"]));
 }

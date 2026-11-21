@@ -1,43 +1,67 @@
 using System.Net;
+using PeckList.Core.Push;
+using PeckList.Core.Text;
 
 namespace PeckList.Core.Mail;
 
 /// <summary>
 /// The emails the server sends (PL-122): short, plain text with the same as simple HTML, the
-/// server's name in the subject, no tracking pixels and no rewritten links.
+/// server's name in the subject, no tracking pixels and no rewritten links. In <c>words</c>'
+/// language (PL-148), English when not given.
 /// </summary>
 public static class MailTemplates
 {
     /// <summary>A password reset link, asked for on the sign-in page or sent by an admin.</summary>
-    public static OutgoingMail Reset(string to, string server, string username, string link, TimeSpan lifetime) => Build(
-        to,
-        $"Reset your PeckList password on {server}",
-        [
-            $"Someone asked to reset the password of {username} on {server}.",
-            $"This link sets a new one. It works once, for {Minutes(lifetime)}:",
-        ],
-        link,
-        "If it was not you, ignore this email: your password stays as it is.");
+    public static OutgoingMail Reset(string to, string server, string username, string link, TimeSpan lifetime, Words? words = null)
+    {
+        words ??= Words.English;
+        return Build(
+            to,
+            words.Get("mail.reset.subject", ("server", server)),
+            [
+                words.Get("mail.reset.asked", ("username", username), ("server", server)),
+                words.Get("mail.reset.link", ("lifetime", Lifetime(lifetime, words))),
+            ],
+            link,
+            words["mail.reset.notYou"]);
+    }
 
     /// <summary>Confirms an email someone gave their account.</summary>
-    public static OutgoingMail Confirm(string to, string server, string username, string link) => Build(
-        to,
-        $"Confirm your email for PeckList on {server}",
-        [$"Confirm this email for {username} on {server}, so password reset links can come here:"],
-        link,
-        "If you did not add this email to a PeckList account, ignore this email.");
+    public static OutgoingMail Confirm(string to, string server, string username, string link, Words? words = null)
+    {
+        words ??= Words.English;
+        return Build(
+            to,
+            words.Get("mail.confirm.subject", ("server", server)),
+            [words.Get("mail.confirm.lead", ("username", username), ("server", server))],
+            link,
+            words["mail.confirm.notYou"]);
+    }
 
     /// <summary>An invite link an admin sends to someone.</summary>
-    public static OutgoingMail Invite(string to, string server, string from, string link, DateTimeOffset expires) => Build(
-        to,
-        $"You're invited to PeckList on {server}",
-        [$"{from} invited you to PeckList on {server}, a place to keep and share tasks.",
-            $"Make your account with this link (until {expires:MMMM d, yyyy}):"],
-        link,
-        "If you were not expecting this, ignore this email.");
+    public static OutgoingMail Invite(string to, string server, string from, string link, DateTimeOffset expires, Words? words = null)
+    {
+        words ??= Words.English;
+        var until = DatePattern.Format(DateOnly.FromDateTime(expires.DateTime), words["mail.invite.datePattern"], words);
+        return Build(
+            to,
+            words.Get("mail.invite.subject", ("server", server)),
+            [words.Get("mail.invite.lead", ("from", from), ("server", server)), words.Get("mail.invite.link", ("date", until))],
+            link,
+            words["mail.invite.notExpected"]);
+    }
 
-    private static string Minutes(TimeSpan lifetime) =>
-        lifetime.TotalMinutes is var minutes && minutes < 120 ? $"{minutes:0} minutes" : $"{lifetime.TotalHours:0} hours";
+    /// <summary>The admin's test email (Admin &gt; Email), plain text only.</summary>
+    public static OutgoingMail Test(string to, string server, Words? words = null)
+    {
+        words ??= Words.English;
+        return new OutgoingMail(to, words.Get("mail.test.subject", ("server", server)), words.Get("mail.test.body", ("server", server)) + Environment.NewLine);
+    }
+
+    private static string Lifetime(TimeSpan lifetime, Words words) =>
+        lifetime.TotalMinutes < 120
+            ? words.Get("mail.reset.minutes", ("count", (int)Math.Round(lifetime.TotalMinutes)))
+            : words.Get("mail.reset.hours", ("count", (int)Math.Round(lifetime.TotalHours)));
 
     private static OutgoingMail Build(string to, string subject, IReadOnlyList<string> lead, string link, string closing)
     {

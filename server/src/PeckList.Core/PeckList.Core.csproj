@@ -1,3 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Domain: HLC, merge, settings and the ports. No ASP.NET, no database drivers. -->
+  <ItemGroup>
+    <PackageReference Include="MessageFormat" />
+    <!-- The server's text catalogs (PL-148), read by JsonTextCatalog. -->
+    <EmbeddedResource Include="Text\locales\*.json" LogicalName="Text.locales.%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

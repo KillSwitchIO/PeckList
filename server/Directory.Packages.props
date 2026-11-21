@@ -22,6 +22,8 @@
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.3.1" />
     <!-- Runs the app's quick add on the server (PL-137): pure .NET, no native parts. -->
     <PackageVersion Include="Jint" Version="4.4.1" />
+    <!-- ICU MessageFormat for the server's text (PL-148): plurals by CLDR rules, MIT, no dependencies. -->
+    <PackageVersion Include="MessageFormat" Version="8.0.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>
