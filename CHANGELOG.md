@@ -4,6 +4,58 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.14.0] - 2026-11-21
+
+### Added
+
+- **web:** Select all and Deselect all for lists and tags in the filter
+- **web:** A compact row size for Today
+- **web:** The filter funnel on Due dates, All, Search and four more
+
+### Fixed
+
+- Two reminders snoozed to the same minute each keep their own snooze
+- **web:** A reminder after the task's time no longer reads "-538 minutes early"
+- Keep today's own date in this year after noon in quick add
+- The task API takes notes up to 100,000 characters, as the apps do
+- **android:** An Add task start keeps its keyboard, and the keyboard wait tidies up
+- Say a reminder on the day before as that day and its time
+- **web:** Let the share dialog's friend box filter as you type
+- **auth:** A NUL in the app sign-in forms is a 400, not a 500
+- **admin:** Only a super admin pairs admins or hands them shares
+- **admin:** Only a super admin puts admins in server groups or out
+- **server:** Reminder Complete on an occurrence already gone does nothing
+- **android:** Ask again for the keyboard when a widget start gets none
+- **android:** Keep the splash icon visible and save the sign-in cookie on pause
+- **server:** Backups carry API keys; a restore drops keys made since
+- **web:** Reminder Complete button; wait for the worker; click dismisses
+- **web:** Say so when notes go past their limit, and show what was kept
+- **web:** Keyboard focus into the task details and back to the row
+- **server:** Notification presses write no unstamped fields into tasks
+- **scripts:** Notification drill cleanup after a press on a notification
+- **android:** Check in as the app leaves when it never has on this server
+- **server:** Revoked keys and removed passkeys stay out after a restore
+- **web:** The new-task form leaves nothing behind and offers only lists it can use
+- **web:** Store where the sync stands only after the data it covers
+- **notifications:** Reply puts the cursor in the comment box
+- **web:** No join question for the account's own tasks after a reload
+- **web:** Pull everything once more to bring back changes lost before
+- **android:** A sign-in is written to disk as soon as it succeeds
+- Reminders name the task's time, not the time they come
+- **server:** Reminder text says dates in the person's date format
+- **web:** A save that waited on storage no longer undoes a join
+- **web:** No tooltip left under the filter funnel after its panel closes
+
+### Documentation
+
+- A demo line and a changelog section in the README
+- Say how 0.8.0 and 0.9.x refuse an upgraded database
+- Say how to trust Elasticsearch 8's own CA
+- Correct three claims in the store description
+- Say the public demo starts over every hour
+- Show the Docker Hub image next to GitLab's, and a demo badge
+- Restoring an account removed for good brings back its keys
+
 ## [0.14.0-rc.2] - 2026-11-21
 
 ### Added

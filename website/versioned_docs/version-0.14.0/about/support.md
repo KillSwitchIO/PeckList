@@ -1,0 +1,81 @@
+# Getting help
+
+PeckList is made by one person in their spare time, with help from anyone who joins in. There is
+no paid support; these are the places to ask, and what each is for.
+
+| You want to                         | Go to                                                                                                                                    |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Fix something that is not working   | First [troubleshooting](../guides/troubleshooting.md) and the [FAQ](../faq.md), then a [bug report](reporting-bugs.md)                   |
+| Report a bug                        | A [GitLab issue](https://gitlab.com/killswitch10/pecklist/-/issues/new?issuable_template=Bug), as in [reporting a bug](reporting-bugs.md) |
+| Ask for a feature                   | A [feature request](https://gitlab.com/killswitch10/pecklist/-/issues/new?issuable_template=Feature%20request); check the [roadmap](roadmap.md) first |
+| Report a security problem           | Privately, as a confidential issue: see the [security policy](https://gitlab.com/killswitch10/pecklist/-/blob/main/SECURITY.md). Never in public |
+| Ask a question, show your setup     | The community chat (below)                                                                                                               |
+| Help build it                       | [Contributing](https://gitlab.com/killswitch10/pecklist/-/blob/main/CONTRIBUTING.md) and [developing](../development/index.md)          |
+
+## Support PeckList
+
+PeckList is free and made in spare time. If it helps you, a donation helps keep it going and
+covers its costs:
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S7P3FVW)
+[![PayPal: donate](https://img.shields.io/badge/PayPal-donate-00457C?logo=paypal)](https://www.paypal.com/donate/?hosted_button_id=NF3EZPGC3NL86)
+
+Or use the tip panel on [pecklist.com/support](https://pecklist.com/support/). The app has the same
+link under **Settings > Support PeckList**, or from the heart beside the version in the sidebar.
+
+### Supporter keys
+
+A supporter key is a one-time thank-you, bought on [pecklist.com/support](https://pecklist.com/support/).
+**It unlocks nothing**: every feature works without one, on every server, and nothing in PeckList
+ever stops working for want of a key. A key only says thank you, fills in the heart in the sidebar
+and hides the support reminder.
+
+There are two kinds:
+
+- **A supporter key** covers one person, on any server they use. Enter it under **Settings > Support
+  PeckList**.
+- **A server supporter key** covers everyone on one server. An admin enters it under
+  **Admin > Support**, and nobody on that server sees the reminder.
+
+The key arrives by email and looks like `PECKLIST-20261111-S-XXXXX-XXXXX-...`: the purchase date,
+then `S` for one person or `V` for a server. Paste it whole; line breaks from the email don't
+matter. Your server checks the key itself, offline, against PeckList's public signing key: it
+never calls out about a key, and the key says nothing about who bought it. Answers from the
+server never show a key again, and the event log records only its date and serial.
+
+People who aren't supporters see a one-line reminder in the sidebar. Its **x** hides it in that
+browser for 30 days or for good.
+
+A supporter key is not a commercial license: see
+[`COMMERCIAL-LICENSE.md`](https://gitlab.com/killswitch10/pecklist/-/blob/main/COMMERCIAL-LICENSE.md).
+
+## Community chat
+
+:::note[Not open yet]
+
+A Discord server is planned for the 1.0 release, with a forum for support questions (one
+thread a question), channels for releases, the Android testers and people's setups. Until it
+opens, ask in a [GitLab issue](https://gitlab.com/killswitch10/pecklist/-/issues); questions
+are welcome there too.
+
+:::
+
+{/* When the Discord server opens: replace the note above with its invite link, and add it to the
+README and docs/index.md. */}
+
+## What to expect
+
+- Bug reports get a first answer within a few days, usually sooner. A report with the version and
+  a [debug dump](../guides/logging.md#debug-dump) gets fixed fastest.
+- Fixes ship in the next release; only the latest release is supported, so the fix for an old
+  version is to upgrade.
+- Feature requests are read and labelled, and the ones that fit go on the [roadmap](roadmap.md).
+  Not every one will: PeckList tries to stay small and easy to run.
+
+## Following releases
+
+- The [release page](https://gitlab.com/killswitch10/pecklist/-/releases) and the
+  [changelog](https://gitlab.com/killswitch10/pecklist/-/blob/main/CHANGELOG.md).
+- In the app: the server checks for releases twice a day and shows a notice
+  ([`UPDATE_CHECK`](../configuration/reference.md#update_check)).
+- On GitLab: **Notifications** on the project page, set to **Custom > New release**.
