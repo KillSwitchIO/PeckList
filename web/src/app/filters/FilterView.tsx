@@ -2,7 +2,13 @@ import { ListItemIcon, MenuItem } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
-import { deleteSavedFilter, filterOf, updateSavedFilter } from '../../core/savedFilters.ts';
+import {
+  deleteSavedFilter,
+  filterOf,
+  setSavedFilterView,
+  updateSavedFilter,
+  viewOf,
+} from '../../core/savedFilters.ts';
 import { t } from '../i18n/i18n.ts';
 import { DeleteIcon, EditIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
@@ -15,15 +21,25 @@ import { VIEW_GROUPINGS } from '../../core/listView.ts';
 import { EmptyState } from '../views/EmptyState.tsx';
 import { FilterDialog } from './FilterDialog.tsx';
 
-/** A saved filter's tasks, grouped by date like All. */
+/** A saved filter's tasks, grouped and sorted as stored with the filter (by date until picked). */
 export function FilterView() {
   const { filterId = '' } = useParams();
   const workspace = useWorkspace();
   const apply = useApply();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
-  const view = useListView(`filter:${filterId}`);
   const saved = getEntity(workspace, 'savedFilters', filterId);
+  const live = saved && isLive(saved) ? saved : null;
+  // Its grouping and sort are stored with the filter, so they sync (PL-015).
+  const view = useListView(
+    `filter:${filterId}`,
+    live
+      ? {
+          choice: viewOf(live),
+          save: (next) => apply((ctx, ws) => setSavedFilterView(ctx, ws, live.id, next)),
+        }
+      : undefined,
+  );
   if (!saved || !isLive(saved)) {
     return (
       <Page title={t('nav.filters')}>

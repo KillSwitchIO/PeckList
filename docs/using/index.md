@@ -236,7 +236,8 @@ the list. The built-in views (Today, Upcoming, All, Assigned to me, Shared with 
 and saved filter have the same menu, plus **List** to group by list. Picking the chosen grouping or
 sort again turns it around (an arrow shows which way it runs): Z to A, latest date first (undated
 tasks stay last), low priority first, oldest first, or the groups in reverse. Each list and view
-keeps its own choice on this device, and the dots turn colored while it differs from the default;
+keeps its own choice on this device; a saved filter keeps its choice with the filter, so it is the
+same on all your devices. The dots turn colored while it differs from the default;
 **Restore defaults** at the bottom of the menu goes back.
 
 Today's menu also has **Row size**: **Comfortable** (the usual rows) or **Compact**, one line per

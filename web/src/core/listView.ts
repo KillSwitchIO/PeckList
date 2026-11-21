@@ -18,6 +18,31 @@ export const LIST_GROUPINGS: readonly ListGrouping[] = ['date', 'priority', 'tag
 export const VIEW_GROUPINGS: readonly ListGrouping[] = ['date', 'priority', 'tag', 'list', 'none'];
 export const LIST_SORTS: readonly ListSort[] = ['manual', 'date', 'priority', 'title', 'created'];
 
+/** A grouping and sort someone picked for a view; a missing field is the view's default. */
+export interface ViewChoice {
+  group?: ListGrouping;
+  sort?: ListSort;
+  /** Picked again: the other way round */
+  groupReversed?: boolean;
+  sortReversed?: boolean;
+}
+
+/**
+ * Only the known parts of a stored choice (it may come from another device or an older app), with
+ * the flags that are off left out. A grouping or sort picked on purpose is kept even when it is the
+ * default one (so it wins over an older choice); only Restore defaults stores nothing.
+ */
+export function cleanViewChoice(value: unknown): ViewChoice {
+  if (typeof value !== 'object' || value === null) return {};
+  const raw = value as Record<string, unknown>;
+  const kept: ViewChoice = {};
+  if (VIEW_GROUPINGS.includes(raw.group as ListGrouping)) kept.group = raw.group as ListGrouping;
+  if (LIST_SORTS.includes(raw.sort as ListSort)) kept.sort = raw.sort as ListSort;
+  if (raw.groupReversed === true) kept.groupReversed = true;
+  if (raw.sortReversed === true) kept.sortReversed = true;
+  return kept;
+}
+
 /** The day a task is placed on for sorting: its start, else its due date; null when undated. */
 export function sortDate(task: Task): string | null {
   if (task.schedule) return datePart(task.schedule.start);
