@@ -20,9 +20,17 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   Each origin has its own, as in the WebView: the bundled build at `https://localhost`, and each
   server the app connects to. Every call carries the page's origin, and the shell answers only when
   it is the WebView's current origin and the app's own or the connected server's, so a save a page
-  made just before a navigation never lands in the next origin's data. A load comes in pages and a
-  big save in chunks that the last one commits, so a 9 MB workspace never crosses the bridge as one
-  message. On the first start with api 16, `web/src/app/store/nativeMigration.ts` copies what the
+  made just before a navigation never lands in the next origin's data. A big save goes in chunks
+  that the last one commits, so a 9 MB workspace never crosses the bridge as one message. The
+  start reads the whole workspace in one go with shell api 18 (`WholeStoreRead.java`): a GET of
+  `/__pecklist/native-store` on the page's own origin, with an `X-PeckList-Store: 1` header, that
+  the shell answers itself from SQLite as one JSON text. Through the bridge, the rows were JSON
+  inside JSON, and escaping them kept a cold start waiting for seconds. Another origin can only send
+  that header after a CORS preflight, which the shell doesn't answer (on a server origin the server
+  may), so what keeps other origins out is that the response carries no CORS headers and that a
+  request with another origin's `Origin` header is refused. An older shell answers no such read,
+  and neither does a failed fetch (offline behind the service worker), so the page reads pages
+  through `storeLoad` instead. On the first start with api 16, `web/src/app/store/nativeMigration.ts` copies what the
   WebView kept into it, reads the copy back, and only then marks it moved and deletes the WebView's
   databases (attached files stay in IndexedDB). Web browsers, the PWA and an older APK keep
   IndexedDB. `NativeStoreCases` runs on real SQLite twice: in the JVM through Robolectric

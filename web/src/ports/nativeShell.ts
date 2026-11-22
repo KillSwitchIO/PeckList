@@ -162,9 +162,21 @@ export interface StorePage {
  * workspace instead of the WebView's IndexedDB. Each origin has its own, as in the WebView. A call
  * the shell refuses (the page is no longer on the origin it was on) rejects.
  */
+/** The whole workspace in one read (api 18): the header and every entity, already parsed. */
+export interface StoreWhole {
+  /** The header as saved, or null when nothing is. */
+  header: unknown;
+  rows: [key: string, entity: unknown][];
+}
+
 export interface NativeStoreCalls {
   /** The entities after `after` (the first page, with the header, when null); `budget` 0 reads the header alone. */
   load(after: string | null, budget?: number): Promise<StorePage>;
+  /**
+   * Api 18: the whole workspace in one read, which is much quicker to open than pages (PL-149);
+   * null from an older shell, or when the read is not there to be had, so the caller reads pages.
+   */
+  whole(): Promise<StoreWhole | null>;
   save(change: StoreSave): Promise<void>;
   /** The workspace gone; backups and metadata stay. */
   clear(): Promise<void>;

@@ -1,4 +1,4 @@
-import type { NativeStoreCalls, StorePage, StoreSave } from '../ports/nativeShell.ts';
+import type { NativeStoreCalls, StorePage, StoreSave, StoreWhole } from '../ports/nativeShell.ts';
 
 /** One origin's tables, as `NativeStore.java` keeps them. */
 interface Space {
@@ -27,8 +27,12 @@ export class FakeNativeStore {
   current = 'https://localhost';
   /** Every save call, chunks included, as sent. */
   saves: StoreSave[] = [];
-  /** Load calls made. */
+  /** Load calls made (pages). */
   loads = 0;
+  /** Whether the shell reads the whole store in one (api 18); an older one answers null. */
+  readsWhole = true;
+  /** Whole reads made. */
+  wholes = 0;
   /** About how much a load page holds. */
   pageBudget = 1_000_000;
   /** Throws for the call it names (the method and how many of its calls to let through first). */
@@ -89,6 +93,15 @@ export class FakeNativeStore {
             size += key.length + json.length;
           }
           return { header, rows, next: null };
+        }),
+      whole: () =>
+        run('whole', (space): StoreWhole | null => {
+          if (!this.readsWhole) return null;
+          this.wholes += 1;
+          const rows = [...space.entities.keys()]
+            .sort()
+            .map((key): [string, unknown] => [key, JSON.parse(space.entities.get(key)!)]);
+          return { header: space.header === null ? null : JSON.parse(space.header), rows };
         }),
       save: (change) =>
         run('save', (space) => {

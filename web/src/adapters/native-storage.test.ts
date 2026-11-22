@@ -7,9 +7,11 @@ import { bigWorkspace, describeStorageContract } from './storage.contract.ts';
 
 describeStorageContract('native', () => createNativeStorage(new FakeNativeStore().calls()));
 
-// The same with tiny chunks and pages, so every save and load goes in several calls.
+// The same on a shell older than the whole read (api 18), with tiny chunks and pages, so every save
+// and load goes in several calls.
 describeStorageContract('native, in small chunks and pages', () => {
   const device = new FakeNativeStore();
+  device.readsWhole = false;
   device.pageBudget = 300;
   return createNativeStorage(device.calls(), 300);
 });
@@ -47,8 +49,40 @@ describe('native storage, one row per entity', () => {
     expect(await createNativeStorage(device.calls()).load()).toEqual(fewer);
   });
 
+  it('reads the workspace in one where the shell can, and a save after it sends only what changed', async () => {
+    const device = new FakeNativeStore();
+    const workspace = sampleWorkspace();
+    await createNativeStorage(device.calls()).save(workspace);
+    const storage = createNativeStorage(device.calls());
+    expect(await storage.load()).toEqual(workspace);
+    expect(device.wholes).toBe(1);
+    expect(device.loads).toBe(0);
+    // What it read is what it holds: an untouched entity is not sent again.
+    const read = await createNativeStorage(device.calls()).load();
+    const reader = createNativeStorage(device.calls());
+    const held = (await reader.load()) as WorkspaceFile;
+    const next = renamed(held, 1, 'Call the vet');
+    device.saves.length = 0;
+    await reader.save(next);
+    expect(device.saves).toEqual([
+      {
+        puts: [[`tasks/${next.entities.tasks[1]!.id}`, JSON.stringify(next.entities.tasks[1])]],
+        deletes: [],
+      },
+    ]);
+    expect(read).toEqual(workspace);
+  });
+
+  it('reads nothing saved as nothing, in one read too', async () => {
+    const device = new FakeNativeStore();
+    expect(await createNativeStorage(device.calls()).load()).toBeNull();
+    expect(device.wholes).toBe(1);
+  });
+
   it('saves a 10 MB workspace in chunks the shell writes together, and loads it in pages', async () => {
     const device = new FakeNativeStore();
+    // A shell older than the whole read (api 18).
+    device.readsWhole = false;
     const storage = createNativeStorage(device.calls());
     const workspace = bigWorkspace();
     await storage.save(workspace);

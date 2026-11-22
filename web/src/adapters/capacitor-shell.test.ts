@@ -1,5 +1,97 @@
-import { describe, expect, it } from 'vitest';
-import { heldPresses, phoneChannels, shellInfo, storePage } from './capacitor-shell.ts';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  heldPresses,
+  nativeStoreCalls,
+  phoneChannels,
+  shellInfo,
+  storePage,
+  storeWhole,
+  WHOLE_STORE_HEADER,
+} from './capacitor-shell.ts';
+
+const answer = (body: unknown, status = 200, header: string | null = '1') =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: header === null ? {} : { [WHOLE_STORE_HEADER]: header },
+  });
+
+describe('storeWhole', () => {
+  it('takes the whole store the shell answered with', async () => {
+    const header = { doc: { schemaVersion: 1 }, order: { tasks: ['1'] } };
+    expect(await storeWhole(answer({ header, rows: [['tasks/1', { id: '1' }]] }))).toEqual({
+      header,
+      rows: [['tasks/1', { id: '1' }]],
+    });
+    expect(await storeWhole(answer({ header: null, rows: [] }))).toEqual({
+      header: null,
+      rows: [],
+    });
+  });
+
+  it('reads pages instead when the answer is not the shell’s (the page, a server, a refusal)', async () => {
+    expect(await storeWhole(answer({ header: null, rows: [] }, 200, null))).toBeNull();
+    expect(await storeWhole(answer('<!doctype html>', 200, null))).toBeNull();
+    expect(await storeWhole(answer(null, 403))).toBeNull();
+    expect(await storeWhole(answer(null, 404, null))).toBeNull();
+  });
+
+  it('refuses an answer from the shell it cannot read, rather than read it as empty', async () => {
+    await expect(storeWhole(answer({ header: 'text', rows: [] }))).rejects.toThrow();
+    await expect(storeWhole(answer({ header: null, rows: [['tasks/1', '{}']] }))).rejects.toThrow();
+    await expect(storeWhole(answer({ header: null }))).rejects.toThrow();
+    await expect(storeWhole(answer(null))).rejects.toThrow();
+  });
+});
+
+describe('the whole read', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** The store calls over a shell whose info() answers `infos` in turn (an Error rejects). */
+  const calls = (...infos: (number | Error)[]) => {
+    const info = vi.fn(() => {
+      const next = infos.shift() ?? 18;
+      return next instanceof Error ? Promise.reject(next) : Promise.resolve({ api: next });
+    });
+    const plugin = { info } as unknown as Parameters<typeof nativeStoreCalls>[0];
+    return { store: nativeStoreCalls(plugin), info };
+  };
+
+  it('asks for it on a shell that has it, and not on an older one', async () => {
+    const fetch = vi.fn(() => Promise.resolve(answer({ header: null, rows: [] })));
+    vi.stubGlobal('fetch', fetch);
+    expect(await calls(18).store.whole()).toEqual({ header: null, rows: [] });
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(await calls(17).store.whole()).toBeNull();
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it('reads pages, not a failed load, when the fetch fails (offline behind a service worker)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
+    );
+    expect(await calls(18).store.whole()).toBeNull();
+  });
+
+  it('reads pages when info() fails, and asks again on the next load', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(answer({ header: null, rows: [] }))),
+    );
+    const { store, info } = calls(new Error('bridge not ready'), 18);
+    expect(await store.whole()).toBeNull();
+    expect(await store.whole()).toEqual({ header: null, rows: [] });
+    expect(info).toHaveBeenCalledTimes(2);
+  });
+
+  it('still fails on an answer from the shell it cannot read', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(answer({ header: null }))),
+    );
+    await expect(calls(18).store.whole()).rejects.toThrow();
+  });
+});
 
 describe('storePage', () => {
   it('takes a page the shell answered with, and refuses anything else rather than read it as empty', () => {
