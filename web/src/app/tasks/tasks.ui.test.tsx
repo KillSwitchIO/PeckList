@@ -282,6 +282,32 @@ describe('task details', () => {
     expect(screen.getAllByRole('menu')).toHaveLength(1);
   });
 
+  it('a picture neither this device nor the server has says so instead of opening empty', async () => {
+    const store = testStore();
+    await store.getState().init();
+    store.getState().apply((ctx, ws) => {
+      const made = createTask(ctx, ws, { title: 'Paint the fence', listId: inboxList(ws).id });
+      // Its bytes are nowhere: added on another device, or from another account's export.
+      return addAttachment(ctx, made.workspace, {
+        taskId: made.task.id,
+        name: 'colors.png',
+        size: 5,
+        mime: 'image/png',
+        sha256: '7706c3c94d5f9b598a2bc7385eb7c51aba74f4eed2aa467bfcb2c611a0897fa2',
+      }).workspace;
+    });
+    await store.getState().flush();
+    await renderApp('/inbox', store);
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Paint the fence' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    const files = await within(details).findByRole('region', { name: 'Files' });
+    await userEvent.click(within(files).getByRole('button', { name: 'Open colors.png' }));
+    expect(
+      await within(files).findByText(/"colors\.png" is not on this device/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'colors.png' })).toBeNull();
+  });
+
   it("opens a file's menu on a touch only by the long press, not the touch's contextmenu too", async () => {
     const store = testStore();
     await renderApp('/inbox', store);
