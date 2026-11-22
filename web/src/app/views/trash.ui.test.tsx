@@ -32,6 +32,21 @@ async function trashWithTwo() {
 }
 
 describe('trash', () => {
+  // PL-149: laid out as the other views' rows, with its list and day where their details go.
+  it('shows each deleted task as a row with its list and the day it went, then its actions', async () => {
+    await trashWithTwo();
+    const title = await screen.findByText('Old receipt');
+    const row = title.closest('li')!;
+    expect(row.closest('ul')).not.toBeNull();
+    expect(within(row).getByText('Mess Drawer')).toBeInTheDocument();
+    expect(within(row).getByText(/^Deleted /)).toBeInTheDocument();
+    expect(
+      within(row)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual(['Restore', 'Delete Old receipt forever']);
+  });
+
   it('cleans up only after hearing from the server, never from a stale copy', async () => {
     const backend = new FakeBackend();
     backend.addAccount('ben', 'correct horse battery');
