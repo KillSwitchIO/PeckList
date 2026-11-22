@@ -5,6 +5,7 @@
 import { Editor, Extension, InputRule, type AnyExtension } from '@tiptap/core';
 import { Link } from '@tiptap/extension-link';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
+import { EmptyItemBackspace } from './emptyItemBackspace.ts';
 import { Placeholder } from '@tiptap/extensions';
 import { LinesChecklist } from './linesChecklist.ts';
 import { Markdown, type MarkdownManager } from '@tiptap/markdown';
@@ -169,6 +170,7 @@ export function notesExtensions(placeholder?: string): AnyExtension[] {
     NotesLink,
     TaskList,
     TaskItem.configure({ nested: true }),
+    EmptyItemBackspace,
     BulletToChecklist,
     LinesChecklist,
     NotesMarkdown,
