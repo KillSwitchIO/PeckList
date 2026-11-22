@@ -503,7 +503,9 @@ container).
 
 In CI, `android-e2e` runs the same script on `android-apk`'s APK against `:edge`, weekly and by
 hand on merge requests that change the app or these tests, one at a time, on a runner whose host
-has `/dev/kvm` ([CI](ci.md)).
+has `/dev/kvm` ([CI](ci.md)). To run it on `main` without a merge request, start a pipeline from
+the UI (Run pipeline) or the API (`POST /projects/:id/pipeline`), then press `android-apk` and,
+once that is done, `android-e2e`. Neither runs there on its own.
 
 ## Making it crash (debug builds)
 
