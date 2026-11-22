@@ -21,7 +21,7 @@ public static partial class ClientCli
     public const int NotAllowed = 4;
 
     /// <summary>Commands that only ever talk to a server over HTTP (or print what the client knows).</summary>
-    public static readonly string[] Commands = ["login", "logout", "whoami", "tasks", "add", "lists", "sections", "tags", "people", "completion", "__complete"];
+    public static readonly string[] Commands = ["login", "logout", "whoami", "tasks", "add", "lists", "sections", "tags", "templates", "people", "completion", "__complete"];
 
     /// <summary>Commands that only work on the server's own machine, with the server download.</summary>
     public static readonly string[] ServerOnly = ["import", "migrate-db", "upgrade-db", "debug-dump", "healthcheck"];
@@ -137,6 +137,7 @@ public static partial class ClientCli
                 "lists" => await session.ListsAsync(sub),
                 "sections" => await session.SectionsAsync(sub),
                 "tags" => await session.TagsAsync(),
+                "templates" => await session.TemplatesAsync(sub),
                 "people" => await session.PeopleAsync(),
                 "admin" => await session.AdminAsync(sub),
                 "oidc" => await session.OidcAsync(sub),
@@ -1120,6 +1121,107 @@ public static partial class ClientCli
             if (items.Count == 0) await Say("No tags.");
             foreach (var tag in items) await Say(Text(tag, "name") ?? "");
             return Done;
+        }
+
+        // Templates (PL-140) --------------------------------------------------------------------------
+
+        /// <summary>A template by id, by name, or by a unique start of its name, as lists match.</summary>
+        private async Task<JsonNode> TemplateAsync(Remote remote, string wanted)
+        {
+            var templates = (await remote.GetAsync("api/v1/templates", cancellation))?["items"]?.AsArray().OfType<JsonNode>().ToList() ?? [];
+            if (templates.FirstOrDefault(template => Text(template, "id") == wanted) is { } byId) return byId;
+            var named = templates.Where(template => string.Equals(Text(template, "name"), wanted, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (named.Count == 0) named = [.. templates.Where(template => Compact(Text(template, "name") ?? "") == Compact(wanted))];
+            if (named.Count == 0) named = [.. templates.Where(template => Compact(Text(template, "name") ?? "").StartsWith(Compact(wanted), StringComparison.Ordinal))];
+            return named.Count switch
+            {
+                1 => named[0],
+                0 => throw new CliFailure($"no template matches '{wanted}'; see pecklist templates list"),
+                _ => throw new CliFailure($"'{wanted}' matches several templates: {string.Join(", ", named.Select(template => Text(template, "name")))}"),
+            };
+        }
+
+        public async Task<int> TemplatesAsync(string sub)
+        {
+            using var remote = await ConnectAsync();
+            switch (sub)
+            {
+                case "list" or "":
+                {
+                    var path = args.Value("--kind") is { } kind
+                        ? kind is "task" or "list" ? $"api/v1/templates?kind={kind}" : throw new UsageException("--kind is task or list")
+                        : "api/v1/templates";
+                    var templates = await remote.GetAsync(path, cancellation);
+                    if (Json)
+                    {
+                        await PrintJson(templates);
+                        return Done;
+                    }
+                    var items = templates?["items"]?.AsArray() ?? [];
+                    if (items.Count == 0)
+                    {
+                        await Say("No templates. Save one in the app from a task's or a list's menu.");
+                        return Done;
+                    }
+                    await Table([.. items.Select(template =>
+                    {
+                        var count = template?["taskCount"]?.GetValue<int>() ?? 0;
+                        var uses = template?["uses"]?.GetValue<int>() ?? 0;
+                        return new[]
+                        {
+                            Text(template, "id") ?? "",
+                            Text(template, "kind") ?? "",
+                            Text(template, "name") ?? "",
+                            count == 1 ? "1 task" : $"{count} tasks",
+                            uses == 0 ? "not used yet" : uses == 1 ? "used once" : $"used {uses} times",
+                        };
+                    })]);
+                    return Done;
+                }
+                case "use":
+                {
+                    var template = await TemplateAsync(remote, args.Argument(0));
+                    var isList = Text(template, "kind") == "list";
+                    var body = new JsonObject();
+                    if (args.Value("--day") is { } day)
+                    {
+                        body["day"] = day.ToLowerInvariant() switch
+                        {
+                            "today" => DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                            "tomorrow" => DateTime.Today.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                            _ when DateOnly.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _) => day,
+                            _ => throw new UsageException("--day is a date (2026-11-30), today or tomorrow"),
+                        };
+                    }
+                    if (isList)
+                    {
+                        if (args.Value("--list") is not null || args.Value("--title") is not null)
+                        {
+                            throw new UsageException($"{Text(template, "name")} is a list template: it makes a new list (name it with --name)");
+                        }
+                        if (args.Value("--name") is { } name) body["name"] = name;
+                    }
+                    else
+                    {
+                        if (args.Value("--name") is not null) throw new UsageException($"{Text(template, "name")} is a task template: --name is for a list template's new list");
+                        if (args.Value("--list") is { } list) body["listId"] = await ListIdAsync(remote, list);
+                        if (args.Value("--title") is { } title) body["title"] = title;
+                    }
+                    var made = await remote.SendAsync(HttpMethod.Post, $"api/v1/templates/{Uri.EscapeDataString(Text(template, "id") ?? "")}/use", body, cancellation);
+                    if (Json)
+                    {
+                        await PrintJson(made);
+                        return Done;
+                    }
+                    var thing = isList ? made?["list"] : made?["task"];
+                    if (args.Flag("--quiet")) await Say(Text(thing, "id") ?? "");
+                    else if (isList) await Say($"Added list {Text(thing, "name")}  {Text(thing, "id")}");
+                    else await Say($"Added: {Text(thing, "title")}  {Text(thing, "id")}");
+                    return Done;
+                }
+                default:
+                    throw new UsageException($"unknown templates command '{sub}'");
+            }
         }
 
         public async Task<int> PeopleAsync()

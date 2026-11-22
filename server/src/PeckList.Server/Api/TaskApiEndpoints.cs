@@ -51,6 +51,16 @@ public static class TaskApiEndpoints
             Results.Ok(new ApiItems<ApiTag>(await queries.TagListAsync(user.UserId(), cancellation))))
             .Read<ApiItems<ApiTag>>("Your tags");
 
+        v1.MapGet("/templates", async (string? kind, ClaimsPrincipal user, TaskQueries queries, CancellationToken cancellation) =>
+            kind is null or "task" or "list"
+                ? Results.Ok(new ApiItems<ApiTemplateSummary>(await queries.TemplatesAsync(user.UserId(), kind, cancellation)))
+                : ApiProblems.Invalid("kind must be task or list"))
+            .Read<ApiItems<ApiTemplateSummary>>("Your templates, in the order the app shows them (kind=task or kind=list for one kind)", badRequest: true);
+
+        v1.MapGet("/templates/{id}", async (string id, ClaimsPrincipal user, TaskQueries queries, CancellationToken cancellation) =>
+            await queries.TemplateViewAsync(user.UserId(), id, cancellation) is { } template ? Results.Ok(template) : ApiProblems.NotFound("template", id))
+            .Read<ApiTemplate>("One template, with what it holds", notFound: true);
+
         v1.MapGet("/people", async (HttpContext context, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
         {
             var photos = false;
@@ -191,6 +201,10 @@ public static class TaskApiEndpoints
         v1.MapPost("/tasks/{id}/restore", (string id, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
             writes.RestoreAsync(user.UserId(), id, cancellation)).Write<ApiTask>("Bring back a deleted task and what went with it");
 
+        v1.MapPost("/templates/{id}/use", (string id, HttpContext context, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
+            WithBody(context, body => writes.UseTemplateAsync(user.UserId(), id, body, cancellation), optional: true))
+            .Write<ApiTemplateUseInput, ApiTemplateUse>("Make what a template holds: a task template's task and its subtasks, or a list template's new list with its tasks", StatusCodes.Status201Created);
+
         v1.MapPost("/lists", (HttpContext context, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
             WithBody(context, body => writes.CreateListAsync(user.UserId(), body, cancellation))).Write<ApiListInput, ApiList>("Make a list", StatusCodes.Status201Created);
         v1.MapPatch("/lists/{id}", (string id, HttpContext context, ClaimsPrincipal user, TaskWrites writes, CancellationToken cancellation) =>
@@ -225,7 +239,7 @@ public static class TaskApiEndpoints
     private static RouteHandlerBuilder Write<TBody, T>(this RouteHandlerBuilder route, string summary, int status = StatusCodes.Status200OK) where TBody : notnull
     {
         // Described, not enforced: Accepts would also make routing match on the Content-Type.
-        route.WithMetadata(new ApiDocs.Body(typeof(TBody), Optional: typeof(TBody) == typeof(ApiCompleteInput) || typeof(TBody) == typeof(ApiSnoozeInput))).Write<T>(summary, status);
+        route.WithMetadata(new ApiDocs.Body(typeof(TBody), Optional: typeof(TBody) == typeof(ApiCompleteInput) || typeof(TBody) == typeof(ApiSnoozeInput) || typeof(TBody) == typeof(ApiTemplateUseInput))).Write<T>(summary, status);
         // A create with an id that exists already answers 200 with it.
         if (status == StatusCodes.Status201Created) route.Produces<T>();
         return route;

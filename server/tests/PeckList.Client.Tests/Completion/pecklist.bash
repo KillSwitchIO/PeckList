@@ -29,6 +29,9 @@ _pecklist_canon() {
         'tags') printf '%s\n' 'tags' ;;
         'tags list') printf '%s\n' 'tags list' ;;
         'people') printf '%s\n' 'people' ;;
+        'templates') printf '%s\n' 'templates' ;;
+        'templates list') printf '%s\n' 'templates list' ;;
+        'templates use') printf '%s\n' 'templates use' ;;
         'people list') printf '%s\n' 'people list' ;;
         'admin') printf '%s\n' 'admin' ;;
         'admin add-user') printf '%s\n' 'admin add-user' ;;
@@ -50,12 +53,13 @@ _pecklist_canon() {
 
 _pecklist_children() {
     case "$1" in
-        '') printf '%s\n' login logout whoami tasks lists sections tags people admin oidc snapshot export config completion help add ;;
+        '') printf '%s\n' login logout whoami tasks lists sections tags people templates admin oidc snapshot export config completion help add ;;
         'tasks') printf '%s\n' list ls add show edit done snooze reopen delete rm restore ;;
         'lists') printf '%s\n' list add rename ;;
         'sections') printf '%s\n' list add rename ;;
         'tags') printf '%s\n' list ;;
         'people') printf '%s\n' list ;;
+        'templates') printf '%s\n' list use ;;
         'admin') printf '%s\n' add-user set-role login-link reset-password ;;
         'oidc') printf '%s\n' unlink unbind-all migration-window ;;
         'config') printf '%s\n' show ;;
@@ -70,6 +74,7 @@ _pecklist_options() {
         'sections') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'tags') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'people') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
+        'templates') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'admin') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'oidc') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
         'config') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
@@ -92,6 +97,8 @@ _pecklist_options() {
         'sections add') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
         'sections rename') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
         'tags list') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
+        'templates list') printf '%s\n' --kind -j --json -h --help --server --profile --api-key --insecure-http ;;
+        'templates use') printf '%s\n' -l --list -T --title --day --name -q --quiet -j --json -h --help --server --profile --api-key --insecure-http ;;
         'people list') printf '%s\n' -j --json -h --help --server --profile --api-key --insecure-http ;;
         'admin add-user') printf '%s\n' --admin -h --help --server --profile --api-key --insecure-http ;;
         'admin set-role') printf '%s\n' -h --help --server --profile --api-key --insecure-http ;;
@@ -110,7 +117,7 @@ _pecklist_options() {
 
 _pecklist_valued() {
     case "$1" in
-        -l|--list|-s|--section|-t|--tag|-d|--due|-p|--priority|-T|--title|-n|--notes|--start|--repeat|--progress|--status|--due-before|--due-after|-u|--assigned|-S|--search|-o|--sort|--limit|--minutes|--color|--user|--server|--profile|--api-key) return 0 ;;
+        -l|--list|-s|--section|-t|--tag|-d|--due|-p|--priority|-T|--title|-n|--notes|--start|--repeat|--progress|--status|--due-before|--due-after|-u|--assigned|-S|--search|-o|--sort|--limit|--minutes|--color|--kind|--day|--name|--user|--server|--profile|--api-key) return 0 ;;
     esac
     return 1
 }
@@ -127,6 +134,7 @@ _pecklist_values() {
         -p|--priority) printf '%s\n' none low medium high ;;
         --status) printf '%s\n' open done wontdo deleted all ;;
         -o|--sort) printf '%s\n' due priority title list status created updated ;;
+        --kind) printf '%s\n' task list ;;
     esac
 }
 

@@ -101,6 +101,9 @@ and sessions together. Past that it gets `429` with `Retry-After`.
 | `PATCH /api/v1/sections/{id}`      | Rename a section                                                   |
 | `GET /api/v1/tags`                 | Your tags                                                          |
 | `GET /api/v1/people`               | The people and groups assignees can name, with their names         |
+| `GET /api/v1/templates`            | Your templates; `?kind=task` or `?kind=list` for one kind (below)  |
+| `GET /api/v1/templates/{id}`       | One template                                                       |
+| `POST /api/v1/templates/{id}/use`  | Make what a template holds (below)                                 |
 | `GET /api/v1/tasks`                | Tasks, filtered and paged (below)                                  |
 | `GET /api/v1/tasks/{id}`           | One task                                                           |
 | `POST /api/v1/tasks`               | Make a task                                                        |
@@ -285,6 +288,47 @@ answers `201` with `{"task": ..., "tokens": [...]}`: each token says what was re
 `kind` (`date`, `due`, `tag`, `list`, `priority`, `person`, `repeat`) and where it is in the text
 (`start` and `end` count UTF-16 code units, as JavaScript strings do). A line with nothing left
 for a title, such as `!high tomorrow`, is a `400`.
+
+### Templates
+
+A template is a task, or a whole list, saved in the app to make again (see
+[Templates](../using/templates.md)). The API reads them and uses them; they are made and changed
+in the app.
+
+`GET /api/v1/templates` answers your templates in the order the app's Templates page shows them,
+each as a summary: `id`, `name`, `kind` (`task` or `list`), `uses` (how often it was used) and
+`taskCount` (subtasks included). `GET /api/v1/templates/{id}` adds what it holds: `task` for a task
+template, or `list` for a list template (`name`, `color`, `icon` and `tasks`). A task in a template
+has its `title`, `notes`, `priority`, `tags` (by name), `start`, `end`, `due`, `reminders`,
+`recurrence`, `constantReminder` and `subtasks`. Its dates are days from the day it is used:
+`{"inDays": 1, "time": "09:00"}` is the next day at 9:00, and a `time` of null is all day. A
+reminder is `{"before": minutes}` or `{"at": date}`.
+
+`POST /api/v1/templates/{id}/use` makes what it holds, by the same rules as the app's **Use**:
+
+```bash
+curl -H 'Authorization: Bearer pl_...' -H 'Content-Type: application/json' \
+  -d '{"title": "Review week 48", "day": "2026-11-23"}' \
+  https://tasks.example.com/api/v1/templates/01HX.../use
+```
+
+- `day` (`YYYY-MM-DD`) is the day the dates count from. Left out, it is today in your zone: the one
+  your reminders use (the zone picked in Settings, else the one your devices report, else the
+  server's). The tasks it makes are in that zone too. With a `day`, a task template with no start
+  and no due date goes on that day, all day.
+- A task template takes `listId` (left out, your list for new tasks, else your inbox), `parentId`
+  and `title` (instead of the template's). With `parentId` the task goes under that task, in its
+  list (a different `listId` is a `400`, a task that isn't there or isn't yours to see a `404`), and
+  starts with its tags, as any new subtask.
+- A list template takes `name` (instead of the template's) and makes a new private list.
+- `id` is your own id for the new task or list, a ULID. A use isn't repeatable on its own: sent
+  twice, it makes two copies. With an `id`, the same request again answers `200` with what the
+  first one made, so a retry is safe.
+
+It answers `201` with `{"kind": "task", "task": ...}` (the new top task) or `{"kind": "list",
+"list": ...}`. A tag deleted since the template was saved is skipped, subtasks nest five levels
+deep at most, and the template's `uses` goes up by one. A list you may only view takes no template,
+as it takes no task (`403`). The body may be left out.
 
 ## Keeping a copy in sync
 

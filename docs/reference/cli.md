@@ -911,6 +911,69 @@ pecklist people <command> [options]
 pecklist people list
 ```
 
+### `templates`
+
+Your templates: tasks and lists saved in the app to make again.
+
+```text
+pecklist templates <command> [options]
+```
+
+| Command | What it does |
+| --- | --- |
+| [`templates list`](#templates-list) | Show your templates, in the order the app shows them. |
+| [`templates use`](#templates-use) | Make what a template holds: a task template's task and subtasks, or a list template's new list. |
+
+```bash
+pecklist templates list
+pecklist templates use "Weekly review"
+```
+
+### `templates list`
+
+Show your templates, in the order the app shows them.
+
+```text
+pecklist templates list [--kind KIND] [-j]
+```
+
+Templates are made in the app, with Save as template in a task's or a list's menu. Each shows its kind, how many tasks it makes and how often it was used.
+
+| Option | What it does |
+| --- | --- |
+| `--kind KIND` | Only templates of this kind: task or list. |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist templates list
+pecklist templates list --kind list -j
+```
+
+### `templates use`
+
+Make what a template holds: a task template's task and subtasks, or a list template's new list.
+
+```text
+pecklist templates use T [options]
+```
+
+T is a template's id, its name, or a unique start of its name. Its dates count from --day (today without it). A task template's task goes in --list (your list for new tasks without it); a list template makes a new private list.
+
+| Option | What it does |
+| --- | --- |
+| `-l`, `--list L` | The list for a task template's task (without one, your list for new tasks, else your inbox). |
+| `-T`, `--title TEXT` | A title for the task instead of the template's. |
+| `--day DATE` | The day the template's dates count from: a date (2026-11-30), today or tomorrow. Without it, today; with it, a task template with no dates goes on that day. |
+| `--name NAME` | The new list's name, for a list template (without it, the template's). |
+| `-q`, `--quiet` | Print only the new task's or list's id. |
+| `-j`, `--json` | Print the API's JSON: one thing as an object, a list of things as `{"items": [...]}`. |
+
+```bash
+pecklist templates use "Weekly review"
+pecklist templates use weekly -l Work --title "Review week 48"
+pecklist templates use Camping --name "Camping in May" --day 2027-05-01
+```
+
 ### `people list`
 
 Show the people and groups a task can be assigned to, with the id to use.

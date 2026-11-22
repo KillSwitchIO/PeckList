@@ -148,6 +148,27 @@ public sealed partial class TaskQueries(IEntityStore store, SharingState sharing
         return [.. (await store.GetManyAsync(ids, cancellation)).Select(each => ApiShapes.Section(each.Doc)).OrderBy(each => each.Id, StringComparer.Ordinal)];
     }
 
+    /// <summary>The account's live templates (PL-140), of one kind or both, in the order the app's page shows them.</summary>
+    public async Task<IReadOnlyList<ApiTemplateSummary>> TemplatesAsync(string userId, string? kind, CancellationToken cancellation = default) =>
+        [.. (await store.GetManyAsync(await store.VisibleIdsAsync(userId, "templates", deleted: false, cancellation), cancellation))
+            .Where(each => each.OwnerId == userId)
+            .Select(each => ApiShapes.TemplateSummary(each.Doc))
+            .Where(each => kind is null || each.Kind == kind)
+            .OrderBy(each => each.Order, StringComparer.Ordinal)
+            .ThenBy(each => each.Id, StringComparer.Ordinal)];
+
+    /// <summary>One live template of the account's own, or null.</summary>
+    public async Task<StoredEntity?> TemplateAsync(string userId, string id, CancellationToken cancellation = default) =>
+        await FindAsync(userId, "templates", id, cancellation) is { } found && found.OwnerId == userId && found.Doc["deletedAt"] is not JsonValue
+            ? found
+            : null;
+
+    /// <summary>One live template of the account's own with what it holds, its tags by name; or null.</summary>
+    public async Task<ApiTemplate?> TemplateViewAsync(string userId, string id, CancellationToken cancellation = default) =>
+        await TemplateAsync(userId, id, cancellation) is { } template
+            ? ApiShapes.Template(template.Doc, TagNames(await TagsAsync(userId, cancellation)))
+            : null;
+
     public async Task<IReadOnlyList<ApiTag>> TagListAsync(string userId, CancellationToken cancellation = default) =>
         [.. (await TagsAsync(userId, cancellation)).Select(each => ApiShapes.Tag(each.Doc)).OrderBy(each => each.Name, StringComparer.OrdinalIgnoreCase)];
 

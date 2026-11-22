@@ -52,6 +52,23 @@ public static class Ids
     }
 
     /// <summary>A random password of <paramref name="length"/> characters with no look-alikes (no 0/O, 1/I/L).</summary>
+    /// <summary>
+    /// A ULID made from another and a number: the same time part, and 80 bits of a hash of both. The
+    /// same pair always gives the same id, so something made again from one id makes the same ids.
+    /// </summary>
+    public static string Derived(string from, int number)
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{from}:{number}"));
+        var chars = new char[16];
+        for (var at = 0; at < 16; at++)
+        {
+            var bit = at * 5;
+            var value = ((hash[bit / 8] << 8) | hash[bit / 8 + 1]) >> (11 - bit % 8) & 31;
+            chars[at] = Alphabet[value];
+        }
+        return from[..10] + new string(chars);
+    }
+
     public static string NewPassword(int length = 20)
     {
         const string characters = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
