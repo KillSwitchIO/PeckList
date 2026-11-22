@@ -739,7 +739,8 @@ android-apk:
 
 # The Android app's end-to-end tests (e2e/android/run.sh, PL-070): android-apk's debug APK on an
 # emulator with Appium, against main's server image (:edge), weekly and by hand on merge requests
-# that touch the app or the tests. It runs the stack on the runner's own Docker (the emulator needs
+# that touch the app or the tests, or in a pipeline started from the UI or the API (then pressed by
+# hand; android-apk first, on main). It runs the stack on the runner's own Docker (the emulator needs
 # /dev/kvm), one at a time, and always removes its containers, volumes and images: run.sh when it
 # ends, and e2e/android/ci-clean.sh in after_script for a job canceled or timed out before that (and
 # before a run, for any earlier job's). With less than 18 GB free it skips (exit 77), shown as a
@@ -791,7 +792,10 @@ android-e2e:
         - scripts/ci/android-emulator.sh
       when: manual
       allow_failure: true
-    - if: $CI_PIPELINE_SOURCE == "web"
+    # A pipeline made through the API (POST /pipeline) has source api, not web: manual too, so a
+    # run can be started without the UI, and it never runs on its own. Branches only: a tag's
+    # pipeline has no android-apk to need.
+    - if: $CI_COMMIT_BRANCH && ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api")
       when: manual
       allow_failure: true
 
