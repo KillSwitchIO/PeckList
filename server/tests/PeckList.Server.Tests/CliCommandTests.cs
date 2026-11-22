@@ -298,7 +298,8 @@ public sealed partial class CliCommandTests(ServerFixture fixture) : IClassFixtu
         var reminded = Task("R1", "L1", "Pills", due: "2030-01-01T09:00");
         reminded.Item2["createdBy"] = ben.Id;
         reminded.Item2["reminders"] = new JsonArray(new JsonObject { ["before"] = 0 });
-        await PushAsync(ben, List("IN", "Inbox", inbox: true), List("L1", "Home"), reminded);
+        await PushAsync(ben, List("IN", "Inbox", inbox: true), List("L1", "Home"), reminded,
+            SavedTemplate("TP1", "Weekly review", "task", "a1", TemplateTask("Weekly review")));
         var store = new MemoryTokenStore();
         Assert.Equal(0, (await Run(world, store, await KeyTokenAsync(ben.Session, "tasks:write"), "login", "--server", Server, "--token")).Code);
 
@@ -347,6 +348,10 @@ public sealed partial class CliCommandTests(ServerFixture fixture) : IClassFixtu
         tested.Add("tags list");
         Listed(await JsonOf("people", "list", "-j"));
         tested.Add("people list");
+        Listed(await JsonOf("templates", "list", "-j"));
+        tested.Add("templates list");
+        Assert.Equal("Weekly review", (string?)(await JsonOf("templates", "use", "Weekly review", "-j"))["task"]!["title"]);
+        tested.Add("templates use");
         // config show is pinned in the admin test; every other command with --json is above.
         tested.Add("config show");
         Assert.Equal(CommandTable.Commands.Where(command => command.Options.Any(use => use.Long == "--json")).Select(command => command.Path).Order(), tested.Order());

@@ -2888,6 +2888,147 @@
         }
       }
     },
+    "/api/v1/templates": {
+      "get": {
+        "tags": [
+          "v1: templates"
+        ],
+        "summary": "Your templates, in the order the app shows them (kind=task or kind=list for one kind)",
+        "description": "An API key needs the tasks:read scope.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiItemsOfApiTemplateSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/{id}": {
+      "get": {
+        "tags": [
+          "v1: templates"
+        ],
+        "summary": "One template, with what it holds",
+        "description": "An API key needs the tasks:read scope.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiTemplate"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/people": {
       "get": {
         "tags": [
@@ -4137,6 +4278,126 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/{id}/use": {
+      "post": {
+        "tags": [
+          "v1: templates"
+        ],
+        "summary": "Make what a template holds: a task template's task and its subtasks, or a list template's new list with its tasks",
+        "description": "An API key needs the tasks:write scope.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiTemplateUseInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiTemplateUse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiTemplateUse"
                 }
               }
             }
@@ -8526,6 +8787,20 @@
           }
         }
       },
+      "ApiItemsOfApiTemplateSummary": {
+        "required": [
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiTemplateSummary"
+            }
+          }
+        }
+      },
       "ApiList": {
         "required": [
           "id",
@@ -9356,6 +9631,368 @@
               "null",
               "boolean"
             ]
+          }
+        }
+      },
+      "ApiTemplate": {
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "uses",
+          "taskCount",
+          "task",
+          "list",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taskCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "task": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ApiTemplateTask"
+              }
+            ]
+          },
+          "list": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ApiTemplateList"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "order": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ApiTemplateDate": {
+        "required": [
+          "inDays",
+          "time"
+        ],
+        "type": "object",
+        "properties": {
+          "inDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "time": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ApiTemplateList": {
+        "required": [
+          "name",
+          "color",
+          "icon",
+          "tasks"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "icon": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiTemplateTask"
+            }
+          }
+        }
+      },
+      "ApiTemplateReminder": {
+        "required": [
+          "before",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "before": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ApiTemplateDate"
+              }
+            ]
+          }
+        }
+      },
+      "ApiTemplateSummary": {
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "uses",
+          "taskCount",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taskCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "order": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ApiTemplateTask": {
+        "required": [
+          "title",
+          "notes",
+          "priority",
+          "tags",
+          "start",
+          "end",
+          "due",
+          "reminders",
+          "recurrence",
+          "constantReminder",
+          "subtasks"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "start": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ApiTemplateDate"
+              }
+            ]
+          },
+          "end": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ApiTemplateDate"
+              }
+            ]
+          },
+          "due": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ApiTemplateDate"
+              }
+            ]
+          },
+          "reminders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiTemplateReminder"
+            }
+          },
+          "recurrence": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "constantReminder": {
+            "type": "boolean"
+          },
+          "subtasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiTemplateTask"
+            }
+          }
+        }
+      },
+      "ApiTemplateUse": {
+        "required": [
+          "kind",
+          "task",
+          "list"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "task": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ApiTask"
+              }
+            ]
+          },
+          "list": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ApiList"
+              }
+            ]
+          }
+        }
+      },
+      "ApiTemplateUseInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Your own id for the new task or list, a ULID: the same id again answers 200 with what the first use made, so a retry makes no second copy."
+          },
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The list for a task template's task; left out, your list for new tasks, else your inbox."
+          },
+          "parentId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Make a task template's task as a subtask of this task."
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "A title for the task template's task instead of the template's."
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "A name for the list a list template makes instead of the template's."
+          },
+          "day": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The day the template's dates count from (YYYY-MM-DD); left out, today in your zone (the one your reminders use). A task template with no start and no due date goes on this day."
           }
         }
       },
@@ -13007,6 +13644,9 @@
     },
     {
       "name": "v1: tasks"
+    },
+    {
+      "name": "v1: templates"
     }
   ]
 }

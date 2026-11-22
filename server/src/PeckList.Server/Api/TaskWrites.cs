@@ -351,6 +351,175 @@ public sealed class TaskWrites(
         return await TaskResultAsync(userId, id, StatusCodes.Status201Created, cancellation);
     }
 
+    // Templates ------------------------------------------------------------------------------------
+
+    private static readonly HashSet<string> UseFields = new(StringComparer.Ordinal) { "id", "listId", "parentId", "title", "day", "name" };
+
+    /// <summary>
+    /// Make what a template holds (PL-140), as the app's Use does: a task template's task and its
+    /// subtasks, or a new private list with a list template's tasks. The tasks come from
+    /// <see cref="TemplateUse"/>, the rules the app's tests share. Dates are days from <c>day</c>, in
+    /// the person's zone (the one their reminders are worded in): today there when not given. With a
+    /// <c>day</c>, a task template with no start and no due date goes on that day. <c>id</c> names the
+    /// new task or list, so a retry answers 200 with it instead of making a second copy. All or nothing.
+    /// </summary>
+    public async Task<IResult> UseTemplateAsync(string userId, string id, JsonObject body, CancellationToken cancellation)
+    {
+        await sharing.Loaded.WaitAsync(cancellation);
+        if (await queries.TemplateAsync(userId, id, cancellation) is not { } template) return ApiProblems.NotFound("template", id);
+        if (body.Select(each => each.Key).FirstOrDefault(key => !UseFields.Contains(key)) is { } unknown)
+        {
+            return FieldProblem(unknown, "is not a field of a template use");
+        }
+        string? Field(string name) => body[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+        if (UseFields.FirstOrDefault(name => body[name] is not null && Field(name) is null) is { } notText) return FieldProblem(notText, "must be a string");
+        DateOnly? given = null;
+        if (Field("day") is { } dayText)
+        {
+            if (!DateOnly.TryParseExact(dayText, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed))
+            {
+                return FieldProblem("day", "must be a date like 2026-11-23");
+            }
+            given = parsed;
+        }
+        var taskBody = TemplateBodies.Task(template.Doc);
+        var listBody = taskBody is null ? TemplateBodies.List(template.Doc) : null;
+        if (taskBody is null && listBody is null) return ApiProblems.Invalid("this template can't be read");
+        if (taskBody is not null && Field("name") is not null) return FieldProblem("name", "is for a list template; a task template takes title");
+        if (listBody is not null && new[] { "listId", "parentId", "title" }.FirstOrDefault(each => Field(each) is not null) is { } wrong)
+        {
+            return FieldProblem(wrong, "is for a task template; a list template takes name");
+        }
+
+        // A retry with the same id: what the first one made, not a second copy.
+        var newId = Ids.NewUlid();
+        if (Field("id") is { } own)
+        {
+            if (!TaskQueries.NewIdPattern().IsMatch(own)) return FieldProblem("id", TaskQueries.NewIdRule);
+            newId = own;
+            if (await store.GetAsync(own, cancellation) is { } existing)
+            {
+                if (taskBody is not null && existing.Collection == "tasks" && await queries.TaskAsync(userId, own, cancellation) is { } sameTask)
+                {
+                    return Results.Ok(new ApiTemplateUse("task", sameTask, null));
+                }
+                if (listBody is not null && existing.Collection == "lists" && await queries.ListAsync(userId, own, cancellation) is { } sameList)
+                {
+                    return Results.Ok(new ApiTemplateUse("list", null, sameList));
+                }
+                return IdTaken();
+            }
+        }
+
+        var zoneId = await ZoneAsync(userId, cancellation);
+        if (!TimeZoneInfo.TryFindSystemTimeZoneById(zoneId, out var zone))
+        {
+            zoneId = "UTC";
+            zone = TimeZoneInfo.Utc;
+        }
+        var day = given ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(time.GetUtcNow(), zone).DateTime);
+        var liveTags = (await queries.TagsAsync(userId, cancellation)).Select(each => each.Id).ToHashSet(StringComparer.Ordinal);
+        var index = sharing.Index;
+        var batch = new Batch();
+
+        // With your own id, every id the use makes comes from it and the place in the plan, so two
+        // retries at once write the same entities instead of two sets of subtasks.
+        var made = 0;
+        string NextId() => Field("id") is { } mine ? Ids.Derived(mine, ++made) : Ids.NewUlid();
+
+        // The planned tasks into entities: ids, parents by depth, and order after the siblings.
+        void Add(IReadOnlyList<PlannedTask> planned, string listId, string? parentId, string topId, string topOrder, string? title)
+        {
+            // In order, top first, each followed by its subtasks: a task's parent is the last one a level up.
+            var latest = new Dictionary<int, string>();
+            var lastOrder = new Dictionary<string, string?>(StringComparer.Ordinal);
+            for (var at = 0; at < planned.Count; at++)
+            {
+                var task = planned[at];
+                var taskId = at == 0 ? topId : NextId();
+                var parent = task.Depth == 0 ? parentId : latest[task.Depth - 1];
+                var order = at == 0 ? topOrder : lastOrder[parent!] = OrderKeys.After(lastOrder.GetValueOrDefault(parent!));
+                latest[task.Depth] = taskId;
+                var fields = (JsonObject)task.Fields.DeepClone();
+                if (at == 0 && !string.IsNullOrWhiteSpace(title)) fields["title"] = title.Trim();
+                fields["listId"] = listId;
+                fields["sectionId"] = null;
+                fields["parentId"] = parent;
+                fields["order"] = order;
+                fields["status"] = "open";
+                fields["completedAt"] = null;
+                fields["completedBy"] = null;
+                fields["tags"] = new JsonObject();
+                fields["assignees"] = new JsonObject();
+                fields["blockedBy"] = new JsonObject();
+                fields["progress"] = 0;
+                // As the app stores them: no reminders and no constant reminder are left out.
+                if (fields["reminders"] is JsonArray { Count: 0 }) fields.Remove("reminders");
+                if (fields["constantReminder"] is JsonValue constant && !constant.GetValue<bool>()) fields.Remove("constantReminder");
+                var doc = New(taskId, userId, fields);
+                SetElements(doc, "tags", task.Tags.Select(tag => (tag, true)));
+                batch.Add(("tasks", doc));
+            }
+        }
+
+        if (taskBody is not null)
+        {
+            string? listId = Field("listId");
+            var parentId = Field("parentId");
+            var depth = 0;
+            IReadOnlyList<string> parentTags = [];
+            if (parentId is not null)
+            {
+                var found = await queries.FindAsync(userId, "tasks", parentId, cancellation);
+                if (found is null || found.Doc["deletedAt"] is JsonValue) return ApiProblems.NotFound("task", parentId);
+                var parentList = ApiShapes.Text(found.Doc, "listId");
+                if (listId is not null && listId != parentList) return FieldProblem("listId", "a subtask is in its parent's list");
+                listId = parentList;
+                depth = Depth(parentId) + 1;
+                if (depth > MaxSubtaskDepth) return Conflict("subtasks are nested too deep");
+                parentTags = [.. ApiShapes.Members(found.Doc, "tags").Where(liveTags.Contains)];
+            }
+            if (listId is null)
+            {
+                listId = await DefaultListAsync(userId, cancellation);
+                if (listId is null) return FieldProblem("listId", "is required: you have no inbox yet");
+            }
+            else if (parentId is null && (index.LiveDocOf(listId, "lists") is null || !index.Viewers(listId).Contains(userId)))
+            {
+                return FieldProblem("listId", "no list with this id that you can see");
+            }
+            var planned = TemplateUse.Tasks(taskBody, day, zoneId, liveTags, onDay: given is not null, depth, parentTags);
+            Add(planned, listId, parentId, newId, await LastTaskOrderAsync(userId, listId, parentId, null, cancellation), Field("title"));
+        }
+        else
+        {
+            var lists = await VisibleAsync(userId, "lists", false, null, cancellation);
+            var name = Field("name") is { } named && !string.IsNullOrWhiteSpace(named) ? named.Trim() : listBody!.Name;
+            batch.Add(("lists", New(newId, userId, new JsonObject
+            {
+                ["name"] = name, ["color"] = listBody!.Color, ["icon"] = listBody.Icon, ["folderId"] = null,
+                ["visibility"] = "private", ["archived"] = false,
+                ["order"] = OrderKeys.After(OrderKeys.Last(lists.Select(each => ApiShapes.Text(each.Doc, "order")))),
+                ["isInbox"] = false,
+            })));
+            string? last = null;
+            foreach (var task in listBody.Tasks)
+            {
+                last = OrderKeys.After(last);
+                Add(TemplateUse.Tasks(task, day, zoneId, liveTags, onDay: false), newId, null, NextId(), last, null);
+            }
+        }
+
+        // Counted as an edit of the template like any other: only uses gets a fresh clock, so a rename
+        // made in the app meanwhile keeps its own and wins on its field (the sync merge, field by field).
+        var uses = template.Doc["uses"] is JsonValue counted && counted.TryGetValue<int>(out var count) && count > 0 ? count : 0;
+        batch.Add(("templates", Changed(template.Doc, new JsonObject { ["uses"] = uses + 1 })));
+        if (await PushAsync(userId, batch, cancellation) is { } problem) return problem;
+        return taskBody is not null
+            ? Results.Created($"/api/v1/tasks/{newId}", new ApiTemplateUse("task", await queries.TaskAsync(userId, newId, cancellation), null))
+            : Results.Created($"/api/v1/lists/{newId}", new ApiTemplateUse("list", null, await queries.ListAsync(userId, newId, cancellation)));
+    }
+
     // Quick add ----------------------------------------------------------------------------------
 
     /// <summary>The task and what quick add read in the text (<see cref="QuickToken"/> positions are in the text sent).</summary>

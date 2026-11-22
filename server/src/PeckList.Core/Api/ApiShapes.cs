@@ -107,6 +107,53 @@ public sealed record ApiSection(string Id, string? ListId, string Name, string? 
 
 public sealed record ApiTag(string Id, string Name, string? Color, string? CreatedAt, string? UpdatedAt, string? DeletedAt, string? Order = null);
 
+/// <summary>What using a template made: <c>task</c>, the top task a task template made, or <c>list</c>, the list a list template made.</summary>
+public sealed record ApiTemplateUse(string Kind, ApiTask? Task, ApiList? List);
+
+/// <summary>A template (PL-140) in a list: a task or a whole list saved in the app to make again.</summary>
+public sealed record ApiTemplateSummary(string Id, string Name, string Kind, int Uses, int TaskCount, string? CreatedAt, string? UpdatedAt, string? Order = null);
+
+/// <summary>A date in a template: <c>inDays</c> days from the day it is used, at <c>time</c> (HH:mm), or all day when null.</summary>
+public sealed record ApiTemplateDate(int InDays, string? Time);
+
+/// <summary>A reminder in a template: <c>before</c> minutes before the task's time, or <c>at</c> a date of its own.</summary>
+public sealed record ApiTemplateReminder(
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Before,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ApiTemplateDate? At);
+
+/// <summary>A task in a template, with its tags by name (a tag deleted since it was saved is left out).</summary>
+public sealed record ApiTemplateTask(
+    string Title,
+    string Notes,
+    int Priority,
+    IReadOnlyList<string> Tags,
+    ApiTemplateDate? Start,
+    ApiTemplateDate? End,
+    ApiTemplateDate? Due,
+    IReadOnlyList<ApiTemplateReminder> Reminders,
+    string? Recurrence,
+    bool ConstantReminder,
+    IReadOnlyList<ApiTemplateTask> Subtasks);
+
+/// <summary>A list in a template: the new list's name, colour and icon, and its tasks.</summary>
+public sealed record ApiTemplateList(string Name, string? Color, string? Icon, IReadOnlyList<ApiTemplateTask> Tasks);
+
+/// <summary>
+/// One template (PL-140) with what it holds: <c>task</c> for a task template, <c>list</c> for a list
+/// template. <c>taskCount</c> counts subtasks too; <c>uses</c> is how often it was used.
+/// </summary>
+public sealed record ApiTemplate(
+    string Id,
+    string Name,
+    string Kind,
+    int Uses,
+    int TaskCount,
+    ApiTemplateTask? Task,
+    ApiTemplateList? List,
+    string? CreatedAt,
+    string? UpdatedAt,
+    string? Order = null);
+
 /// <summary>
 /// Someone a task's <c>assignees</c> can name: a person (<c>user:&lt;id&gt;</c>) or a group
 /// (<c>group:&lt;id&gt;</c>), with the name the apps show. <c>assignable</c>: you may assign them.
@@ -251,6 +298,30 @@ public static class ApiShapes
 
     public static ApiSection Section(JsonObject doc) => new(
         Text(doc, "id") ?? "", Text(doc, "listId"), Text(doc, "name") ?? "", Text(doc, "createdAt"), UpdatedAt(doc), Text(doc, "deletedAt"), Text(doc, "order"));
+
+    private static int Uses(JsonObject doc) => doc["uses"] is JsonValue uses && uses.TryGetValue<int>(out var count) && count > 0 ? count : 0;
+
+    public static ApiTemplateSummary TemplateSummary(JsonObject doc) => new(
+        Text(doc, "id") ?? "", Text(doc, "name") ?? "", Text(doc, "kind") ?? "task", Uses(doc), TemplateBodies.TaskCount(doc),
+        Text(doc, "createdAt"), UpdatedAt(doc), Text(doc, "order"));
+
+    /// <summary>A template mapped field by field from its checked body, never passed through: nothing else a client synced leaks out.</summary>
+    public static ApiTemplate Template(JsonObject doc, IReadOnlyDictionary<string, string> tagNames)
+    {
+        static ApiTemplateDate? Date(TemplateDate? date) => date is null ? null : new ApiTemplateDate(date.InDays, date.Time);
+        ApiTemplateTask Task(TemplateTask task) => new(
+            task.Title, task.Notes, task.Priority,
+            [.. task.Tags.Select(tag => tagNames.GetValueOrDefault(tag)).OfType<string>()],
+            Date(task.Start), Date(task.End), Date(task.Due),
+            [.. task.Reminders.Select(reminder => new ApiTemplateReminder(reminder.Before, Date(reminder.At)))],
+            task.Recurrence, task.ConstantReminder, [.. task.Subtasks.Select(Task)]);
+        var list = TemplateBodies.List(doc);
+        return new ApiTemplate(
+            Text(doc, "id") ?? "", Text(doc, "name") ?? "", Text(doc, "kind") ?? "task", Uses(doc), TemplateBodies.TaskCount(doc),
+            TemplateBodies.Task(doc) is { } task ? Task(task) : null,
+            list is null ? null : new ApiTemplateList(list.Name, list.Color, list.Icon, [.. list.Tasks.Select(Task)]),
+            Text(doc, "createdAt"), UpdatedAt(doc), Text(doc, "order"));
+    }
 
     public static ApiTag Tag(JsonObject doc) => new(
         Text(doc, "id") ?? "", Text(doc, "name") ?? "", Text(doc, "color"), Text(doc, "createdAt"), UpdatedAt(doc), Text(doc, "deletedAt"), Text(doc, "order"));

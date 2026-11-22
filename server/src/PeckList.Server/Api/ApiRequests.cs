@@ -57,6 +57,18 @@ public sealed record ApiSnoozeInput(
     [property: Description("1 to 10080 (a week); left out, 10.")] int? Minutes = null,
     [property: Description("The reminder to put off, by when it was first due (an ISO 8601 instant, as `first` answers it). Left out: a snooze of yours on this task still to come (or just come back, its repeats still running), else its reminder that came last, else the next one due.")] string? First = null);
 
+/// <summary>
+/// Where and when to make what a template holds (PL-140). A task template takes listId, parentId
+/// and title; a list template takes name. Both take day.
+/// </summary>
+public sealed record ApiTemplateUseInput(
+    [property: Description("Your own id for the new task or list, a ULID: the same id again answers 200 with what the first use made, so a retry makes no second copy.")] string? Id = null,
+    [property: Description("The list for a task template's task; left out, your list for new tasks, else your inbox.")] string? ListId = null,
+    [property: Description("Make a task template's task as a subtask of this task.")] string? ParentId = null,
+    [property: Description("A title for the task template's task instead of the template's.")] string? Title = null,
+    [property: Description("A name for the list a list template makes instead of the template's.")] string? Name = null,
+    [property: Description("The day the template's dates count from (YYYY-MM-DD); left out, today in your zone (the one your reminders use). A task template with no start and no due date goes on this day.")] string? Day = null);
+
 /// <summary>A list to make (name required) or rename.</summary>
 public sealed record ApiListInput(string? Id = null, string? Name = null, [property: Description("#RRGGBB.")] string? Color = null);
 

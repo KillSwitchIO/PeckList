@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { testContext } from '../test/fixtures.ts';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { getEntity, isLive } from './collections.ts';
 import { inboxList, createList } from './lists.ts';
-import { members } from './ops.ts';
+import { createEntity, members } from './ops.ts';
 import { createTag, deleteTag } from './tags.ts';
 import { createTask, MAX_SUBTASK_DEPTH, siblings, taskDepth, updateTask } from './tasks.ts';
 import {
@@ -24,7 +26,7 @@ import {
   fromTaskTemplate,
   blankTask,
 } from './templates.ts';
-import type { Template, WorkspaceFile } from './types.ts';
+import type { Tag, Task, Template, TemplateList, TemplateTask, WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
 
 const ZONE = 'America/Chicago';
@@ -403,5 +405,121 @@ describe('keeping templates (PL-140)', () => {
     expect(templatesOf(ws).map((each) => each.name)).toEqual(['C', 'Alpha', 'Alpha (copy)']);
     expect(isLive(getEntity(ws, 'templates', ids[1]!)!)).toBe(false);
     expect(templatesOf(ws, 'list')).toEqual([]);
+  });
+});
+
+// The cases the server's copy of these rules runs too (schema/fixtures/templates/use.json): one set
+// of rules for a use, whether the app or the task API makes it (PL-140).
+const USE_CASES = resolve(process.cwd(), '../schema/fixtures/templates/use.json');
+
+interface UseCase {
+  name: string;
+  day: string;
+  timeZone: string;
+  liveTags: string[];
+  onDay: boolean;
+  body: unknown;
+  tasks: Record<string, unknown>[];
+}
+
+interface ListUseCase {
+  name: string;
+  day: string;
+  timeZone: string;
+  templateName: string;
+  body: unknown;
+  list: { name: string; color: string; icon: string | null };
+  tasks?: Record<string, unknown>[];
+  count?: number;
+  lastTitle?: string;
+}
+
+/** A made task as the shared cases write it: its depth and the fields a use sets. */
+function shown(task: Task, depth: number): Record<string, unknown> {
+  return {
+    depth,
+    title: task.title,
+    notes: task.notes,
+    priority: task.priority,
+    schedule: task.schedule,
+    due: task.due,
+    reminders: task.reminders ?? [],
+    recurrence: task.recurrence,
+    constantReminder: task.constantReminder === true,
+    tags: members(task.tags).sort(),
+  };
+}
+
+describe('using a template, the cases the server shares (PL-140)', () => {
+  const { cases, listCases } = JSON.parse(readFileSync(USE_CASES, 'utf8')) as {
+    cases: UseCase[];
+    listCases: ListUseCase[];
+  };
+
+  it.each(listCases.map((each) => [each.name, each] as const))('a list: %s', (_, use) => {
+    const ctx = testContext();
+    const saved = createTemplate(ctx, createWorkspace(ctx), {
+      name: use.templateName,
+      kind: 'list',
+      body: use.body as TemplateList,
+    });
+    const used = fromListTemplate(ctx, saved.workspace, saved.template.id, '', {
+      day: use.day,
+      timeZone: use.timeZone,
+    });
+    const list = getEntity(used.workspace, 'lists', used.listId)!;
+    expect({ name: list.name, color: list.color, icon: list.icon }).toEqual(use.list);
+    const made: Record<string, unknown>[] = [];
+    const walk = (task: Task, depth: number) => {
+      made.push(shown(task, depth));
+      for (const child of siblings(used.workspace, used.listId, task.id)) walk(child, depth + 1);
+    };
+    for (const top of siblings(used.workspace, used.listId, null)) walk(top, 0);
+    if (use.tasks) expect(made).toEqual(use.tasks);
+    if (use.count !== undefined) {
+      expect(made).toHaveLength(use.count);
+      expect(made.at(-1)!.title).toBe(use.lastTitle);
+    }
+  });
+
+  it.each(cases.map((each) => [each.name, each] as const))('%s', (_, use) => {
+    const ctx = testContext();
+    let ws: WorkspaceFile = createWorkspace(ctx);
+    for (const id of use.liveTags) {
+      const tag: Tag = {
+        ...createEntity<Tag>(ctx, { name: id.toLowerCase(), color: '#CFE3A3', order: 'V' }),
+        id,
+      };
+      ws = { ...ws, entities: { ...ws.entities, tags: [...ws.entities.tags, tag] } };
+    }
+    const saved = createTemplate(ctx, ws, {
+      name: use.name,
+      kind: 'task',
+      body: use.body as TemplateTask,
+    });
+    const listId = inboxList(saved.workspace).id;
+    const schedule = use.onDay
+      ? { start: use.day, end: null, allDay: true, timeZone: use.timeZone }
+      : null;
+    const used = fromTaskTemplate(
+      ctx,
+      saved.workspace,
+      saved.template.id,
+      { listId, schedule },
+      {
+        day: use.day,
+        timeZone: use.timeZone,
+      },
+    );
+
+    const made: Record<string, unknown>[] = [];
+    const walk = (task: Task, depth: number) => {
+      made.push(shown(task, depth));
+      for (const child of siblings(used.workspace, listId, task.id)) walk(child, depth + 1);
+    };
+    walk(getEntity(used.workspace, 'tasks', used.taskId)!, 0);
+    expect(made).toEqual(
+      use.tasks.map((task) => ({ ...task, tags: [...(task.tags as string[])].sort() })),
+    );
   });
 });

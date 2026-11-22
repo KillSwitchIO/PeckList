@@ -108,6 +108,9 @@ internal static class CommandTable
         new("--minutes", null, "N", "How many minutes to put it off: 1 to 10080 (a week). Ten if left out."),
         new("--plain", null, null, "Take the text as the title as it is, without reading dates or tags."),
         new("--color", null, "#RRGGBB", "The list's colour."),
+        new("--kind", null, "KIND", "Only templates of this kind: task or list.", ["task", "list"]),
+        new("--day", null, "DATE", "The day the template's dates count from: a date (2026-11-30), today or tomorrow. Without it, today; with it, a task template with no dates goes on that day."),
+        new("--name", null, "NAME", "The new list's name, for a list template (without it, the template's)."),
         new("--user", null, "USER", "Only this account's data."),
         new("--admin", null, null, "Ask for the admin permission too (owners and admins)."),
         new("--token", null, null, "Save an API key, read from the keyboard, or from standard input when piped."),
@@ -358,6 +361,33 @@ internal static class CommandTable
         [
             "pecklist people list",
         ]),
+        new("templates", "Your templates: tasks and lists saved in the app to make again.",
+        [
+            "pecklist templates list",
+            "pecklist templates use \"Weekly review\"",
+        ]),
+        new("templates list", "Show your templates, in the order the app shows them.",
+        [
+            "pecklist templates list",
+            "pecklist templates list --kind list -j",
+        ])
+        {
+            Details = "Templates are made in the app, with Save as template in a task's or a list's menu. Each shows its kind, how many tasks it makes and how often it was used.",
+            Options = Use("--kind", "--json"),
+        },
+        new("templates use", "Make what a template holds: a task template's task and subtasks, or a list template's new list.",
+        [
+            "pecklist templates use \"Weekly review\"",
+            "pecklist templates use weekly -l Work --title \"Review week 48\"",
+            "pecklist templates use Camping --name \"Camping in May\" --day 2027-05-01",
+        ])
+        {
+            Details = "T is a template's id, its name, or a unique start of its name. Its dates count from --day (today without it). A task template's task goes in --list (your list for new tasks without it); a list template makes a new private list.",
+            Arguments = [new("T")],
+            Options = [new("--list", "The list for a task template's task (without one, your list for new tasks, else your inbox)."),
+                new("--title", "A title for the task instead of the template's."), new("--day"), new("--name"), new("--quiet", "Print only the new task's or list's id."), new("--json")],
+        },
+
         new("people list", "Show the people and groups a task can be assigned to, with the id to use.",
         [
             "pecklist people list",
