@@ -82,7 +82,8 @@ describe('a row dragged by its grip is never also a pull to refresh', () => {
     standalone('desktop');
     await withLists('/today');
     const lists = await screen.findByRole('list', { name: 'Lists' });
-    fireEvent.contextMenu(within(lists).getByText('Bravo'));
+    // A view's right-click edits the sidebar (a list's opens its menu, PL-149).
+    fireEvent.contextMenu(within(screen.getAllByRole('navigation')[0]!).getByText('Calendar'));
     await waitFor(() => expect(lists.querySelector('[data-drag-handle]')).not.toBeNull());
     const grip = lists.querySelector('[data-drag-handle]')!;
     expect(dragDown(grip, 20, 300, 450)).toBe(false);

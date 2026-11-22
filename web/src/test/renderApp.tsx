@@ -28,6 +28,9 @@ export function mockViewport(viewport: Viewport, prefersDark = false) {
       matches = (!min || width >= Number(min[1])) && (!max || width <= Number(max[1]));
     } else if (query.includes('prefers-color-scheme: dark')) {
       matches = prefersDark;
+    } else if (query.includes('hover: hover')) {
+      // A computer has a mouse that hovers; phones and tablets are touched.
+      matches = viewport === 'desktop';
     }
     return {
       matches,

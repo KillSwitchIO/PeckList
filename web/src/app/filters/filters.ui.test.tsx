@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, todayIn } from '../../core/dates.ts';
@@ -7,6 +7,7 @@ import {
   createSavedFilter,
   DUE_CHOICES,
   filterOf,
+  lookOf,
   setSavedFilterView,
   viewOf,
 } from '../../core/savedFilters.ts';
@@ -37,7 +38,7 @@ describe('saved filters', () => {
       return createSavedFilter(ctx, next, 'Late', DUE_CHOICES.overdue).workspace;
     });
     const nav = screen.getAllByRole('navigation')[0]!;
-    const row = await within(nav).findByRole('button', { name: /Late/ });
+    const row = await within(nav).findByRole('button', { name: /^Late/ });
     expect(row).toHaveTextContent('2');
 
     await userEvent.click(row);
@@ -78,7 +79,7 @@ describe('saved filters', () => {
       return createSavedFilter(ctx, next, 'Watch', {}).workspace;
     });
     const nav = screen.getAllByRole('navigation')[0]!;
-    await userEvent.click(await within(nav).findByRole('button', { name: /Watch/ }));
+    await userEvent.click(await within(nav).findByRole('button', { name: /^Watch/ }));
     await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit filter' }));
     let dialog = await screen.findByRole('dialog');
@@ -110,7 +111,7 @@ describe('saved filters', () => {
       return createSavedFilter(ctx, next, 'Mine', {}).workspace;
     });
     const nav = screen.getAllByRole('navigation')[0]!;
-    await userEvent.click(await within(nav).findByRole('button', { name: /Mine/ }));
+    await userEvent.click(await within(nav).findByRole('button', { name: /^Mine/ }));
     await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit filter' }));
     const dialog = await screen.findByRole('dialog');
@@ -208,5 +209,89 @@ describe('saved filters', () => {
     expect(await screen.findByRole('menuitem', { name: 'Group by date' })).toHaveClass(
       'Mui-selected',
     );
+  });
+
+  it('edit and delete from the row’s menu, with an icon and color, and Undo (PL-149)', async () => {
+    const store = testStore();
+    await renderApp('/today', store);
+    store.getState().apply((ctx, ws) => createSavedFilter(ctx, ws, 'Errands', {}).workspace);
+    const nav = screen.getAllByRole('navigation')[0]!;
+    const saved = () => store.getState().workspace!.entities.savedFilters[0]!;
+
+    // Edit, without opening the filter: pick an icon, which brings the color with it.
+    await userEvent.click(await within(nav).findByRole('button', { name: 'Actions for Errands' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit filter' }));
+    const dialog = await screen.findByRole('dialog');
+    const icons = within(within(dialog).getByRole('radiogroup', { name: 'Icon' })).getAllByRole(
+      'radio',
+    );
+    await userEvent.click(icons[1]!);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(lookOf(saved()).icon).not.toBeNull());
+    expect(lookOf(saved()).color).not.toBeNull();
+
+    // Delete asks first, and Undo brings it back.
+    await userEvent.click(within(nav).getByRole('button', { name: 'Actions for Errands' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete filter' }));
+    expect(
+      await screen.findByText('Delete the filter "Errands"? Its tasks stay where they are.'),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() =>
+      expect(within(nav).queryByRole('button', { name: /^Errands/ })).not.toBeInTheDocument(),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(await within(nav).findByRole('button', { name: /^Errands/ })).toBeInTheDocument();
+    expect(lookOf(saved()).icon).not.toBeNull();
+  });
+
+  it('share their row menu with lists: right-click or the ⋯ with a mouse, on a phone while editing (PL-149)', async () => {
+    const store = testStore();
+    await renderApp('/today', store);
+    store.getState().apply((ctx, ws) => {
+      const garden = createList(ctx, ws, { name: 'Garden', color: '#A7C7E7' }).workspace;
+      return createSavedFilter(ctx, garden, 'Errands', {}).workspace;
+    });
+    const nav = screen.getAllByRole('navigation')[0]!;
+
+    // A right-click on a list or a filter opens its menu (not the sidebar's editing).
+    fireEvent.contextMenu(await within(nav).findByText('Garden'));
+    expect(await screen.findByRole('menuitem', { name: 'Edit list' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Delete list' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    fireEvent.contextMenu(within(nav).getByText('Errands'));
+    expect(await screen.findByRole('menuitem', { name: 'Edit filter' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    expect(within(nav).queryByRole('toolbar', { name: 'Edit sidebar' })).toBeNull();
+
+    // A list deleted from its ⋯ asks first and comes back with Undo.
+    await userEvent.click(within(nav).getByRole('button', { name: 'Actions for Garden' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete list' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(within(nav).queryByText('Garden')).toBeNull());
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(await within(nav).findByText('Garden')).toBeInTheDocument();
+  });
+
+  it('on a phone, show the row menu only while the sidebar is edited, lists and filters alike', async () => {
+    mockViewport('phone');
+    const store = testStore();
+    await renderApp('/more', store);
+    store.getState().apply((ctx, ws) => {
+      const garden = createList(ctx, ws, { name: 'Garden', color: '#A7C7E7' }).workspace;
+      return createSavedFilter(ctx, garden, 'Errands', {}).workspace;
+    });
+    await screen.findByText('Errands');
+    expect(screen.queryByRole('button', { name: 'Actions for Errands' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Actions for Garden' })).toBeNull();
+    // A long press that comes as a plain right-click, with no pointer type (Firefox, older
+    // WebViews), edits the sidebar as a hold does, rather than open a menu.
+    fireEvent.contextMenu(screen.getByText('Garden'));
+    expect(screen.queryByRole('menuitem', { name: 'Edit list' })).toBeNull();
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for Garden' }));
+    expect(await screen.findByRole('menuitem', { name: 'Edit list' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Errands' }));
+    expect(await screen.findByRole('menuitem', { name: 'Delete filter' })).toBeInTheDocument();
   });
 });

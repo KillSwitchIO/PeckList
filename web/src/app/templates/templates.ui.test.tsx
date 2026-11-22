@@ -177,7 +177,7 @@ describe('templates (PL-140)', () => {
       return next;
     });
     const nav = screen.getAllByRole('navigation')[0]!;
-    await userEvent.click(await within(nav).findByRole('button', { name: /Camping/ }));
+    await userEvent.click(await within(nav).findByRole('button', { name: /^Camping/ }));
 
     fireEvent.contextMenu(await screen.findByRole('button', { name: 'Open Tent' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Save as template' }));

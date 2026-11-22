@@ -10,6 +10,7 @@ import {
   dueChoiceOf,
   deleteSavedFilter,
   filterOf,
+  lookOf,
   savedFiltersOf,
   setSavedFilterView,
   updateSavedFilter,
@@ -115,6 +116,55 @@ describe('saved filters', () => {
     // Back to the defaults stores nothing at all.
     ws = setSavedFilterView(ctx, ws, made.filter.id, {});
     expect(saved().query).toEqual({ priorities: [2, 3] });
+  });
+
+  it('keeps a color and icon apart from its conditions and its grouping (PL-149)', () => {
+    const ctx = testContext();
+    let ws = createWorkspace(ctx);
+    const plain = createSavedFilter(ctx, ws, 'Plain', { priorities: [3] });
+    expect(lookOf(plain.filter)).toEqual({ color: null, icon: null });
+    expect(plain.filter.query).toEqual({ priorities: [3] });
+
+    const made = createSavedFilter(
+      ctx,
+      plain.workspace,
+      'High',
+      { priorities: [3] },
+      {
+        color: '#e57373',
+        icon: 'flag',
+      },
+    );
+    ws = made.workspace;
+    const saved = () => ws.entities.savedFilters.find((each) => each.id === made.filter.id)!;
+    expect(lookOf(saved())).toEqual({ color: '#e57373', icon: 'flag' });
+    // Not a condition, and not a grouping or sort.
+    expect(filterOf(saved())).toEqual({ priorities: [3] });
+    expect(viewOf(saved())).toEqual({});
+
+    // A grouping, and Restore defaults, leave it alone.
+    ws = setSavedFilterView(ctx, ws, made.filter.id, { group: 'priority' });
+    ws = setSavedFilterView(ctx, ws, made.filter.id, {});
+    expect(lookOf(saved())).toEqual({ color: '#e57373', icon: 'flag' });
+
+    // Editing without a look keeps it; editing with one changes it, and the grouping stays.
+    ws = setSavedFilterView(ctx, ws, made.filter.id, { sort: 'title' });
+    ws = updateSavedFilter(ctx, ws, made.filter.id, 'Higher', { priorities: [2, 3] });
+    expect(lookOf(saved())).toEqual({ color: '#e57373', icon: 'flag' });
+    ws = updateSavedFilter(
+      ctx,
+      ws,
+      made.filter.id,
+      'Higher',
+      { priorities: [2, 3] },
+      {
+        color: '#81c784',
+        icon: null,
+      },
+    );
+    expect(lookOf(saved())).toEqual({ color: '#81c784', icon: null });
+    expect(viewOf(saved())).toEqual({ sort: 'title' });
+    expect(filterOf(saved())).toEqual({ priorities: [2, 3] });
   });
 
   it('reads only the known parts of a stored grouping and sort', () => {

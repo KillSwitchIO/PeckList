@@ -77,7 +77,11 @@ already, so its funnel has no Lists section. Each view keeps its own filter on t
 funnel is colored while one is on. **Clear** shows everything again. The Lists and Tags
 sections each have **Select all** and **Deselect all**: select all, then untick the few to leave
 out. Every tag picked shows only tasks that have a tag; **Deselect all** lets that kind through
-again. A saved filter's Lists and Tags have the same two.
+again. A saved filter's Lists and Tags have the same two. A saved filter has a color and an
+icon too, picked as a list's are. A saved filter and a list of your own each have a menu on their
+row in the sidebar, with **Edit** and **Delete**, so neither has to be opened first: with a mouse,
+point at the row for its **⋯** (or right-click it); on a phone, edit the sidebar (the pencil on
+More, or hold a row) and tap the **⋯**. Deleting asks first, and **Undo** brings it back.
 
 ### Completed
 
