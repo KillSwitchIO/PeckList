@@ -11,16 +11,17 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Menu,
   Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
 import { filterTasks } from '../../core/filters.ts';
 import { findInbox } from '../../core/lists.ts';
-import { createSavedFilter, filterOf, savedFiltersOf } from '../../core/savedFilters.ts';
+import { createSavedFilter, filterOf, lookOf, savedFiltersOf } from '../../core/savedFilters.ts';
 import { viewCounts } from '../../core/viewCounts.ts';
 import { openCounts, openTagCounts } from '../../core/queries.ts';
 import { useToday } from '../hooks/useToday.ts';
@@ -37,10 +38,13 @@ import {
   ChevronRightIcon,
   EyeIcon,
   EyeOffIcon,
-  FilterIcon,
   PinOffIcon,
 } from '../icons/icons.tsx';
 import { FilterDialog } from '../filters/FilterDialog.tsx';
+import { FilterMark } from '../filters/FilterMark.tsx';
+import { useFilterActions } from '../filters/useFilterActions.tsx';
+import { RowCountAndMenu } from './RowMenu.tsx';
+import { rightClickMenu, rowMenuHoverSx, type RowMenuAt } from './rowMenuHelpers.ts';
 import { listName } from '../lists/listName.ts';
 import { ListMark } from '../lists/ListMark.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
@@ -63,6 +67,8 @@ interface ViewItem {
   count?: number;
   /** A list a dragged task can be dropped on (the Mess Drawer, pinned lists) */
   dropList?: string;
+  /** A saved filter's id: its row offers Edit and Delete (PL-149) */
+  filterId?: string;
 }
 
 /**
@@ -111,6 +117,20 @@ export function SidebarViews({
   const edit = useSidebarEdit();
   const { editing } = edit;
   const layout = edit.current.layout;
+  // A saved filter's row menu (PL-149), as a list's: see RowMenu.
+  const [menu, setMenu] = useState<{ id: string; at: RowMenuAt } | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const actionFilter = actionId ? getEntity(workspace, 'savedFilters', actionId) : undefined;
+  const openMenu = (id: string, at: RowMenuAt) => {
+    setActionId(id);
+    setMenu({ id, at });
+  };
+  const filterActions = useFilterActions(
+    actionFilter && isLive(actionFilter) ? actionFilter : null,
+    () => {
+      if (pathname === `/filters/${actionId}`) void navigate('/all');
+    },
+  );
 
   // Built-in views, saved filters, then pinned lists and tags.
   const items: Record<string, ViewItem> = {};
@@ -130,9 +150,10 @@ export function SidebarViews({
       path: `/filters/${filter.id}`,
       name: filter.name,
       label: filter.name,
-      icon: <FilterIcon />,
+      icon: <FilterMark look={lookOf(filter)} />,
       pinned: false,
       count: filterTasks(workspace, filterOf(filter), today).length,
+      filterId: filter.id,
     };
   }
   for (const id of layout.order) {
@@ -197,10 +218,20 @@ export function SidebarViews({
     if (hidden && !editing) return null;
     const inGroup = index > groupAt;
     if (inGroup && !groupOpen) return null;
+    const props = sortable.rowProps(id);
     return (
       <ListItemButton
         key={id}
-        {...sortable.rowProps(id)}
+        {...props}
+        {...(item.filterId
+          ? {
+              onContextMenu: rightClickMenu(
+                editing,
+                (at) => openMenu(item.filterId!, at),
+                props.onContextMenu,
+              ),
+            }
+          : {})}
         selected={!editing && (selected === item.path || pathname === item.path)}
         onClick={sortable.click(() => {
           if (!editing) onNavigate(item.path);
@@ -214,16 +245,29 @@ export function SidebarViews({
           },
           pl: inGroup && !unfolded ? 3 : 2,
           opacity: hidden ? 0.45 : 1,
+          ...(!editing && item.filterId ? rowMenuHoverSx : {}),
           ...editingRowSx(editing, sortable.dragging === id, index),
         }}
       >
         {editing && <SortHandle />}
         <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
         <ListItemText primary={item.name} sx={{ minWidth: 0 }} />
-        {!editing && item.count !== undefined && item.count > 0 && (
-          <Box component="span" sx={{ typography: 'caption', color: 'text.secondary' }}>
-            {item.count}
-          </Box>
+        {item.filterId ? (
+          <RowCountAndMenu
+            count={editing ? 0 : (item.count ?? 0)}
+            editing={editing}
+            label={t('filter.actionsNamed', { name: item.label })}
+            expanded={menu?.id === item.filterId}
+            onOpen={(at) => openMenu(item.filterId!, at)}
+          />
+        ) : (
+          !editing &&
+          item.count !== undefined &&
+          item.count > 0 && (
+            <Box component="span" sx={{ typography: 'caption', color: 'text.secondary' }}>
+              {item.count}
+            </Box>
+          )
         )}
         <BarButton id={id} name={item.label} />
         {editing &&
@@ -311,13 +355,22 @@ export function SidebarViews({
           return item ? row(item, id, index) : null;
         })}
       </List>
+      <Menu
+        open={menu !== null}
+        onClose={() => setMenu(null)}
+        anchorReference="anchorPosition"
+        {...(menu ? { anchorPosition: menu.at } : {})}
+      >
+        {filterActions.items(() => setMenu(null))}
+      </Menu>
+      {filterActions.dialogs}
       {edit.creatingFilter && (
         <FilterDialog
           onClose={() => edit.setCreatingFilter(false)}
-          onSave={(name, filter) => {
+          onSave={(name, filter, look) => {
             let id = '';
             apply((ctx, ws) => {
-              const made = createSavedFilter(ctx, ws, name, filter);
+              const made = createSavedFilter(ctx, ws, name, filter, look);
               id = made.filter.id;
               return made.workspace;
             }, t('undo.filterCreated'));

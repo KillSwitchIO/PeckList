@@ -29,7 +29,11 @@ import {
   dueChoiceOf,
   type DateChoice,
   type DueChoice,
+  type FilterLook,
 } from '../../core/savedFilters.ts';
+import { buildPalette } from '../../core/palette.ts';
+import { ColorPicker } from '../colors/ColorPicker.tsx';
+import { IconPicker } from '../lists/IconPicker.tsx';
 import { groupsOf } from '../../core/groups.ts';
 import { friendsOf, nameOf } from '../../core/sharing.ts';
 import { tagTree } from '../../core/tags.ts';
@@ -42,6 +46,8 @@ import { TagChip } from '../tags/TagChip.tsx';
 import { SelectAllPair } from './SelectAllPair.tsx';
 
 const PRIORITIES: Priority[] = [3, 2, 1, 0];
+/** A new filter's color, as a new list's. */
+const FIRST_COLOR = buildPalette('light').pastels.sky.fill;
 const PRIORITY_KEY = { 0: 'none', 1: 'low', 2: 'medium', 3: 'high' } as const;
 const DATE_ORDER: DateChoice[] = ['any', 'overdue', 'today', 'week', 'later', 'undated'];
 const DUE_ORDER: DueChoice[] = ['any', 'overdue', 'today', 'week', 'later', 'none'];
@@ -83,13 +89,20 @@ export function FilterDialog({
   onClose,
 }: {
   /** An existing filter to edit; none makes a new one. */
-  initial?: { name: string; filter: TaskFilter };
-  onSave: (name: string, filter: TaskFilter) => void;
+  initial?: { name: string; filter: TaskFilter; look?: FilterLook };
+  /**
+   * `look` is the color and icon (PL-149): always for a new filter; for one being edited only once
+   * either is picked, so renaming a filter that has none leaves it the plain filter icon.
+   */
+  onSave: (name: string, filter: TaskFilter, look?: FilterLook) => void;
   onClose: () => void;
 }) {
   const workspace = useWorkspace();
   const theme = useTheme();
   const [name, setName] = useState(initial?.name ?? '');
+  const [color, setColor] = useState(initial?.look?.color ?? FIRST_COLOR);
+  const [icon, setIcon] = useState(initial?.look?.icon ?? null);
+  const [lookPicked, setLookPicked] = useState(false);
   const [lists, setLists] = useState<string[]>(initial?.filter.lists ?? []);
   const [tags, setTags] = useState<string[]>(initial?.filter.tags ?? []);
   const [date, setDate] = useState<DateChoice>(initial ? dateChoiceOf(initial.filter) : 'any');
@@ -119,16 +132,21 @@ export function FilterDialog({
 
   const save = () => {
     if (!valid) return;
-    onSave(name, {
-      ...(lists.length ? { lists } : {}),
-      ...(tags.length ? { tags } : {}),
-      ...(priorities.length ? { priorities } : {}),
-      ...DATE_CHOICES[date],
-      ...DUE_CHOICES[due],
-      ...(closed ? {} : { closed: false }),
-      ...(states.length ? { states } : {}),
-      ...(assignees.length ? { assignees } : {}),
-    });
+    const keepsLook = !initial || lookPicked || !!initial.look?.color || !!initial.look?.icon;
+    onSave(
+      name,
+      {
+        ...(lists.length ? { lists } : {}),
+        ...(tags.length ? { tags } : {}),
+        ...(priorities.length ? { priorities } : {}),
+        ...DATE_CHOICES[date],
+        ...DUE_CHOICES[due],
+        ...(closed ? {} : { closed: false }),
+        ...(states.length ? { states } : {}),
+        ...(assignees.length ? { assignees } : {}),
+      },
+      keepsLook ? { color, icon } : undefined,
+    );
   };
 
   return (
@@ -149,6 +167,25 @@ export function FilterDialog({
               autoFocus
               onChange={(event) => setName(event.target.value)}
             />
+            <Part label={t('list.color')}>
+              <ColorPicker
+                value={color}
+                onChange={(next) => {
+                  setColor(next);
+                  setLookPicked(true);
+                }}
+              />
+            </Part>
+            <Part label={t('list.icon')}>
+              <IconPicker
+                value={icon}
+                color={color}
+                onChange={(next) => {
+                  setIcon(next);
+                  setLookPicked(true);
+                }}
+              />
+            </Part>
             <Part
               label={t('filter.lists')}
               action={

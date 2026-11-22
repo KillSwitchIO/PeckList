@@ -7,13 +7,15 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Menu,
   Tooltip,
 } from '@mui/material';
 import { useState } from 'react';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { getEntity } from '../../core/collections.ts';
 import { visibleLists } from '../../core/lists.ts';
 import { openCounts } from '../../core/queries.ts';
+import { myRole } from '../../core/sharing.ts';
 import { moveInOrder, pinnedListId, togglePinned } from '../../core/sidebar.ts';
 import type { List as ListEntity } from '../../core/types.ts';
 import { useCollapsedSet } from '../hooks/useCollapsedSet.ts';
@@ -24,7 +26,10 @@ import { BarButton } from '../layout/BarButton.tsx';
 import { PinButton } from '../layout/PinButton.tsx';
 import { SectionHeader } from '../layout/SectionHeader.tsx';
 import { useSortableRows } from '../layout/useSortableRows.ts';
-import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
+import { RowCountAndMenu } from '../layout/RowMenu.tsx';
+import { rightClickMenu, rowMenuHoverSx, type RowMenuAt } from '../layout/rowMenuHelpers.ts';
+import { useListActions } from './useListActions.tsx';
 import { ListDialog } from './ListDialog.tsx';
 import { makeList } from './newList.ts';
 import { listName } from './listName.ts';
@@ -40,6 +45,19 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
   const edit = useSidebarEdit();
   const { editing } = edit;
   const [creating, setCreating] = useState(false);
+  const navigate = useNavigate();
+  const me = useStoreState((state) => state.context().userId);
+  // A list's row menu (PL-149): Edit and Delete for its owner, never the Mess Drawer, as on its page.
+  const [menu, setMenu] = useState<{ id: string; at: RowMenuAt } | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const actionList = actionId ? (getEntity(workspace, 'lists', actionId) ?? null) : null;
+  const listActions = useListActions(actionList, () => {
+    if (pathname === `/lists/${actionId}`) void navigate('/inbox');
+  });
+  const openMenu = (id: string, at: RowMenuAt) => {
+    setActionId(id);
+    setMenu({ id, at });
+  };
   // Folded sections are remembered on this device.
   const { collapsed: folded, toggle: fold } = useCollapsedSet('pecklist.foldedSections');
   const counts = openCounts(workspace);
@@ -92,10 +110,21 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
             const path = `/lists/${list.id}`;
             const count = counts.get(list.id) ?? 0;
             const pin = pinnedListId(list.id);
+            const props = sortable.rowProps(list.id);
+            const menuable = myRole(workspace, me, list.id) === 'owner' && !list.isInbox;
             return (
               <ListItemButton
                 key={list.id}
-                {...sortable.rowProps(list.id)}
+                {...props}
+                {...(menuable
+                  ? {
+                      onContextMenu: rightClickMenu(
+                        editing,
+                        (at) => openMenu(list.id, at),
+                        props.onContextMenu,
+                      ),
+                    }
+                  : {})}
                 selected={!editing && pathname === path}
                 onClick={sortable.click(() => {
                   if (!editing) onNavigate(path);
@@ -104,6 +133,7 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                 data-drop-list={list.id}
                 sx={{
                   ...editingRowSx(editing, sortable.dragging === list.id, index),
+                  ...(!editing && menuable ? rowMenuHoverSx : {}),
                   '&.drop-hover': {
                     bgcolor: 'action.selected',
                     boxShadow: (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`,
@@ -119,7 +149,7 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                   slotProps={{ primary: { noWrap: true } }}
                 />
                 <BarButton id={pin} name={listName(list, workspace)} />
-                {editing ? (
+                {editing && (
                   <PinButton
                     pinned={edit.current.layout.order.includes(pin)}
                     name={listName(list, workspace)}
@@ -130,7 +160,17 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
                       }))
                     }
                   />
+                )}
+                {menuable ? (
+                  <RowCountAndMenu
+                    count={editing ? 0 : count}
+                    editing={editing}
+                    label={t('list.actionsNamed', { name: listName(list, workspace) })}
+                    expanded={menu?.id === list.id}
+                    onOpen={(at) => openMenu(list.id, at)}
+                  />
                 ) : (
+                  !editing &&
                   count > 0 && (
                     <Box component="span" sx={{ typography: 'caption', color: 'text.secondary' }}>
                       {count}
@@ -178,6 +218,15 @@ export function SidebarLists({ onNavigate }: { onNavigate: (path: string) => voi
           </>
         )}
       </List>
+      <Menu
+        open={menu !== null}
+        onClose={() => setMenu(null)}
+        anchorReference="anchorPosition"
+        {...(menu ? { anchorPosition: menu.at } : {})}
+      >
+        {listActions.items(() => setMenu(null))}
+      </Menu>
+      {listActions.dialogs}
       {creating && (
         <ListDialog
           open

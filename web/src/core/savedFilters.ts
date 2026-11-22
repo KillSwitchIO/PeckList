@@ -29,6 +29,39 @@ export function viewOf(saved: SavedFilter): ViewChoice {
   return cleanViewChoice(saved.query.view);
 }
 
+/**
+ * How a saved filter shows in the sidebar and bottom bar (PL-149): a color and an icon, as a list
+ * has, or none for the plain filter icon. Kept in the stored view beside the grouping and sort, so
+ * it syncs without a schema change. 0.15 and later carry view fields they don't know through their
+ * edits; 0.14 rewrites the query on an edit and drops the whole view, look included.
+ */
+export interface FilterLook {
+  color: string | null;
+  icon: string | null;
+}
+
+export function lookOf(saved: SavedFilter): FilterLook {
+  const view = storedView(saved) ?? {};
+  const text = (value: unknown) => (typeof value === 'string' && value !== '' ? value : null);
+  return { color: text(view.color), icon: text(view.icon) };
+}
+
+/** `view` with this look in place of the one it had (none given: as it was). */
+function withLook(
+  view: Record<string, unknown> | null,
+  look: FilterLook | undefined,
+): Record<string, unknown> | null {
+  if (!look) return view;
+  const rest = Object.fromEntries(
+    Object.entries(view ?? {}).filter(([key]) => key !== 'color' && key !== 'icon'),
+  );
+  return {
+    ...rest,
+    ...(look.color ? { color: look.color } : {}),
+    ...(look.icon ? { icon: look.icon } : {}),
+  };
+}
+
 function withoutView(query: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(query).filter(([key]) => key !== 'view'));
 }
@@ -107,11 +140,12 @@ export function createSavedFilter(
   workspace: WorkspaceFile,
   name: string,
   filter: TaskFilter,
+  look?: FilterLook,
 ): { workspace: WorkspaceFile; filter: SavedFilter } {
   const last = savedFiltersOf(workspace).at(-1);
   const saved = createEntity<SavedFilter>(ctx, {
     name: name.trim(),
-    query: { ...filter },
+    query: withView({ ...filter }, withLook(null, look)),
     order: keyBetween(last?.order ?? null, null),
   });
   return { workspace: putEntity(workspace, 'savedFilters', saved), filter: saved };
@@ -123,15 +157,17 @@ export function updateSavedFilter(
   id: Id,
   name: string,
   filter: TaskFilter,
+  look?: FilterLook,
 ): WorkspaceFile {
   const saved = requireEntity(workspace, 'savedFilters', id);
   return putEntity(
     workspace,
     'savedFilters',
-    // Editing the name or conditions keeps the view exactly as stored, a later version's fields too.
+    // Editing the name, conditions or look keeps the rest of the view exactly as stored, a later
+    // version's fields too.
     updateEntity(ctx, saved, {
       name: name.trim(),
-      query: withView({ ...filter }, storedView(saved)),
+      query: withView({ ...filter }, withLook(storedView(saved), look)),
     }),
   );
 }

@@ -5,10 +5,10 @@ import { Box, useTheme } from '@mui/material';
 import type { ReactElement, ReactNode } from 'react';
 import { bottomBarOf } from '../../core/bottomBar.ts';
 import { getEntity, isLive } from '../../core/collections.ts';
-import { savedFiltersOf } from '../../core/savedFilters.ts';
+import { lookOf, savedFiltersOf } from '../../core/savedFilters.ts';
 import { BUILT_IN_VIEWS, filterViewId, SHARED_VIEWS } from '../../core/sidebar.ts';
 import { t } from '../i18n/i18n.ts';
-import { FilterIcon } from '../icons/icons.tsx';
+import { FilterMark } from '../filters/FilterMark.tsx';
 import { ListMark } from '../lists/ListMark.tsx';
 import { listName } from '../lists/listName.ts';
 import { useWorkspace } from '../store/hooks.ts';
@@ -70,7 +70,18 @@ export function useTabs(ids: readonly string[]): Tab[] {
     if (view) return [{ id, path: view.path, label: t(view.label), icon: view.icon }];
     const filter = filters.get(id);
     if (filter) {
-      return [{ id, path: `/filters/${filter.id}`, label: filter.name, icon: <FilterIcon /> }];
+      return [
+        {
+          id,
+          path: `/filters/${filter.id}`,
+          label: filter.name,
+          icon: (
+            <TabMark>
+              <FilterMark look={lookOf(filter)} />
+            </TabMark>
+          ),
+        },
+      ];
     }
     const [kind, entityId = ''] = id.split(':');
     if (kind === 'list') {

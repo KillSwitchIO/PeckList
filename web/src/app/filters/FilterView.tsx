@@ -1,16 +1,7 @@
-import { ListItemIcon, MenuItem } from '@mui/material';
-import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getEntity, isLive } from '../../core/collections.ts';
-import {
-  deleteSavedFilter,
-  filterOf,
-  setSavedFilterView,
-  updateSavedFilter,
-  viewOf,
-} from '../../core/savedFilters.ts';
+import { filterOf, setSavedFilterView, viewOf } from '../../core/savedFilters.ts';
 import { t } from '../i18n/i18n.ts';
-import { DeleteIcon, EditIcon } from '../icons/icons.tsx';
 import { Page } from '../layout/Page.tsx';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { AddToInbox } from '../tasks/AddTaskInput.tsx';
@@ -19,7 +10,7 @@ import { SortGroupButton } from '../views/SortGroupButton.tsx';
 import { useListView } from '../lists/listGrouping.ts';
 import { VIEW_GROUPINGS } from '../../core/listView.ts';
 import { EmptyState } from '../views/EmptyState.tsx';
-import { FilterDialog } from './FilterDialog.tsx';
+import { useFilterActions } from './useFilterActions.tsx';
 
 /** A saved filter's tasks, grouped and sorted as stored with the filter (by date until picked). */
 export function FilterView() {
@@ -27,9 +18,9 @@ export function FilterView() {
   const workspace = useWorkspace();
   const apply = useApply();
   const navigate = useNavigate();
-  const [editing, setEditing] = useState(false);
   const saved = getEntity(workspace, 'savedFilters', filterId);
   const live = saved && isLive(saved) ? saved : null;
+  const filterActions = useFilterActions(live, () => void navigate('/all'));
   // Its grouping and sort are stored with the filter, so they sync (PL-015).
   const view = useListView(
     `filter:${filterId}`,
@@ -50,53 +41,14 @@ export function FilterView() {
 
   // The filter's own actions join the one view menu.
   const actions = (
-    <SortGroupButton
-      view={view}
-      groupings={VIEW_GROUPINGS}
-      extra={(close) => [
-        <MenuItem
-          key="edit"
-          onClick={() => {
-            close();
-            setEditing(true);
-          }}
-        >
-          <ListItemIcon>
-            <EditIcon fontSize="small" />
-          </ListItemIcon>
-          {t('filter.edit')}
-        </MenuItem>,
-        <MenuItem
-          key="delete"
-          onClick={() => {
-            close();
-            apply((ctx, ws) => deleteSavedFilter(ctx, ws, saved.id), t('undo.filterDeleted'));
-            void navigate('/all');
-          }}
-        >
-          <ListItemIcon>
-            <DeleteIcon fontSize="small" />
-          </ListItemIcon>
-          {t('filter.delete')}
-        </MenuItem>,
-      ]}
-    />
+    <SortGroupButton view={view} groupings={VIEW_GROUPINGS} extra={filterActions.items} />
   );
 
   return (
     <Page title={saved.name} actions={actions}>
       <AddToInbox />
       <FilteredTasks filter={filterOf(saved)} view={view} showList emptyTitle={t('filter.empty')} />
-      {editing && (
-        <FilterDialog
-          initial={{ name: saved.name, filter: filterOf(saved) }}
-          onClose={() => setEditing(false)}
-          onSave={(name, filter) => {
-            apply((ctx, ws) => updateSavedFilter(ctx, ws, saved.id, name, filter));
-            setEditing(false);
-          }}
-        />
-      )}
+      {filterActions.dialogs}
     </Page>
   );
 }
