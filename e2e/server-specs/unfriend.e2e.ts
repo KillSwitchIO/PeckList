@@ -169,7 +169,8 @@ describe('unfriending', () => {
 
     // What was in the Trash went too: restoring it shares nothing, and the server took the change.
     await browser.url('/trash');
-    await browser.$(`//li[contains(., '${binned}')]//button[normalize-space()='Restore']`).click();
+    // Restore is an icon button on the Trash's rows, named by its label.
+    await browser.$(`//li[contains(., '${binned}')]//button[@aria-label='Restore']`).click();
     await browser.url('/all');
     await browser.$(openTask(binned)).click();
     await expect(browser.$(assigned)).toHaveAttribute('aria-label', 'Assigned: Me');
