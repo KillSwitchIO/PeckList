@@ -9,6 +9,7 @@ import { usePhoneChannels } from '../native/phoneChannels.ts';
 import { useShellInfo } from '../native/shell.ts';
 import type { NativeShell } from '../../ports/nativeShell.ts';
 import { browserPush } from '../reminders/notifier.ts';
+import { withClock } from '../reminders/withClock.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { Section, SettingRow } from './settingsLayout.tsx';
 
@@ -39,7 +40,7 @@ export function NotificationSettings() {
         if (!current) return;
         setState(subscription ? 'on' : 'off');
         // Already on here: make sure the server has it (it may have been restored or moved).
-        if (subscription) void api.subscribe(subscription).catch(() => undefined);
+        if (subscription) void api.subscribe(withClock(subscription)).catch(() => undefined);
       },
       () => current && setState('off'),
     );
@@ -66,7 +67,7 @@ export function NotificationSettings() {
     try {
       if (on) {
         const subscription = await push.subscribe(await api.key());
-        await api.subscribe(subscription);
+        await api.subscribe(withClock(subscription));
         setState('on');
       } else {
         const endpoint = await push.unsubscribe();

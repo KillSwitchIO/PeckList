@@ -7,9 +7,12 @@ namespace PeckList.Core.Push;
 /// <summary>
 /// A browser's Web Push subscription (spec: PL-061): where to send, and its keys.
 /// <paramref name="Languages"/>: the languages the browser asked for when it subscribed (its
-/// Accept-Language, PL-148), "de-DE,de,en"; null from before they were kept.
+/// Accept-Language, PL-148), "de-DE,de,en"; null from before they were kept. <paramref name="Clock24"/>:
+/// the clock the device's browser reads by its own default (schema 22), true for 24-hour; null when
+/// it didn't say. It counts on an automatic language only: a picked one reads its own.
 /// </summary>
-public sealed record PushSubscription(string UserId, string Endpoint, string P256dh, string Auth, string? Languages = null);
+public sealed record PushSubscription(
+    string UserId, string Endpoint, string P256dh, string Auth, string? Languages = null, bool? Clock24 = null);
 
 public interface IPushStore
 {

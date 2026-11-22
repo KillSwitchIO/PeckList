@@ -68,6 +68,26 @@ export function localeUses24h(locale?: string): boolean {
   return known;
 }
 
+let browserClock: boolean | undefined;
+
+/**
+ * Whether the browser's own default reads 24-hour, whatever language is picked: what a browser's
+ * push subscription reports (schema 22). The server applies it on an automatic language only, where
+ * the app shows this same clock; a picked language reads its own there (Dev 1).
+ */
+export function browserUses24h(): boolean {
+  if (browserClock === undefined) {
+    try {
+      const cycle = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions()
+        .hourCycle;
+      browserClock = cycle === 'h23' || cycle === 'h24';
+    } catch {
+      browserClock = false;
+    }
+  }
+  return browserClock;
+}
+
 const formats = new Map<string, Intl.DateTimeFormat>();
 
 /**

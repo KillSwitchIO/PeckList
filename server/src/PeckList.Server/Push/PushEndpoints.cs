@@ -17,7 +17,8 @@ public sealed record PushKey(string PublicKey);
 public sealed record PushKeys(string? P256dh, string? Auth);
 
 /// <summary>A browser's subscription as <c>PushSubscription.toJSON()</c> gives it.</summary>
-public sealed record PushSubscribe(string? Endpoint, PushKeys? Keys);
+/// <summary><paramref name="Clock24"/>: the clock this browser reads by its own default (schema 22); absent from older apps.</summary>
+public sealed record PushSubscribe(string? Endpoint, PushKeys? Keys, bool? Clock24 = null);
 
 public sealed record PushUnsubscribe(string? Endpoint);
 
@@ -53,7 +54,7 @@ public static class PushEndpoints
             }
             // The browser's own languages (PL-148): a push in the person's automatic language follows this device.
             var languages = AcceptLanguage.Join(AcceptLanguage.Tags(http.Headers.AcceptLanguage));
-            await store.SaveAsync(new PushSubscription(user.UserId(), request.Endpoint!, request.Keys.P256dh, request.Keys.Auth, languages), cancellation);
+            await store.SaveAsync(new PushSubscription(user.UserId(), request.Endpoint!, request.Keys.P256dh, request.Keys.Auth, languages, request.Clock24), cancellation);
             return Results.NoContent();
         }).Doc("Save this browser's push subscription, as PushSubscription.toJSON() gives it").Refuses(StatusCodes.Status400BadRequest);
 

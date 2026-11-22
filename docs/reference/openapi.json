@@ -9384,6 +9384,10 @@
             "items": {
               "$ref": "#/components/schemas/AppCheckReminder"
             }
+          },
+          "clock": {
+            "type": "string",
+            "default": "auto"
           }
         }
       },
@@ -11397,6 +11401,12 @@
               {
                 "$ref": "#/components/schemas/PushKeys"
               }
+            ]
+          },
+          "clock24": {
+            "type": [
+              "null",
+              "boolean"
             ]
           }
         }

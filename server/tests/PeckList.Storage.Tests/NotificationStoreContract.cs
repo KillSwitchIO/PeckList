@@ -87,6 +87,22 @@ public abstract class NotificationStoreContract : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Keeps_what_each_subscription_said_its_language_and_clock_were()
+    {
+        await Push.SaveAsync(new PushSubscription("ben", "https://push.example/24", "k", "a", "de-DE,de", Clock24: true), Token);
+        await Push.SaveAsync(new PushSubscription("ben", "https://push.example/12", "k", "a", "en-US", Clock24: false), Token);
+        await Push.SaveAsync(new PushSubscription("ben", "https://push.example/older", "k", "a"), Token);
+        var said = (await Push.ForUserAsync("ben", Token)).ToDictionary(each => each.Endpoint, each => (each.Languages, each.Clock24));
+        Assert.Equal(("de-DE,de", (bool?)true), said["https://push.example/24"]);
+        Assert.Equal(("en-US", (bool?)false), said["https://push.example/12"]);
+        Assert.Equal(((string?)null, (bool?)null), said["https://push.example/older"]);
+
+        // Saved again without a clock (an older app): it no longer says one.
+        await Push.SaveAsync(new PushSubscription("ben", "https://push.example/24", "k", "a", "de-DE,de"), Token);
+        Assert.Null((await Push.ForUserAsync("ben", Token)).Single(each => each.Endpoint == "https://push.example/24").Clock24);
+    }
+
+    [Fact]
     public async Task Keeps_each_persons_last_reported_zone_until_their_account_goes()
     {
         Assert.Null(await Push.DeviceZoneAsync("ben", Token));

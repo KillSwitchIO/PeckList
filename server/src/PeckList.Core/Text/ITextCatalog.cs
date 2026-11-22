@@ -34,8 +34,9 @@ public interface ITextCatalog
 public sealed record Words(ITextCatalog Catalog, string Language, string? Locale = null)
 {
     /// <summary>
-    /// The device's own 12/24-hour setting, when it says it: an Android phone's check-in does
-    /// (schema 22: on a phone an automatic clock follows that setting ahead of the language).
+    /// The device's own clock, when it says it (schema 22): an Android phone's check-in sends the
+    /// phone's 12/24-hour setting, which there comes ahead of the language; a browser's push
+    /// subscription its own default, which counts on an automatic language only (ReminderSender.WordsFor).
     /// </summary>
     public bool? Clock24 { get; init; }
 

@@ -111,7 +111,7 @@ the app's hand-off code (`POST /auth/app/redeem`).
 | `/api/friends/...`, `GET /api/users/lookup`          | Friend links and requests, finding people       |
 | `GET /api/notifications`, `POST .../read`, `.../clear` | Your notifications; mark read or clear (`{"ids": [...]}`, or `null` for all) |
 | `GET /api/tasks/{id}/history`                        | A task's changes, newest first: `at`, `actorId`, `field`, `before`, `after` (JSON values); 404 for a task you cannot see |
-| `GET /api/push/key`, `POST /api/push/subscriptions`, `POST /api/push/unsubscribe` | Web Push: the server's VAPID key, this browser's subscription |
+| `GET /api/push/key`, `POST /api/push/subscriptions`, `POST /api/push/unsubscribe` | Web Push: the server's VAPID key, this browser's subscription (with `clock24`, the clock the browser reads by its own default, which that device's pushes read when the language is automatic) |
 
 Finding someone by name (`/api/users/lookup`) and opening or accepting a friend link
 (`/api/friends/link/{code}`) share a limit of 30 requests a minute per account; saving the settings

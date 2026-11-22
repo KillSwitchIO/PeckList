@@ -561,10 +561,13 @@ export class FakeTransport implements SyncTransport {
 
   /** Push subscriptions the fake server holds, by endpoint: the username. */
   readonly pushed = new Map<string, string>();
+  /** Each subscription saved, in order, with the clock it said (schema 22). */
+  readonly pushedClocks: { endpoint: string; clock24: boolean | undefined }[] = [];
   readonly push: PushApi = {
     key: () => Promise.resolve('BFAKEKEY'),
     subscribe: (subscription) => {
       this.pushed.set(subscription.endpoint, this.session ?? '');
+      this.pushedClocks.push({ endpoint: subscription.endpoint, clock24: subscription.clock24 });
       return Promise.resolve();
     },
     unsubscribe: (endpoint) => {

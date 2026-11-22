@@ -7,6 +7,7 @@ import { ListShortcuts } from './native/listShortcuts.ts';
 import { PhoneChannelSync } from './native/phoneChannels.ts';
 import { NativeLanguage } from './native/nativeLanguage.ts';
 import { NativeClock } from './native/nativeClock.ts';
+import { PushClock } from './reminders/PushClock.tsx';
 import { SaveSignIn } from './native/saveSignIn.ts';
 import { WidgetFeed } from './native/widgetFeed.ts';
 import { installBackHandler } from './native/back.ts';
@@ -65,6 +66,7 @@ export function App() {
           <SaveSignIn />
           <NativeLanguage />
           <NativeClock />
+          <PushClock />
           <BackgroundCheckPrompt />
         </BrowserRouter>
         {viewAs && <ViewAsBanner view={viewAs} />}

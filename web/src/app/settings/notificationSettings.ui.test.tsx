@@ -96,6 +96,11 @@ describe('notifications with the app closed', () => {
     await waitFor(() => expect(toggle).toBeChecked());
     expect(push.keys).toEqual(['BFAKEKEY']);
     expect(transport.pushed.get('https://push.example/ben')).toBe('ben');
+    // With the clock the app shows here on Automatic (schema 22): jsdom's en-US reads 12-hour.
+    expect(transport.pushedClocks.at(-1)).toEqual({
+      endpoint: 'https://push.example/ben',
+      clock24: false,
+    });
     await userEvent.click(toggle);
     await waitFor(() => expect(toggle).not.toBeChecked());
     expect(transport.pushed.size).toBe(0);

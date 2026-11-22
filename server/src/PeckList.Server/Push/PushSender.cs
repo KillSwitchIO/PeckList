@@ -29,17 +29,23 @@ public sealed record PushPayload(
     string Title, string Body, string Tag, string Url, bool Sticky = false,
     IReadOnlyList<PushAction>? Actions = null);
 
+/// <summary>
+/// What a device said when it subscribed: the languages its browser asked for (PL-148) and the clock
+/// it reads by its own default (schema 22). Either is null when unknown.
+/// </summary>
+public sealed record PushDevice(string? Languages, bool? Clock24)
+{
+    public static readonly PushDevice Unknown = new(null, null);
+}
+
 /// <summary>Sends a push to a person's devices.</summary>
 public interface IPushSender
 {
     Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default);
 
-    /// <summary>
-    /// A push worded for each device (PL-148): <paramref name="payloadFor"/> gets the languages the
-    /// device's browser asked for when it subscribed (null when unknown).
-    /// </summary>
-    Task SendAsync(string userId, Func<string?, PushPayload> payloadFor, CancellationToken cancellation = default) =>
-        SendAsync(userId, payloadFor(null), cancellation);
+    /// <summary>A push worded for each device (PL-148): <paramref name="payloadFor"/> gets what it said.</summary>
+    Task SendAsync(string userId, Func<PushDevice, PushPayload> payloadFor, CancellationToken cancellation = default) =>
+        SendAsync(userId, payloadFor(PushDevice.Unknown), cancellation);
 }
 
 /// <summary>
@@ -106,7 +112,7 @@ public sealed class PushSender(
     public Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default) =>
         SendAsync(userId, _ => payload, cancellation);
 
-    public async Task SendAsync(string userId, Func<string?, PushPayload> payloadFor, CancellationToken cancellation = default)
+    public async Task SendAsync(string userId, Func<PushDevice, PushPayload> payloadFor, CancellationToken cancellation = default)
     {
         var settings = live.Current;
         // A demo server sends nothing anywhere (PL-117); reminders still show on the device itself.
@@ -122,14 +128,14 @@ public sealed class PushSender(
                 Subject = Contact(settings),
             },
         };
-        // One message per set of languages: most people's devices share theirs.
-        var messages = new Dictionary<string, PushMessage>(StringComparer.Ordinal);
+        // One message per set of languages and clock: most people's devices share theirs.
+        var messages = new Dictionary<PushDevice, PushMessage>();
         foreach (var subscription in subscriptions)
         {
-            var languages = subscription.Languages ?? "";
-            if (!messages.TryGetValue(languages, out var message))
+            var device = new PushDevice(subscription.Languages, subscription.Clock24);
+            if (!messages.TryGetValue(device, out var message))
             {
-                message = messages[languages] = new PushMessage(JsonSerializer.Serialize(payloadFor(subscription.Languages), Json))
+                message = messages[device] = new PushMessage(JsonSerializer.Serialize(payloadFor(device), Json))
                 {
                     TimeToLive = 24 * 3600,
                     Urgency = PushMessageUrgency.High,

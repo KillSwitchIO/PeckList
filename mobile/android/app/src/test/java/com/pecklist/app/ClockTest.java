@@ -25,6 +25,18 @@ public class ClockTest {
         assertFalse(Clock.decide(null, false));
     }
 
+    /** A check-in says the clock picked anywhere: snooze and the widgets follow it (QA, rc.2). */
+    @Test
+    public void aCheckInSaysTheClockPicked() {
+        assertEquals(Boolean.TRUE, Clock.picked("24h"));
+        assertEquals(Boolean.FALSE, Clock.picked("12h"));
+        assertEquals(null, Clock.picked("auto")); // the phone's own
+        assertTrue(Clock.said("auto"));
+        // An older server says nothing, and something unknown changes nothing.
+        assertFalse(Clock.said(null));
+        assertFalse(Clock.said("13h"));
+    }
+
     private static Date at(int day, int hour) {
         Calendar calendar = Calendar.getInstance();
         calendar.clear();

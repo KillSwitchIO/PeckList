@@ -39,7 +39,7 @@ public sealed class ServerTextTests(ServerFixture fixture) : IClassFixture<Serve
     {
         public IPushStore? Store { get; set; }
 
-        public List<(string UserId, string? Languages, PushPayload Payload)> Sent { get; } = [];
+        public List<(string UserId, string? Languages, bool? Clock24, PushPayload Payload)> Sent { get; } = [];
 
         public Task SendAsync(string userId, PushPayload payload, CancellationToken cancellation = default) =>
             SendAsync(userId, _ => payload, cancellation);
@@ -47,12 +47,13 @@ public sealed class ServerTextTests(ServerFixture fixture) : IClassFixture<Serve
         /// <summary>Set: sending waits for it, as for a slow push service.</summary>
         public TaskCompletionSource? Hold { get; set; }
 
-        public async Task SendAsync(string userId, Func<string?, PushPayload> payloadFor, CancellationToken cancellation = default)
+        public async Task SendAsync(string userId, Func<PushDevice, PushPayload> payloadFor, CancellationToken cancellation = default)
         {
             if (Hold is { } hold) await hold.Task.WaitAsync(cancellation);
             foreach (var device in await Store!.ForUserAsync(userId, cancellation))
             {
-                lock (Sent) Sent.Add((userId, device.Languages, payloadFor(device.Languages)));
+                var said = payloadFor(new PushDevice(device.Languages, device.Clock24));
+                lock (Sent) Sent.Add((userId, device.Languages, device.Clock24, said));
             }
         }
     }
@@ -102,11 +103,13 @@ public sealed class ServerTextTests(ServerFixture fixture) : IClassFixture<Serve
             zone,
         }, Token)).EnsureSuccessStatusCode();
 
-    private static async Task SubscribeAsync(HttpClient client, string endpoint, string? acceptLanguage)
+    private static async Task SubscribeAsync(HttpClient client, string endpoint, string? acceptLanguage, bool? clock24 = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/push/subscriptions")
         {
-            Content = JsonContent.Create(new { endpoint, keys = new { p256dh = "p", auth = "a" } }),
+            Content = clock24 is { } twentyFour
+                ? JsonContent.Create(new { endpoint, keys = new { p256dh = "p", auth = "a" }, clock24 = twentyFour })
+                : JsonContent.Create(new { endpoint, keys = new { p256dh = "p", auth = "a" } }),
         };
         if (acceptLanguage is not null) request.Headers.TryAddWithoutValidation("Accept-Language", acceptLanguage);
         (await client.SendAsync(request, Token)).EnsureSuccessStatusCode();
@@ -220,6 +223,75 @@ public sealed class ServerTextTests(ServerFixture fixture) : IClassFixture<Serve
         // Subscribing again from a browser now set to another language takes the new one.
         await SubscribeAsync(ben, "https://push.example/de", "en-XA");
         Assert.Equal("en-XA", (await store.ForUserAsync(benId, Token)).Single(each => each.Endpoint == "https://push.example/de").Languages);
+    }
+
+    [Fact]
+    public async Task A_subscription_keeps_the_clock_its_app_shows()
+    {
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-t8");
+        await SubscribeAsync(ben, "https://push.example/24", "en-US", clock24: true);
+        await SubscribeAsync(ben, "https://push.example/12", "en-US", clock24: false);
+        await SubscribeAsync(ben, "https://push.example/older", "en-US");
+        var store = server.Services.GetRequiredService<IPushStore>();
+        var devices = (await store.ForUserAsync(benId, Token)).ToDictionary(each => each.Endpoint, each => each.Clock24);
+        Assert.True(devices["https://push.example/24"]);
+        Assert.False(devices["https://push.example/12"]);
+        Assert.Null(devices["https://push.example/older"]);
+
+        // Subscribing again says it again: the app's clock now, or nothing from an older app.
+        await SubscribeAsync(ben, "https://push.example/24", "en-US");
+        Assert.Null((await store.ForUserAsync(benId, Token)).Single(each => each.Endpoint == "https://push.example/24").Clock24);
+    }
+
+    [Fact]
+    public async Task A_reminder_push_reads_each_devices_own_clock_on_an_automatic_language()
+    {
+        // A browser whose own default reads 24-hour while it asks for en-US: on an automatic language
+        // its app shows 15:00, so its push does too (schema 22); a device that didn't say gets its
+        // language's. A picked language reads its own clock, as the app does then (Dev 1).
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-t9");
+        await SubscribeAsync(ben, "https://push.example/24", "en-US", clock24: true);
+        await SubscribeAsync(ben, "https://push.example/older", "en-US");
+        JsonObject Call(string start) => new()
+        {
+            ["listId"] = "TL9",
+            ["title"] = "Call",
+            ["parentId"] = null,
+            ["status"] = "open",
+            ["assignees"] = new JsonObject(),
+            ["schedule"] = new JsonObject { ["start"] = start, ["end"] = null, ["allDay"] = false, ["timeZone"] = "UTC" },
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = 60 }),
+        };
+        await SyncAsync(ben, "UTC",
+            ("lists", Entity("TL9", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" })),
+            ("tasks", Entity("TT9", benId, Call("2026-10-26T15:00"))),
+            ("tasks", Entity("TU9", benId, Call("2026-10-26T16:00"))));
+        var sender = server.Services.GetRequiredService<ReminderSender>();
+
+        var first = new DateTimeOffset(2026, 10, 26, 14, 0, 0, TimeSpan.Zero);
+        await sender.SendDueAsync(first.AddMinutes(-1), first.AddMinutes(1), Token);
+        var sent = push.Sent.Where(each => each.UserId == benId).ToDictionary(each => each.Clock24 is true, each => each.Payload.Body);
+        Assert.EndsWith("15:00", sent[true]);
+        Assert.EndsWith("3:00 PM", sent[false]);
+
+        push.Sent.Clear();
+        await SyncAsync(ben, "UTC", ("settings", Entity("TS9", benId, new JsonObject
+        {
+            ["userId"] = benId,
+            ["themeMode"] = "system",
+            ["palette"] = new JsonObject(),
+            ["pointEventMinutes"] = 30,
+            ["dueSoonDays"] = 2,
+            ["language"] = "en",
+            ["sidebar"] = new JsonObject { ["order"] = new JsonArray(), ["hidden"] = new JsonArray(), ["groupOpen"] = false },
+        })));
+        var second = new DateTimeOffset(2026, 10, 26, 15, 0, 0, TimeSpan.Zero);
+        await sender.SendDueAsync(second.AddMinutes(-1), second.AddMinutes(1), Token);
+        var picked = push.Sent.Where(each => each.UserId == benId).ToList();
+        Assert.Equal(2, picked.Count);
+        Assert.All(picked, each => Assert.EndsWith("4:00 PM", each.Payload.Body));
     }
 
     [Fact]
