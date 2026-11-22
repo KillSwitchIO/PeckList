@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { heldPresses, phoneChannels, shellInfo } from './capacitor-shell.ts';
+import { heldPresses, phoneChannels, shellInfo, storePage } from './capacitor-shell.ts';
+
+describe('storePage', () => {
+  it('takes a page the shell answered with, and refuses anything else rather than read it as empty', () => {
+    expect(storePage({ header: '{"doc":{}}', rows: [['tasks/1', '{}']], next: 'tasks/1' })).toEqual(
+      { header: '{"doc":{}}', rows: [['tasks/1', '{}']], next: 'tasks/1' },
+    );
+    expect(storePage({ header: null, rows: [], next: null })).toEqual({
+      header: null,
+      rows: [],
+      next: null,
+    });
+    expect(() => storePage({ header: 3, rows: [] })).toThrow();
+    expect(() => storePage({ header: null, rows: [['tasks/1', 2]] })).toThrow();
+    expect(() => storePage({ header: null })).toThrow();
+    expect(() => storePage(null)).toThrow();
+  });
+});
 
 describe('heldPresses', () => {
   it('keeps the presses the shell answered with, and leaves out any it got wrong', () => {

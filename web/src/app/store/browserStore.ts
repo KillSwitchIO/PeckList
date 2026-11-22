@@ -11,6 +11,7 @@ import { CARRY_API, nativeShell } from '../native/shell.ts';
 import { browserPush, notifier } from '../reminders/notifier.ts';
 import { createSyncEngine, type PhoneTasks, type SyncEngine } from '../sync/syncEngine.ts';
 import { tabNodeId } from './device.ts';
+import { pickedStorage } from './nativeMigration.ts';
 import { takeViewAs, type ViewAs } from './viewAs.ts';
 import { createWorkspaceStore, type WorkspaceStore } from './workspaceStore.ts';
 
@@ -31,7 +32,8 @@ export function createBrowserApp(): {
   if (viewAs) return createViewAsApp(viewAs);
   const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(CHANNEL);
   void navigator.storage?.persist?.();
-  const storage = createIndexedDbStorage();
+  // The Android app's own storage once its data has moved there (PL-070), else IndexedDB.
+  const storage = pickedStorage() ?? createIndexedDbStorage();
   const node = tabNodeId();
   const store = createWorkspaceStore({
     storage,

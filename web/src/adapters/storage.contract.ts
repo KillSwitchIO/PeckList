@@ -1,7 +1,22 @@
 // Contract suite every StorageAdapter must pass. Call it from the adapter's own test file.
 import { describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../ports/storage.ts';
+import type { WorkspaceFile } from '../core/types.ts';
 import { sampleWorkspace } from '../test/fixtures.ts';
+
+/** A workspace of about 10 MB: 4,500 tasks with long notes, as a heavy user's (audit P5). */
+export function bigWorkspace(): WorkspaceFile {
+  const workspace = sampleWorkspace();
+  const [model] = workspace.entities.tasks;
+  const notes = 'x'.repeat(2000);
+  workspace.entities.tasks = Array.from({ length: 4500 }, (_, index) => ({
+    ...model!,
+    id: `01BIG${String(index).padStart(21, '0')}`,
+    title: `Task ${index}`,
+    notes,
+  }));
+  return workspace;
+}
 
 export function describeStorageContract(
   name: string,
@@ -73,6 +88,26 @@ export function describeStorageContract(
       expect(await storage.load()).toBeNull();
       expect(await storage.loadBackup('workspace.v1.bak.json')).toBeNull();
       expect(await storage.loadMeta('sync')).toBeNull();
+    });
+
+    it('saves and loads a 10 MB workspace, and a save after it', async () => {
+      const storage = await create();
+      const workspace = bigWorkspace();
+      await storage.save(workspace);
+      const loaded = (await storage.load()) as WorkspaceFile;
+      expect(loaded).toEqual(workspace);
+      const changed = {
+        ...loaded,
+        entities: {
+          ...loaded.entities,
+          tasks: [
+            ...loaded.entities.tasks.slice(1),
+            { ...loaded.entities.tasks[0]!, title: 'Moved last' },
+          ],
+        },
+      };
+      await storage.save(changed);
+      expect(await storage.load()).toEqual(changed);
     });
 
     it('returns a copy, not a live reference', async () => {

@@ -6,15 +6,15 @@ the house style, the checks and the shared pieces to reach for are in [Coding st
 
 ## Layout
 
-| Path        | What                                                                                                                                                              |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `web/`      | The React + TypeScript web app (PWA). `src/core` is the domain, `src/ports` the interfaces, `src/adapters` their implementations, `src/app` the UI.               |
+| Path        | What                                                                                                                                                           |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web/`      | The React + TypeScript web app (PWA). `src/core` is the domain, `src/ports` the interfaces, `src/adapters` their implementations, `src/app` the UI.            |
 | `server/`   | The ASP.NET Core server: `src/PeckList.Core` (domain), `PeckList.Server` (HTTP, auth, logging, CLI), `PeckList.Storage.*` (SQL, SQLite, PostgreSQL); `tests/`. |
-| `schema/`   | The workspace JSON Schema and fixtures both sides must pass (merge, migrations).                                                                                  |
-| `e2e/`      | WebdriverIO end-to-end tests in real browsers.                                                                                                                    |
-| `docs/`     | This site's pages (Docusaurus, built from `website/`).                                                                                                                                               |
-| `examples/` | Compose files, a settings file, proxy configs, service files.                                                                                                     |
-| `scripts/`  | Release, packaging and checks.                                                                                                                                    |
+| `schema/`   | The workspace JSON Schema and fixtures both sides must pass (merge, migrations).                                                                               |
+| `e2e/`      | WebdriverIO end-to-end tests in real browsers.                                                                                                                 |
+| `docs/`     | This site's pages (Docusaurus, built from `website/`).                                                                                                         |
+| `examples/` | Compose files, a settings file, proxy configs, service files.                                                                                                  |
+| `scripts/`  | Release, packaging and checks.                                                                                                                                 |
 
 ## Setting up
 
@@ -58,6 +58,8 @@ app quick at that size, and what to keep in mind when changing it:
   and each collection's order. A save writes the entities that are new objects since storage was
   last read or written: entities are never changed in place, so a changed one is a new object. A
   workspace an older version saved as one JSON text is read once and moved over on the next save.
+  The Android app keeps the same rows in its own SQLite instead (`adapters/native-storage.ts`, see
+  the Android app page), and both pass the storage contract, a 10 MB workspace included.
 - **No read-back while no other tab saved.** Each save leaves a stamp (`meta:workspace-generation`).
   While the stamp is still this tab's own, the store saves without reading storage back and
   merging. Other tabs' saves arrive on the `pecklist` BroadcastChannel, heard only on the channel

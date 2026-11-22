@@ -5,6 +5,7 @@ import type {
   ExactAlarms,
   HeldPress,
   NativeShell,
+  NativeStoreCalls,
   PhoneChannelKind,
   PhoneChannels,
   ServerCheck,
@@ -13,6 +14,8 @@ import type {
   ShellCrash,
   ShellInfo,
   ShellUsage,
+  StorePage,
+  StoreSave,
   WidgetFeed,
 } from '../ports/nativeShell.ts';
 import type { ServerInfo } from '../ports/sync.ts';
@@ -44,6 +47,68 @@ interface ShellPlugin {
   takeAddText(): Promise<{ text?: unknown }>;
   saveSignIn(): Promise<void>;
   setLanguage(options: { language: string | null }): Promise<void>;
+  storeLoad(options: { origin: string; after: string | null; budget?: number }): Promise<unknown>;
+  storeSave(options: { origin: string } & StoreSave): Promise<void>;
+  storeClear(options: { origin: string }): Promise<void>;
+  storeGet(options: { origin: string; key: string }): Promise<{ json?: unknown }>;
+  storePut(options: { origin: string; entries: [string, string | null][] }): Promise<void>;
+  storeKeys(options: { origin: string; prefix: string }): Promise<{ keys?: unknown }>;
+  storeWipe(options: { origin: string }): Promise<void>;
+}
+
+const isPair = (row: unknown): row is [string, string] =>
+  Array.isArray(row) && typeof row[0] === 'string' && typeof row[1] === 'string';
+
+/** A page the shell answered with; anything else is an error, not an empty store. */
+export function storePage(answer: unknown): StorePage {
+  const page = answer as { header?: unknown; rows?: unknown; next?: unknown } | null;
+  const header = page?.header ?? null;
+  const next = page?.next ?? null;
+  if (
+    (header !== null && typeof header !== 'string') ||
+    (next !== null && typeof next !== 'string') ||
+    !Array.isArray(page?.rows) ||
+    !page.rows.every(isPair)
+  ) {
+    throw new Error('the native store answered with something unreadable');
+  }
+  return { header, rows: page.rows, next };
+}
+
+/**
+ * Android's own storage (api 16), for the origin this page is on: every call says it, and the shell
+ * refuses one that arrives once the WebView is somewhere else (PL-070).
+ */
+function nativeStoreCalls(plugin: ShellPlugin): NativeStoreCalls {
+  // Read as each call is made, never kept: it is what the shell checks against the WebView.
+  const origin = () => location.origin;
+  return {
+    load: async (after, budget) =>
+      storePage(
+        await plugin.storeLoad({
+          origin: origin(),
+          after,
+          ...(budget === undefined ? {} : { budget }),
+        }),
+      ),
+    save: (change) => plugin.storeSave({ origin: origin(), ...change }),
+    clear: () => plugin.storeClear({ origin: origin() }),
+    async get(key) {
+      const { json } = await plugin.storeGet({ origin: origin(), key });
+      if (json === null || json === undefined) return null;
+      if (typeof json !== 'string')
+        throw new Error('the native store answered with something unreadable');
+      return json;
+    },
+    put: (entries) => plugin.storePut({ origin: origin(), entries }),
+    async keys(prefix) {
+      const { keys } = await plugin.storeKeys({ origin: origin(), prefix });
+      return Array.isArray(keys)
+        ? keys.filter((key): key is string => typeof key === 'string')
+        : [];
+    },
+    wipe: () => plugin.storeWipe({ origin: origin() }),
+  };
 }
 
 const CHANNEL_KINDS: PhoneChannelKind[] = [
@@ -197,5 +262,6 @@ export function createCapacitorShell(): NativeShell | null {
       ),
     saveSignIn: () => plugin.saveSignIn(),
     setLanguage: (language) => plugin.setLanguage({ language }),
+    store: nativeStoreCalls(plugin),
   };
 }
