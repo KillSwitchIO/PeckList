@@ -310,6 +310,11 @@ cd mobile/android && ./gradlew testFossDebugUnitTest testPlayDebugUnitTest
 
 Tests for one build only go in `src/testFoss/` or `src/testPlay/`.
 
+The first run fetches Android's framework for Robolectric (one jar, about 200 MB) from Maven Central
+into `~/.m2`. Set `ROBOLECTRIC_REPO_URL` to fetch it from another Maven repository, and
+`ROBOLECTRIC_LOCAL_REPO` to keep it somewhere else. CI sets both: Central answers 429 for a day when
+one address fetches the same large file again and again.
+
 CI builds the foss debug APK in the `android-apk` job (manual on main and merge requests), and the
 signed release APK and Play bundle in `android-release` (automatic on release commits, manual on
 main).

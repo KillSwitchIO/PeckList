@@ -691,6 +691,10 @@ web-dist:
   timeout: 45m
   variables:
     GRADLE_USER_HOME: $CI_PROJECT_DIR/.gradle
+    # Robolectric's framework jar (app/build.gradle): from Google's copy of Maven Central, which
+    # doesn't rate-limit it, and kept in the cached Gradle home, so it's fetched once per cache key.
+    ROBOLECTRIC_REPO_URL: https://maven-central.storage-download.googleapis.com/maven2
+    ROBOLECTRIC_LOCAL_REPO: $CI_PROJECT_DIR/.gradle/robolectric
   cache:
     - key:
         files: [pnpm-lock.yaml]
