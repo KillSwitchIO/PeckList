@@ -8,10 +8,20 @@ import {
   ToggleButtonGroup,
   Tooltip,
   Typography,
+  useTheme,
 } from '@mui/material';
-import { useLayoutEffect, useRef, useState } from 'react';
-import { addDays, daysBetween } from '../../core/dates.ts';
-import { barOf, draggedSchedule, fitRows, ownRows, type Bar } from '../../core/timeline.ts';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { addBlocker, blockersOf, warns, wouldLoop } from '../../core/blocking.ts';
+import { addDays, daysBetween, localTimeZone } from '../../core/dates.ts';
+import {
+  barBox,
+  barOf,
+  draggedSchedule,
+  fitRows,
+  linkPath,
+  ownRows,
+  type Bar,
+} from '../../core/timeline.ts';
 import { updateTask } from '../../core/tasks.ts';
 import type { Id, Task } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
@@ -26,6 +36,11 @@ import { localeDateFormat } from '../../core/intl.ts';
 
 const ROW = 34;
 const HEADER = 44;
+/** Room between a bar and its row's edges, and its days' edges */
+const INSET = 4;
+const SIDE = 2;
+/** The blocked-by handle past a bar's end: drawn small, pressed easily (PL-055) */
+const LINK_HIT = 24;
 /** The grip at each end of a bar, for stretching it. */
 const GRIP = 10;
 /** A press that moves this far is a drag, not a tap. */
@@ -53,6 +68,22 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
   const [drag, setDrag] = useState<{ id: Id; part: 'move' | 'start' | 'end'; days: number } | null>(
     null,
   );
+  // A blocked-by link being drawn from a bar's handle (PL-055): where the pointer is, in the
+  // drawing's pixels, and the bar under it (refused when linking would make a loop).
+  const [linking, setLinking] = useState<{
+    from: Id;
+    x: number;
+    y: number;
+    target: Id | null;
+    refused: boolean;
+  } | null>(null);
+  const drawing = useRef<HTMLDivElement>(null);
+  // Ends a link being drawn: Escape, or the timeline going away mid-drag (a later let-go then
+  // links nothing).
+  const cancelLink = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelLink.current?.(), []);
+  const theme = useTheme();
+  const markers = useId();
 
   const dated = tasks.filter((task) => task.schedule);
   const undated = tasks.filter((task) => !task.schedule);
@@ -176,6 +207,85 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
     return barOf(next) ?? bar;
   };
 
+  const geometry = { origin: from, day, row: ROW, header: HEADER, inset: INSET, side: SIDE };
+  const barById = new Map(bars.map((bar) => [bar.id, bar]));
+  const boxOf = (id: Id) => {
+    const bar = shown(barById.get(id)!);
+    return barBox(bar, rows.get(id)!, geometry);
+  };
+  /** A task as it shows, with a drag in progress applied (for the arrows' colour). */
+  const current = (task: Task): Task =>
+    drag?.id === task.id && task.schedule
+      ? { ...task, schedule: draggedSchedule(task.schedule, drag.part, drag.days) }
+      : task;
+  const zone = localTimeZone();
+  // Arrows between bars both on this timeline; a blocker elsewhere shows in the task's details.
+  const links = dated.flatMap((waiting) =>
+    blockersOf(workspace, waiting)
+      .shown.filter((blocker) => barById.has(blocker.id) && barById.has(waiting.id))
+      .map((blocker) => ({
+        blocker,
+        waiting,
+        late: warns(current(waiting), current(blocker), zone),
+      })),
+  );
+  const grey = theme.palette.text.disabled;
+  const red = theme.palette.error.main;
+
+  /** Draw a link from a bar's handle to the bar it is dropped on, which then waits on this one. */
+  const startLink = (event: React.PointerEvent<HTMLElement>, fromId: Id) => {
+    // Mouse and pen: a finger has the hold to move, and the task menu and details to link.
+    if (event.button !== 0 || event.pointerType === 'touch') return;
+    event.stopPropagation();
+    event.preventDefault();
+    const pointer = event.pointerId;
+    const blocker = byId.get(fromId);
+    const at = (next: PointerEvent) => {
+      const box = drawing.current?.getBoundingClientRect();
+      const hit = document.elementFromPoint?.(next.clientX, next.clientY);
+      const onBar = hit?.closest<HTMLElement>('[data-timeline-bar]')?.dataset.timelineBar ?? null;
+      const target = onBar && onBar !== fromId ? onBar : null;
+      return {
+        from: fromId,
+        x: next.clientX - (box?.left ?? 0),
+        y: next.clientY - (box?.top ?? 0),
+        target,
+        refused: target !== null && wouldLoop(workspace, target, fromId),
+      };
+    };
+    const move = (next: PointerEvent) => {
+      if (next.pointerId === pointer) setLinking(at(next));
+    };
+    const escape = (key: KeyboardEvent) => {
+      if (key.key === 'Escape') finish();
+    };
+    const finish = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', finish);
+      window.removeEventListener('keydown', escape);
+      cancelLink.current = null;
+      setLinking(null);
+    };
+    const up = (next: PointerEvent) => {
+      if (next.pointerId !== pointer) return;
+      const { target, refused } = at(next);
+      finish();
+      const waiting = target ? byId.get(target) : undefined;
+      if (!waiting || refused || !blocker || waiting.blockedBy[fromId]?.in === true) return;
+      apply(
+        (ctx, ws) => addBlocker(ctx, ws, waiting.id, fromId),
+        t('undo.blocked', { title: blocker.title || t('task.untitled') }),
+      );
+    };
+    setLinking(at(event.nativeEvent));
+    cancelLink.current = finish;
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', finish);
+    window.addEventListener('keydown', escape);
+  };
+
   const zoom = (by: 1 | -1) => {
     const index = DAY_WIDTHS.indexOf(day as (typeof DAY_WIDTHS)[number]);
     const next =
@@ -245,7 +355,10 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
           overscrollBehaviorX: 'contain',
         }}
       >
-        <Box sx={{ position: 'relative', width: count * day, height: HEADER + rowCount * ROW + 8 }}>
+        <Box
+          ref={drawing}
+          sx={{ position: 'relative', width: count * day, height: HEADER + rowCount * ROW + 8 }}
+        >
           {/* Days, with weekends shaded and today marked. */}
           {days.map((each, index) => {
             const weekend = [0, 6].includes(at(each).getUTCDay());
@@ -338,6 +451,68 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
               zIndex: 1,
             }}
           />
+          {/* Blocked-by arrows (PL-055), under the bars: red where a task starts before its blocker
+              ends. Drawn from the bars as they show, so they follow a drag. */}
+          <Box
+            component="svg"
+            aria-hidden
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: count * day,
+              height: HEADER + rowCount * ROW + 8,
+              overflow: 'visible',
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          >
+            <defs>
+              {(
+                [
+                  ['grey', grey],
+                  ['red', red],
+                ] as const
+              ).map(([name, color]) => (
+                <marker
+                  key={name}
+                  id={`${markers}-${name}`}
+                  viewBox="0 0 6 6"
+                  refX="5"
+                  refY="3"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto"
+                >
+                  <path d="M 0 0 L 6 3 L 0 6 z" fill={color} />
+                </marker>
+              ))}
+            </defs>
+            {links.map(({ blocker, waiting, late }) => (
+              <path
+                key={`${blocker.id}-${waiting.id}`}
+                data-timeline-link={`${blocker.id} ${waiting.id}`}
+                data-late={late ? 'true' : undefined}
+                d={linkPath(boxOf(blocker.id), boxOf(waiting.id), ROW)}
+                fill="none"
+                stroke={late ? red : grey}
+                strokeWidth={late ? 2 : 1.5}
+                markerEnd={`url(#${markers}-${late ? 'red' : 'grey'})`}
+              />
+            ))}
+            {linking && barById.has(linking.from) && (
+              <line
+                data-timeline-linking
+                x1={boxOf(linking.from).right}
+                y1={boxOf(linking.from).y}
+                x2={linking.x}
+                y2={linking.y}
+                stroke={linking.refused ? red : theme.palette.text.secondary}
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+              />
+            )}
+          </Box>
           {bars.map((original) => {
             const bar = shown(original);
             const task = byId.get(bar.id)!;
@@ -346,6 +521,7 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
             const color = colorOf(task);
             const title = task.title || t('task.untitled');
             const dragging = drag?.id === bar.id;
+            const target = linking?.target === bar.id;
             return (
               <Box
                 key={bar.id}
@@ -369,26 +545,49 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
                   bgcolor: `${color}`,
                   color: 'rgba(0, 0, 0, 0.78)',
                   boxShadow: dragging ? 6 : 0,
-                  zIndex: dragging ? 3 : 2,
+                  zIndex: dragging || linking?.from === bar.id ? 3 : 2,
+                  // The bar a link is dropped on: outlined, red when the link would make a loop.
+                  ...(target && {
+                    outline: 2,
+                    outlineOffset: 2,
+                    outlineColor: linking.refused ? 'error.main' : 'primary.main',
+                  }),
                   display: 'flex',
                   alignItems: 'center',
                   px: 1,
                   fontSize: 13,
                   fontWeight: 600,
                   whiteSpace: 'nowrap',
-                  overflow: prefs.fit ? 'hidden' : 'visible',
-                  textOverflow: 'ellipsis',
-                  cursor: canEdit ? 'grab' : 'pointer',
+                  // Visible always: the link handle sits past the bar's end. A fitted title is cut
+                  // short by its own span.
+                  overflow: 'visible',
+                  // Under a link being drawn: whether it can be dropped here (QA: grab won before).
+                  cursor: target
+                    ? linking?.refused
+                      ? 'not-allowed'
+                      : 'copy'
+                    : canEdit
+                      ? 'grab'
+                      : 'pointer',
                   // A finger scrolls across bars too; holding one picks it up.
                   touchAction: drag?.id === bar.id ? 'none' : 'pan-x pan-y',
                   WebkitTouchCallout: 'none',
                   userSelect: 'none',
                   '&:focus-visible': { outline: 2, outlineColor: 'primary.main' },
+                  // The link handle shows on a hovered or focused bar (and the one being linked from).
+                  '&:hover [data-timeline-link-handle], &:focus-visible [data-timeline-link-handle]':
+                    {
+                      opacity: 1,
+                      pointerEvents: 'auto',
+                    },
                 }}
               >
                 {/* A title too long for its bar: inside when fitted (cut short), else beside it. */}
                 {prefs.fit || title.length * 7.5 + 16 <= width - 4 ? (
-                  <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <Box
+                    component="span"
+                    sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  >
                     {title}
                   </Box>
                 ) : (
@@ -425,6 +624,39 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
                       }}
                     />
                   ))}
+                {canEdit && (
+                  <Box
+                    aria-hidden
+                    data-timeline-link-handle={bar.id}
+                    title={t('timeline.linkHandle')}
+                    onPointerDown={(event) => startLink(event, bar.id)}
+                    sx={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '100%',
+                      width: LINK_HIT,
+                      height: LINK_HIT,
+                      transform: 'translate(2px, -50%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'crosshair',
+                      opacity: linking?.from === bar.id ? 1 : 0,
+                      pointerEvents: 'none',
+                      // No hover on touch screens: no handle there.
+                      '@media (hover: none)': { display: 'none' },
+                      '&::after': {
+                        content: '""',
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        bgcolor: 'background.paper',
+                        border: 2,
+                        borderColor: 'text.secondary',
+                      },
+                    }}
+                  />
+                )}
               </Box>
             );
           })}

@@ -2079,6 +2079,7 @@
   "timeline.rows.each": "Eine pro Aufgabe",
   "timeline.rows.fit": "Zusammengefasst",
   "timeline.bar": "{title} öffnen",
+  "timeline.linkHandle": "Auf eine Aufgabe ziehen, die auf diese wartet",
   "timeline.empty": "Noch keine Aufgaben mit Datum: Gib einer Aufgabe ein Datum, um sie hier zu sehen.",
   "timeline.undated": "Kein Datum",
   "photo.title": "Profilfoto",

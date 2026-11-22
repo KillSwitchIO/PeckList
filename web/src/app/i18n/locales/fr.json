@@ -2079,6 +2079,7 @@
   "timeline.rows.each": "Une par tâche",
   "timeline.rows.fit": "Regroupées",
   "timeline.bar": "Ouvrir {title}",
+  "timeline.linkHandle": "Faire glisser sur une tâche qui attend celle-ci",
   "timeline.empty": "Aucune tâche datée pour l’instant : donnez une date à une tâche pour la voir ici.",
   "timeline.undated": "Aucune date",
   "photo.title": "Photo de profil",

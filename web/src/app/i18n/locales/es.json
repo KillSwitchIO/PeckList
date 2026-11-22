@@ -2079,6 +2079,7 @@
   "timeline.rows.each": "Una por tarea",
   "timeline.rows.fit": "Agrupadas",
   "timeline.bar": "Abrir {title}",
+  "timeline.linkHandle": "Arrastra a una tarea que espera a esta",
   "timeline.empty": "Aún no hay tareas con fecha: ponle una fecha a una tarea para verla aquí.",
   "timeline.undated": "Sin fecha",
   "photo.title": "Foto de perfil",

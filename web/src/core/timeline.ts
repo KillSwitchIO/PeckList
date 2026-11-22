@@ -90,3 +90,49 @@ function withEnd(schedule: Schedule, end: string): Schedule {
   const oneDay = schedule.allDay && datePart(end) === datePart(schedule.start);
   return { ...schedule, end: oneDay ? null : end };
 }
+
+/** Where a bar sits on the drawing, in pixels: its left and right edges and its middle row line. */
+export interface BarBox {
+  left: number;
+  right: number;
+  y: number;
+}
+
+/** The sizes the timeline draws with. */
+export interface TimelineGeometry {
+  /** First day drawn */
+  origin: string;
+  /** Width of one day */
+  day: number;
+  /** Height of one row, and the room above the first one */
+  row: number;
+  header: number;
+  /** Room left between a bar and its row's edges, and between a bar and its day's edges */
+  inset: number;
+  side: number;
+}
+
+/** A bar's box on the drawing (the same sums the bars are placed with). */
+export function barBox(bar: Bar, rowIndex: number, geometry: TimelineGeometry): BarBox {
+  const { origin, day, row, header, inset, side } = geometry;
+  const left = daysBetween(origin, bar.from) * day + side;
+  const width = (daysBetween(bar.from, bar.to) + 1) * day - side * 2;
+  return { left, right: left + width, y: header + inset + rowIndex * row + (row - inset * 2) / 2 };
+}
+
+/**
+ * The arrow for a blocked-by link (PL-055): out of the end of the blocker's bar, into the start of
+ * the bar waiting on it. Room to go straight: out, down to the row, in. No room (the waiting task
+ * starts before the blocker ends, or just after): out, down half a row, back left past the start,
+ * then down and in, so the arrow never runs across the bars it joins.
+ */
+export function linkPath(from: BarBox, to: BarBox, row: number, gap = 8): string {
+  const out = from.right + gap;
+  if (to.left - gap >= out) {
+    const turn = Math.max(out, to.left - gap);
+    return `M ${from.right} ${from.y} H ${turn} V ${to.y} H ${to.left}`;
+  }
+  const between = from.y + (to.y >= from.y ? row / 2 : -row / 2);
+  const back = to.left - gap;
+  return `M ${from.right} ${from.y} H ${out} V ${between} H ${back} V ${to.y} H ${to.left}`;
+}
