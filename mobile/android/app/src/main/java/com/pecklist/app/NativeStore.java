@@ -114,6 +114,52 @@ final class NativeStore {
         return new Page(header, rows, more ? last : null);
     }
 
+    /**
+     * The whole workspace as one JSON text (api 18, PL-149): {"header": the header or null when
+     * nothing is saved, "rows": [["collection/id", entity], ...] in key order}. Each stored JSON text
+     * goes in as it is, not quoted again, so the page parses it all once ({@link WholeStoreRead}).
+     * Written straight out as UTF-8, so it is held once as text rather than as chars, a String and
+     * then bytes. The header and the rows are two reads with no transaction around them: what keeps
+     * a save from landing between them is that every store call, this one too, runs in turn on
+     * {@code ShellPlugin.storeCalls}.
+     */
+    byte[] whole(String ns) {
+        SQLiteDatabase db = helper.getReadableDatabase();
+        String header = header(db, ns);
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream(64 * 1024);
+        java.io.PrintWriter out = new java.io.PrintWriter(new java.io.BufferedWriter(
+            new java.io.OutputStreamWriter(bytes, java.nio.charset.StandardCharsets.UTF_8)));
+        out.append("{\"header\":").append(header == null ? "null" : header).append(",\"rows\":[");
+        if (header != null) {
+            boolean first = true;
+            try (Cursor cursor = db.query("entities", new String[] { "key", "json" }, "ns = ?", new String[] { ns },
+                null, null, "key")) {
+                while (cursor.moveToNext()) {
+                    if (!first) out.append(',');
+                    first = false;
+                    out.append('[');
+                    quote(out, cursor.getString(0)).append(',')
+                        .append(cursor.getString(1)).append(']');
+                }
+            }
+        }
+        out.append("]}");
+        out.flush();
+        return bytes.toByteArray();
+    }
+
+    /** A key as a JSON string ({@code collection/id}, so nothing to escape in practice, but safe). */
+    private static java.io.PrintWriter quote(java.io.PrintWriter out, String text) {
+        out.append('"');
+        for (int index = 0; index < text.length(); index++) {
+            char c = text.charAt(index);
+            if (c == '"' || c == '\\') out.append('\\').append(c);
+            else if (c < 0x20) out.append(String.format("\\u%04x", (int) c));
+            else out.append(c);
+        }
+        return out.append('"');
+    }
+
     private static String header(SQLiteDatabase db, String ns) {
         try (Cursor cursor = db.query("doc", new String[] { "header" }, "ns = ?", new String[] { ns }, null, null, null)) {
             return cursor.moveToFirst() ? cursor.getString(0) : null;

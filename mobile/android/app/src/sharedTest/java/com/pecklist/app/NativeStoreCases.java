@@ -158,6 +158,39 @@ public abstract class NativeStoreCases {
     }
 
     @Test
+    public void readsTheWholeStoreAsOneJsonTextWithEachRowAsSaved() throws Exception {
+        assertEquals("{\"header\":null,\"rows\":[]}", whole(A));
+        store.save(A, save("{\"doc\":{\"v\":1},\"order\":{}}", "tasks/B", "{\"id\":\"B\",\"t\":\"say \\\"hi\\\" é\"}",
+            "lists/A", "{\"id\":\"A\"}"));
+        store.save(B, save("{\"other\":true}", "tasks/C", "{\"id\":\"C\"}"));
+        String text = whole(A);
+        assertEquals("{\"header\":{\"doc\":{\"v\":1},\"order\":{}},\"rows\":[[\"lists/A\",{\"id\":\"A\"}],"
+            + "[\"tasks/B\",{\"id\":\"B\",\"t\":\"say \\\"hi\\\" é\"}]]}", text);
+        org.json.JSONObject parsed = new org.json.JSONObject(text);
+        assertEquals("say \"hi\" é", parsed.getJSONArray("rows").getJSONArray(1).getJSONObject(1).getString("t"));
+        assertEquals("{\"header\":{\"other\":true},\"rows\":[[\"tasks/C\",{\"id\":\"C\"}]]}", whole(B));
+        store.clear(A);
+        assertEquals("{\"header\":null,\"rows\":[]}", whole(A));
+    }
+
+    @Test
+    public void readsTenMegabytesWholeInOneText() throws Exception {
+        char[] filler = new char[2000];
+        Arrays.fill(filler, 'x');
+        String body = "\"" + new String(filler) + "\"";
+        NativeStore.Save big = save("{\"h\":1}");
+        for (int index = 0; index < 5000; index++) big.puts.add(new String[] { String.format("tasks/%05d", index), body });
+        store.save(A, big);
+        org.json.JSONObject parsed = new org.json.JSONObject(whole(A));
+        assertEquals(5000, parsed.getJSONArray("rows").length());
+        assertEquals("tasks/04999", parsed.getJSONArray("rows").getJSONArray(4999).getString(0));
+    }
+
+    private String whole(String ns) {
+        return new String(store.whole(ns), java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    @Test
     public void loadsTenMegabytesInPages() throws Exception {
         char[] filler = new char[2000];
         Arrays.fill(filler, 'x');

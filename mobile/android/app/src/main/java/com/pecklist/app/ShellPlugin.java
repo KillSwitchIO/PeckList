@@ -42,9 +42,10 @@ public class ShellPlugin extends Plugin {
      * 10 brought both notification channels and scheduleReminders' keep (they shipped together in
      * 0.14.0, so a shell at 10 has both), 11 setShortcuts and showKeyboard, 12 setWidgetTasks, 13
      * takeAddText, 14 saveSignIn, 15 setLanguage, 16 the native store (storeLoad and the rest), 17
-     * setClock. The next method is 18.
+     * setClock, 18 the whole store in one read (WholeStoreRead, not a plugin method). The next
+     * method is 19.
      */
-    private static final int API = 17;
+    private static final int API = 18;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -569,6 +570,22 @@ public class ShellPlugin extends Plugin {
                 call.reject("storage failed: " + failed.getMessage(), "failed", failed);
             }
         });
+    }
+
+    /**
+     * Api 18: the whole native store for a page on {@code origin} ({@link NativeStore#whole}), or
+     * null to refuse it. Read on {@link #storeCalls} in turn with the page's other store calls, so it
+     * sees every save before it, and against the WebView's address as it is handled, as they are.
+     * Called by {@link ShellWebViewClient} off the UI thread.
+     */
+    byte[] wholeStore(String origin) throws Exception {
+        return storeCalls.submit(() -> {
+            String ns = NativeStore.namespace(origin, currentUrl(), getBridge().getLocalUrl(),
+                ServerChoice.get(getContext()));
+            if (ns == null) return null;
+            if (nativeStore == null) nativeStore = new NativeStore(getContext());
+            return nativeStore.whole(ns);
+        }).get(30, java.util.concurrent.TimeUnit.SECONDS);
     }
 
     /**

@@ -16,6 +16,7 @@ import type {
   ShellUsage,
   StorePage,
   StoreSave,
+  StoreWhole,
   WidgetFeed,
 } from '../ports/nativeShell.ts';
 import type { ServerInfo } from '../ports/sync.ts';
@@ -77,13 +78,66 @@ export function storePage(answer: unknown): StorePage {
 }
 
 /**
+ * Api 18: the whole native store in one read, a GET on the page's own origin that the shell answers
+ * itself (ShellWebViewClient), rows and all as one JSON text: no bridge message, no JSON inside
+ * JSON, which made a cold start on Android wait seconds (PL-149). The header asks for it; a page on
+ * another origin cannot send it without asking first, and the shell answers nothing to that.
+ */
+export const WHOLE_STORE_API = 18;
+export const WHOLE_STORE_PATH = '/__pecklist/native-store';
+export const WHOLE_STORE_HEADER = 'X-PeckList-Store';
+
+const isRow = (row: unknown): row is [string, unknown] =>
+  Array.isArray(row) && row.length === 2 && typeof row[0] === 'string' && isObject(row[1]);
+const isObject = (value: unknown) => typeof value === 'object' && value !== null;
+
+/**
+ * The shell's answer to the whole read: null when it is not the shell's (no read to be had, so
+ * pages instead); anything else unreadable is an error, not an empty store.
+ */
+export async function storeWhole(answer: Response): Promise<StoreWhole | null> {
+  if (answer.status !== 200 || answer.headers.get(WHOLE_STORE_HEADER) !== '1') return null;
+  const body = (await answer.json()) as { header?: unknown; rows?: unknown } | null;
+  const header = body?.header ?? null;
+  if (
+    (header !== null && !isObject(header)) ||
+    !Array.isArray(body?.rows) ||
+    !body.rows.every(isRow)
+  ) {
+    throw new Error('the native store answered with something unreadable');
+  }
+  return { header, rows: body.rows };
+}
+
+/**
  * Android's own storage (api 16), for the origin this page is on: every call says it, and the shell
  * refuses one that arrives once the WebView is somewhere else (PL-070).
  */
-function nativeStoreCalls(plugin: ShellPlugin): NativeStoreCalls {
+export function nativeStoreCalls(plugin: ShellPlugin): NativeStoreCalls {
   // Read as each call is made, never kept: it is what the shell checks against the WebView.
   const origin = () => location.origin;
+  let api: Promise<number> | null = null;
   return {
+    whole: async () => {
+      // No whole read to be had (an older shell, or info or the fetch failing: offline, or a
+      // service worker passing the request on to a server that is not there) means pages, never a
+      // failed load. A failed info() is not kept, so the next load asks again.
+      let answer: Response;
+      try {
+        api ??= plugin.info().then((info) => shellInfo(info).api);
+        if ((await api) < WHOLE_STORE_API) return null;
+        answer = await fetch(WHOLE_STORE_PATH, {
+          headers: { [WHOLE_STORE_HEADER]: '1' },
+          cache: 'no-store',
+          credentials: 'omit',
+        });
+      } catch {
+        api = null;
+        return null;
+      }
+      // The shell's own answer that does not read is an error, not an empty store.
+      return storeWhole(answer);
+    },
     load: async (after, budget) =>
       storePage(
         await plugin.storeLoad({

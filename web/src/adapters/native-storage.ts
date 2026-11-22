@@ -81,14 +81,47 @@ export function createNativeStorage(
     });
   };
 
+  /** The workspace from its header and entities by key, now held as last read; null when none is saved. */
+  const opened = (header: Header | null, byKey: Map<string, unknown>): WorkspaceFile | null => {
+    if (header === null) {
+      held = null;
+      return null;
+    }
+    const entities: Record<string, unknown[]> = {};
+    const placed = new Set<string>();
+    for (const collection of COLLECTIONS) {
+      const list: unknown[] = [];
+      for (const id of header.order[collection] ?? []) {
+        const key = keyOf(collection, id);
+        const entity = byKey.get(key);
+        if (entity !== undefined) {
+          list.push(entity);
+          placed.add(key);
+        }
+      }
+      entities[collection] = list;
+    }
+    // Anything the order does not name (it should not happen) still comes back.
+    for (const [key, entity] of byKey) {
+      if (placed.has(key)) continue;
+      const collection = key.slice(0, key.indexOf('/'));
+      (entities[collection] ??= []).push(entity);
+    }
+    held = { entities: byKey, header: JSON.stringify(header.doc), order: header.order };
+    return { ...header.doc, entities } as unknown as WorkspaceFile;
+  };
+
   return {
     kind: 'native',
     async load() {
-      const first = await store.load(null);
-      if (first.header === null) {
-        held = null;
-        return null;
+      // One read where the shell has it (api 18), else page by page.
+      const whole = await store.whole();
+      if (whole) {
+        if (whole.header === null) return opened(null, new Map());
+        return opened(whole.header as Header, new Map(whole.rows));
       }
+      const first = await store.load(null);
+      if (first.header === null) return opened(null, new Map());
       const header = JSON.parse(first.header) as Header;
       const byKey = new Map<string, unknown>();
       let page = first;
@@ -97,28 +130,7 @@ export function createNativeStorage(
         if (page.next === null) break;
         page = await store.load(page.next);
       }
-      const entities: Record<string, unknown[]> = {};
-      const placed = new Set<string>();
-      for (const collection of COLLECTIONS) {
-        const list: unknown[] = [];
-        for (const id of header.order[collection] ?? []) {
-          const key = keyOf(collection, id);
-          const entity = byKey.get(key);
-          if (entity !== undefined) {
-            list.push(entity);
-            placed.add(key);
-          }
-        }
-        entities[collection] = list;
-      }
-      // Anything the order does not name (it should not happen) still comes back.
-      for (const [key, entity] of byKey) {
-        if (placed.has(key)) continue;
-        const collection = key.slice(0, key.indexOf('/'));
-        (entities[collection] ??= []).push(entity);
-      }
-      held = { entities: byKey, header: JSON.stringify(header.doc), order: header.order };
-      return { ...header.doc, entities } as unknown as WorkspaceFile;
+      return opened(header, byKey);
     },
     async save(workspace: WorkspaceFile) {
       const { entities, ...doc } = workspace;

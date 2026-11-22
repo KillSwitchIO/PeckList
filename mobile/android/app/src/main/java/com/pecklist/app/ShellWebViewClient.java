@@ -24,11 +24,13 @@ class ShellWebViewClient extends BridgeWebViewClient {
 
     private final Context context;
     private final Activity activity;
+    private final Bridge shellBridge;
 
     ShellWebViewClient(Bridge bridge) {
         super(bridge);
         this.context = bridge.getContext();
         this.activity = bridge.getActivity();
+        this.shellBridge = bridge;
     }
 
     /**
@@ -43,7 +45,24 @@ class ShellWebViewClient extends BridgeWebViewClient {
             return new WebResourceResponse("text/plain", "utf-8", 403, "Forbidden", null,
                 new java.io.ByteArrayInputStream(new byte[0]));
         }
+        if (WholeStoreRead.asks(request.getMethod(), url.getPath(), request.getRequestHeaders())) {
+            String origin = url.getScheme() + "://" + url.getEncodedAuthority();
+            if (WholeStoreRead.fromElsewhere(request.getRequestHeaders(), origin)) return WholeStoreRead.answer(null, false);
+            return wholeStore(origin);
+        }
         return super.shouldInterceptRequest(view, request);
+    }
+
+    /** The page's whole native store (api 18, {@link WholeStoreRead}), for a page on {@code origin}. */
+    private WebResourceResponse wholeStore(String origin) {
+        try {
+            com.getcapacitor.PluginHandle handle = shellBridge.getPlugin("PeckListShell");
+            if (handle == null) return WholeStoreRead.answer(null, false);
+            return WholeStoreRead.answer(((ShellPlugin) handle.getInstance()).wholeStore(origin), false);
+        } catch (Exception failed) {
+            Logger.error("The whole native store could not be read", failed);
+            return WholeStoreRead.answer(null, true);
+        }
     }
 
     /** The server (or its proxy) wants a client certificate: mutual TLS (R-FB-158). */

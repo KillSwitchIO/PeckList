@@ -184,6 +184,10 @@ describe('moving the Android app’s data to its own storage (PL-070)', () => {
         const page = await real.load(after, budget);
         return { ...page, rows: page.rows.slice(1) };
       },
+      whole: async () => {
+        const all = await real.whole();
+        return all && { ...all, rows: all.rows.slice(1) };
+      },
     };
     expect(await moveToNative(lossy)).toBeNull();
     expect(device.peek().entities.size).toBe(0);
