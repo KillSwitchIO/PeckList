@@ -962,7 +962,9 @@ describe('phone', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Edit sidebar' }));
     // One list: the rows themselves say whether they are on the bar.
     expect(screen.queryByRole('list', { name: 'Bottom bar' })).toBeNull();
-    const calendar = screen.getByRole('button', { name: 'Remove Calendar from the bottom bar' });
+    const calendar = screen.getByRole('button', {
+      name: 'Calendar, tab 3 on the bottom bar: change the order',
+    });
     expect(calendar).toHaveAttribute('aria-pressed', 'true');
     // Full: a tap on another says so and adds nothing.
     const upcoming = screen.getByRole('button', { name: 'Add Upcoming to the bottom bar' });
@@ -972,7 +974,13 @@ describe('phone', () => {
     expect(screen.getAllByRole('status').map((status) => status.textContent)).toContain(full);
     expect(await screen.findByRole('tooltip')).toHaveTextContent(full);
     expect(upcoming).toHaveAttribute('aria-pressed', 'false');
+    // A tab comes off in the bar's order, opened from its numbered button (PL-149).
     await userEvent.click(calendar);
+    const order = await screen.findByRole('dialog', { name: 'Bottom bar order' });
+    await userEvent.click(
+      within(order).getByRole('button', { name: 'Remove Calendar from the bottom bar' }),
+    );
+    await userEvent.click(within(order).getByRole('button', { name: 'Done' }));
     await userEvent.click(screen.getByRole('button', { name: 'Add Due dates to the bottom bar' }));
     // Nothing changes until Done.
     expect(tabs()).toContain('Calendar');

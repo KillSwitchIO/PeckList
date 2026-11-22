@@ -3,20 +3,23 @@ import { useEffect, useRef, useState } from 'react';
 import { MAX_TABS, toggleTab } from '../../core/bottomBar.ts';
 import { t } from '../i18n/i18n.ts';
 import { BottomBarIcon } from '../icons/icons.tsx';
+import { BarOrderPopover } from './BarOrderPopover.tsx';
 import { useSidebarEdit } from './sidebarEditContext.ts';
 
 /** How long "the bar is full" stays up after a tap. */
 const FULL_NOTICE_MS = 3000;
 
 /**
- * On a row of the More page's editor: puts the row on the phone's bottom bar or takes it off. On
- * the bar it is filled and shows which tab it is; tabs go on in the order they are added. On a
- * full bar a tap says so and changes nothing.
+ * On a row of the More page's editor: puts the row on the phone's bottom bar. On the bar it is
+ * filled and shows which tab it is, and a tap opens the bar's order (PL-149, Ben): there the tabs
+ * are put in order and taken off, with a preview, until Done. On a full bar a tap on a row not on
+ * it says so and changes nothing.
  */
 export function BarButton({ id, name }: { id: string; name: string }) {
   const edit = useSidebarEdit();
   const [hover, setHover] = useState(false);
   const [fullShown, setFullShown] = useState(false);
+  const [ordering, setOrdering] = useState<HTMLElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
   if (!edit.editing || !edit.editsBar) return null;
@@ -43,11 +46,21 @@ export function BarButton({ id, name }: { id: string; name: string }) {
         <IconButton
           size="small"
           aria-pressed={on}
-          aria-label={t(on ? 'bottomBar.remove' : 'bottomBar.addNamed', { name })}
+          aria-label={
+            on
+              ? t('bottomBar.orderNamed', { name, slot: at + 1 })
+              : t('bottomBar.addNamed', { name })
+          }
+          {...(on ? { 'aria-haspopup': 'dialog' as const } : {})}
           {...(full ? { 'aria-disabled': true } : {})}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
+            if (on) {
+              setHover(false);
+              setOrdering(event.currentTarget);
+              return;
+            }
             if (full) {
               setFullShown(true);
               clearTimeout(timer.current);
@@ -61,6 +74,18 @@ export function BarButton({ id, name }: { id: string; name: string }) {
           <BottomBarIcon fontSize="small" tab={on ? at + 1 : undefined} />
         </IconButton>
       </Tooltip>
+      {ordering && (
+        <BarOrderPopover
+          anchor={ordering}
+          tabs={tabs}
+          current={id}
+          onClose={() => setOrdering(null)}
+          onDone={(next) => {
+            setOrdering(null);
+            edit.update((draft) => ({ ...draft, bottomBar: next }));
+          }}
+        />
+      )}
       {/* Read out when a tap finds the bar full. */}
       <Box component="span" role="status" sx={visuallyHidden}>
         {fullShown ? fullText : ''}

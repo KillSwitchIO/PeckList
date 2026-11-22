@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setBottomBar } from '../../core/bottomBar.ts';
@@ -44,14 +44,22 @@ describe('lists and tags on the bottom bar (R-FB-164)', () => {
     // The Mess Drawer is offered once, as the view it is, and it is on the bar already.
     expect(screen.queryByRole('button', { name: 'Add Mess Drawer to the bottom bar' })).toBeNull();
     expect(
-      screen.getAllByRole('button', { name: 'Remove Mess Drawer from the bottom bar' }),
+      screen.getAllByRole('button', {
+        name: 'Mess Drawer, tab 2 on the bottom bar: change the order',
+      }),
     ).toHaveLength(1);
 
+    // A numbered button opens the bar's order, where tabs come off too (PL-149).
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Calendar, tab 3 on the bottom bar: change the order' }),
+    );
+    const order = await screen.findByRole('dialog', { name: 'Bottom bar order' });
     for (const name of ['Calendar', 'Search']) {
       await userEvent.click(
-        screen.getByRole('button', { name: `Remove ${name} from the bottom bar` }),
+        within(order).getByRole('button', { name: `Remove ${name} from the bottom bar` }),
       );
     }
+    await userEvent.click(within(order).getByRole('button', { name: 'Done' }));
     // Taken out, Search is offered once, on its own row.
     expect(screen.getAllByRole('button', { name: 'Add Search to the bottom bar' })).toHaveLength(1);
     await userEvent.click(
@@ -62,11 +70,13 @@ describe('lists and tags on the bottom bar (R-FB-164)', () => {
     // A tag is named in full here, where two of the same last name can be told apart.
     await userEvent.click(screen.getByRole('button', { name: 'Add home/beds to the bottom bar' }));
     // On the bar, each row shows which tab it is: they go on in the order they were added.
-    const beds = screen.getByRole('button', { name: 'Remove home/beds from the bottom bar' });
+    const beds = screen.getByRole('button', {
+      name: 'home/beds, tab 4 on the bottom bar: change the order',
+    });
     expect(beds).toHaveAttribute('aria-pressed', 'true');
     expect(beds).toHaveTextContent('4');
     expect(
-      screen.getByRole('button', { name: 'Remove Garden from the bottom bar' }),
+      screen.getByRole('button', { name: 'Garden, tab 3 on the bottom bar: change the order' }),
     ).toHaveTextContent('3');
     await userEvent.click(
       within(screen.getByRole('toolbar', { name: 'Edit sidebar' })).getByRole('button', {
@@ -89,6 +99,85 @@ describe('lists and tags on the bottom bar (R-FB-164)', () => {
     await userEvent.click(within(bar()).getByRole('button', { name: 'beds' }));
     expect(within(bar()).getByRole('button', { name: 'beds' })).toHaveClass('Mui-selected');
     expect(within(bar()).getByRole('button', { name: 'Garden' })).not.toHaveClass('Mui-selected');
+  });
+
+  it('are put in order in a popup from a numbered button, with a preview, on Done (PL-149)', async () => {
+    const { store } = await withGarden('/more');
+    await userEvent.click(screen.getByRole('button', { name: 'Edit sidebar' }));
+    const openOrder = async () => {
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Search, tab 4 on the bottom bar: change the order' }),
+      );
+      return screen.findByRole('dialog', { name: 'Bottom bar order' });
+    };
+    const preview = (order: HTMLElement) =>
+      within(within(order).getByRole('group', { name: 'How the bar will look' }))
+        .getAllByText(/./)
+        .map((label) => label.textContent);
+
+    // Cancel changes nothing.
+    let order = await openOrder();
+    expect(preview(order)).toEqual(['Today', 'Mess Drawer', 'Calendar', 'Search', 'More']);
+    within(order)
+      .getByRole('button', { name: 'Move Search: drag, or use the up and down arrow keys' })
+      .focus();
+    await userEvent.keyboard('{ArrowUp}{ArrowUp}{ArrowUp}');
+    expect(preview(order)).toEqual(['Search', 'Today', 'Mess Drawer', 'Calendar', 'More']);
+    await userEvent.click(within(order).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(
+      screen.getByRole('button', { name: 'Search, tab 4 on the bottom bar: change the order' }),
+    ).toBeInTheDocument();
+
+    // Done puts the order in the edit, and the editor's Done saves it.
+    order = await openOrder();
+    within(order)
+      .getByRole('button', { name: 'Move Search: drag, or use the up and down arrow keys' })
+      .focus();
+    await userEvent.keyboard('{ArrowUp}');
+    await userEvent.click(within(order).getByRole('button', { name: 'Done' }));
+    expect(
+      screen.getByRole('button', { name: 'Search, tab 3 on the bottom bar: change the order' }),
+    ).toHaveTextContent('3');
+    await userEvent.click(
+      within(screen.getByRole('toolbar', { name: 'Edit sidebar' })).getByRole('button', {
+        name: 'Done',
+      }),
+    );
+    expect(tabs()).toEqual(['Today', 'Mess Drawer', 'Search', 'Calendar', 'More']);
+    expect(store.getState().workspace!.entities.settings[0]!.bottomBar).toEqual([
+      'today',
+      'inbox',
+      'search',
+      'calendar',
+    ]);
+  });
+
+  it('move the tab asked for in the order popup when a list on the bar goes meanwhile', async () => {
+    const { store, listId } = await withGarden('/more');
+    act(() =>
+      store
+        .getState()
+        .apply((ctx, ws) =>
+          setBottomBar(ctx, ws, ['today', `list:${listId}`, 'calendar', 'search']),
+        ),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Edit sidebar' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Search, tab 4 on the bottom bar: change the order' }),
+    );
+    const order = await screen.findByRole('dialog', { name: 'Bottom bar order' });
+    // Deleted on another device while the popup is open: its row goes, the others move up.
+    act(() => store.getState().apply((ctx, ws) => deleteList(ctx, ws, listId)));
+    within(order)
+      .getByRole('button', { name: 'Move Search: drag, or use the up and down arrow keys' })
+      .focus();
+    await userEvent.keyboard('{ArrowUp}');
+    expect(
+      within(within(order).getByRole('group', { name: 'How the bar will look' }))
+        .getAllByText(/./)
+        .map((label) => label.textContent),
+    ).toEqual(['Today', 'Search', 'Calendar', 'More']);
   });
 
   it('follow a rename, and a deleted list leaves until it is restored', async () => {
@@ -116,8 +205,6 @@ describe('lists and tags on the bottom bar (R-FB-164)', () => {
     fireEvent.contextMenu(within(nav).getByText('Calendar'));
     expect(within(nav).getByRole('toolbar', { name: 'Edit sidebar' })).toBeInTheDocument();
     expect(within(nav).getByRole('button', { name: 'Pin Garden' })).toBeInTheDocument();
-    expect(
-      screen.queryAllByRole('button', { name: /to the bottom bar|from the bottom bar/ }),
-    ).toEqual([]);
+    expect(screen.queryAllByRole('button', { name: /bottom bar/ })).toEqual([]);
   });
 });

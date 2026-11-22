@@ -32,9 +32,12 @@ far; the dot between its arrows goes back to now. Under it is the app's version,
 changed. On a phone the main views sit in the bottom bar, and **More** holds the rest of the
 sidebar: the views, saved filters, lists and tags. Its pencil (or holding a row) edits it just
 like **Edit sidebar** on a computer, and the changes apply on every device. While editing, each
-row has a phone button that puts it on the bottom bar or takes it off: up to four views, saved
-filters, lists, tags or Search. A row on the bar shows its tab number; tabs go on in the order you
-add them, with More always last. With four on the bar, the button says the bar is full.
+row has a phone button that puts it on the bottom bar: up to four views, saved filters, lists,
+tags or Search. A row on the bar shows its tab number; tabs go on in the order you add them, with
+More always last. With four on the bar, the button says the bar is full. Tap a numbered button to
+change the order: a preview shows the bar as it will look, drag a tab by its grip (or press the up
+and down arrow keys on it), and take a tab off with its **x**. **Done** applies the order, and
+**Cancel** leaves the bar as it was.
 
 Dates leave the year off when it is this year: "Thu, Oct 22", "October", but "Jan 4, 2027".
 

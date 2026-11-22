@@ -46,6 +46,13 @@ export function toggleTab(tabs: readonly string[], id: string): string[] {
   return tabs.length < MAX_TABS ? [...tabs, id] : [...tabs];
 }
 
+/** `tabs` with the one at `from` moved to `to` (counted without it): the bar's order (PL-149). */
+export function moveTab(tabs: readonly string[], from: number, to: number): string[] {
+  const next = tabs.filter((_, index) => index !== from);
+  next.splice(to, 0, tabs[from]!);
+  return next;
+}
+
 /**
  * Save the tabs. The saved list and tag tabs that are hidden now are kept after them while the bar
  * has room: they were never shown to be taken out, and they come back with their list or tag. A
