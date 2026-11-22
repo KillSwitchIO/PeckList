@@ -1,0 +1,19 @@
+# PostgreSQL instead of SQLite: the connection string comes from a Secret you make once.
+#   kubectl -n pecklist create secret generic pecklist-db \
+#     --from-literal=password='...' \
+#     --from-literal=connection='Host=pecklist-postgres;Username=pecklist;Password=...;Database=pecklist'
+# Point Host at your own database (an operator such as CloudNativePG, or a managed one), or use
+# overlays/postgres, which adds a small StatefulSet for it. Still one PeckList pod: live updates
+# live in the process (docs/install/kubernetes.md#one-pod).
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+configMapGenerator:
+  - name: pecklist-settings
+    behavior: merge
+    literals:
+      - DB_PROVIDER=postgres
+      - DB_CONNECTION_STRING_FILE=/run/secrets/pecklist-db/connection
+
+patches:
+  - path: secret-mount.yaml

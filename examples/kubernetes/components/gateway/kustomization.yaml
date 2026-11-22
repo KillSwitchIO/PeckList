@@ -1,0 +1,16 @@
+# HTTPS through the Gateway API instead of an Ingress: an HTTPRoute on a Gateway you already run
+# (with its listener's certificate). Change tasks.example.com (here and in PUBLIC_URL), the
+# Gateway's name and namespace, and TRUSTED_PROXIES to your cluster's pod network.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - httproute.yaml
+
+configMapGenerator:
+  - name: pecklist-settings
+    behavior: merge
+    literals:
+      - PUBLIC_URL=https://tasks.example.com
+      # The gateway's proxy pods, on the cluster's pod network (10.42.0.0/16 is k3s's default).
+      - TRUSTED_PROXIES=10.42.0.0/16

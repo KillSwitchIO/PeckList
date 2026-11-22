@@ -1,0 +1,15 @@
+# Everything together, as a starting point for your own: PostgreSQL (overlays/postgres), an
+# Ingress, single sign-on, the nightly backup and the network policy. Leave out the components you do not want.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pecklist
+
+resources:
+  - ../postgres
+
+components:
+  - ../../components/ingress
+  - ../../components/oidc
+  - ../../components/backup
+  - ../../components/network-policy

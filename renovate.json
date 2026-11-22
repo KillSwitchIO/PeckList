@@ -95,6 +95,20 @@
       "automerge": false
     },
     {
+      "description": "The Kubernetes examples run the newest release (PL-120): the tag in base and in the backup component moves together, merged when the pipeline passes (scripts/check-kubernetes.sh checks they match). Pre-releases are never proposed while the tag is a release",
+      "matchManagers": ["kustomize"],
+      "matchPackageNames": ["registry.gitlab.com/killswitch10/pecklist"],
+      "groupName": "Kubernetes examples image",
+      "automerge": true
+    },
+    {
+      "description": "A major release of the Kubernetes examples' image (0.x to 1.0, and on) can break things: proposed, never merged by itself",
+      "matchManagers": ["kustomize"],
+      "matchPackageNames": ["registry.gitlab.com/killswitch10/pecklist"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
       "description": "Every patch and minor in one merge request a week: merges must be up to date, so six at once would each wait for and rerun after the others. Last, so it wins over the groups above; majors keep those groups",
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "matchManagers": ["npm", "nuget"],

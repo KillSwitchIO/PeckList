@@ -39,6 +39,11 @@
         },
         {
           "type": "doc",
+          "id": "install/kubernetes",
+          "label": "Kubernetes"
+        },
+        {
+          "type": "doc",
           "id": "install/debian-ubuntu",
           "label": "Debian and Ubuntu"
         },

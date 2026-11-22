@@ -217,6 +217,32 @@ lint:
     - *not-on-main
     - when: on_success
 
+# The Kubernetes examples (PL-120): every overlay builds with kustomize and is valid against the
+# Kubernetes schemas (kubeconform), both pinned by version and checksum in the script. A small
+# Alpine image and two downloads; the kind cluster test (scripts/kind-smoke.sh) stays off the runner.
+k8s-manifests:
+  image: $DOCKER_IMAGE
+  stage: check
+  needs: []
+  timeout: 10m
+  variables:
+    GIT_DEPTH: 1
+    K8S_TOOLS_DIR: /tmp/k8s-tools
+  script:
+    - apk add -q bash curl
+    - bash scripts/check-kubernetes.sh
+  rules:
+    - *not-on-release-branch
+    - *not-on-tag
+    - *not-on-main
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - examples/kubernetes/**/*
+        - scripts/check-kubernetes.sh
+        - .gitlab-ci.yml
+    - *not-affected
+    - when: on_success
+
 # Whether main's tree is the tree a merge request's pipeline passed (scripts/verify-tested.mjs): what
 # lets main skip the test suites, so nothing is built when it fails. To recover, run a pipeline on
 # main from the UI with FULL_CHECK=true.

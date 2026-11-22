@@ -1,0 +1,22 @@
+# Single sign-on with an OpenID Connect provider (Authentik, Keycloak, Pocket ID, Zitadel, ...).
+# The provider here is named `sso`; the names follow docs/guides/oidc.md. The client secret comes
+# from a Secret you make once:
+#   kubectl -n pecklist create secret generic pecklist-oidc --from-literal=client-secret='...'
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+configMapGenerator:
+  - name: pecklist-settings
+    behavior: merge
+    literals:
+      - OIDC_PROVIDERS=sso
+      - OIDC_SSO_AUTHORITY=https://id.example.com
+      - OIDC_SSO_CLIENT_ID=pecklist
+      - OIDC_SSO_DISPLAY_NAME=Single sign-on
+      - OIDC_SSO_CLIENT_SECRET_FILE=/run/secrets/pecklist-oidc/client-secret
+      # Optional: only members of a group may sign in, and new accounts are made on first sign-in.
+      # - OIDC_SSO_REQUIRED_GROUPS=pecklist
+      # - OIDC_SSO_AUTO_CREATE=true
+
+patches:
+  - path: secret-mount.yaml

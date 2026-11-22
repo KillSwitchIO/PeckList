@@ -1,0 +1,11 @@
+# SQLite behind an Ingress with a cert-manager certificate (components/ingress).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pecklist
+
+resources:
+  - ../../base
+
+components:
+  - ../../components/ingress

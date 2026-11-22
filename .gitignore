@@ -41,3 +41,5 @@ e2e/preview.log
 .eslintcache
 .prettiercache
 .gradle/
+# kustomize and kubeconform, fetched by scripts/check-kubernetes.sh
+.k8s-tools/

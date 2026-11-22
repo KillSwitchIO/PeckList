@@ -1,0 +1,10 @@
+# Only the ingress controller and the backup job may reach PeckList. With TRUSTED_PROXIES set to the
+# pod network, any pod could otherwise send X-Forwarded-For and pass as any visitor (sign-in limits
+# count by address). Needs a network plugin that enforces NetworkPolicy (Calico, Cilium; k3s's
+# built-in one does). Change the namespace if your controller runs elsewhere (Traefik on k3s:
+# kube-system; a Gateway: the Gateway's namespace).
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - network-policy.yaml

@@ -1,0 +1,13 @@
+# SQLite, an Ingress and single sign-on (components/oidc): sign-in callbacks need the public
+# address, so OIDC comes with HTTPS.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pecklist
+
+resources:
+  - ../../base
+
+components:
+  - ../../components/ingress
+  - ../../components/oidc

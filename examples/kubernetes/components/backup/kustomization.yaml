@@ -1,0 +1,22 @@
+# A nightly backup of the whole server to its own volume, apart from the database's: the server's
+# built-in snapshots (BACKUP_SCHEDULE) sit next to the database, so they help with mistakes but not
+# with losing that volume. The job asks the running server for an export over its API, so it works
+# with SQLite on a ReadWriteOnce volume and with PostgreSQL alike.
+#
+# It needs an API key with the admin permission, from a super admin (an admin's key cannot export
+# the whole server). Make one under Settings > Account > API keys, then:
+#   kubectl -n pecklist create secret generic pecklist-backup --from-literal=token='pl_...'
+# Back up /files (attached files) with your volume snapshots too: exports hold tasks, not files.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - cronjob.yaml
+
+images:
+  # Components bring their own resources, which the base's image tag does not reach: keep this tag
+  # the same as base/kustomization.yaml's (CI checks that they match).
+  - name: registry.gitlab.com/killswitch10/pecklist
+    newTag: 0.14.0
+  - name: busybox
+    newTag: '1.37'

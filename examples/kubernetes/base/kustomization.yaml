@@ -1,0 +1,32 @@
+# PeckList on Kubernetes: the base every overlay builds on. SQLite, one pod, two volumes.
+#   kubectl apply -k examples/kubernetes/overlays/sqlite
+# Docs: docs/install/kubernetes.md
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pecklist
+
+labels:
+  - pairs:
+      app.kubernetes.io/name: pecklist
+      app.kubernetes.io/part-of: pecklist
+    includeSelectors: true
+
+resources:
+  - namespace.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+
+# Settings that are not secret, as environment variables (every name in
+# docs/configuration/reference.md works here). Secret ones go in the `pecklist-secrets` Secret.
+configMapGenerator:
+  - name: pecklist-settings
+    envs:
+      - pecklist.env
+
+# The version to run. Change the tag to upgrade; the pod is replaced (Recreate) and the server
+# migrates the database on start. Release tags: docs/install/docker.md#image-tags
+images:
+  - name: registry.gitlab.com/killswitch10/pecklist
+    newTag: 0.14.0

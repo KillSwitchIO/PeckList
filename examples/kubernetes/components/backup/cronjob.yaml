@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pecklist-backup
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pecklist-backup
+spec:
+  # Every night at 03:30 (the cluster's time zone unless timeZone is set).
+  schedule: '30 3 * * *'
+  # timeZone: Europe/Berlin
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: pecklist-backup
+        spec:
+          restartPolicy: OnFailure
+          enableServiceLinks: false
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1654
+            runAsGroup: 1654
+            fsGroup: 1654
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            # The export, by the same image as the server (the client is built in). Inside the
+            # cluster the Service is plain http, so the key would cross the pod network unencrypted:
+            # --insecure-http says that is fine here. With a NetworkPolicy, only this job and your
+            # ingress need to reach the Service.
+            - name: export
+              image: registry.gitlab.com/killswitch10/pecklist
+              args:
+                - export
+                - --server
+                - http://pecklist
+                - --insecure-http
+                - /backup/pecklist-latest.json
+              env:
+                - name: PECKLIST_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: pecklist-backup
+                      key: token
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+                - name: tmp
+                  mountPath: /tmp
+              securityContext: &locked
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+          containers:
+            # A copy with the date in its name, and copies older than two weeks removed. The image
+            # has no shell for this, so busybox does it.
+            - name: keep
+              image: busybox
+              command:
+                - sh
+                - -c
+                - >-
+                  cp /backup/pecklist-latest.json "/backup/pecklist-$(date +%Y%m%d-%H%M%S).json" &&
+                  find /backup -name 'pecklist-2*.json' -mtime +14 -delete &&
+                  ls -l /backup
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+              securityContext: *locked
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: pecklist-backup
+            - name: tmp
+              emptyDir: {}
