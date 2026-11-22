@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   ButtonBase,
+  CircularProgress,
   Dialog,
   IconButton,
   Menu,
@@ -11,7 +12,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import {
   attachmentsOf,
   canChangeAttachment,
@@ -166,12 +167,27 @@ function FileTile({
   );
 }
 
-/** A picture, large, over everything. */
-function PictureView({ attachment, onClose }: { attachment: Attachment; onClose: () => void }) {
+/**
+ * A picture, large, over everything. One neither this device nor the server can give closes again
+ * and says so, as other files do (QA: it opened as an empty dark dialog).
+ */
+function PictureView({
+  attachment,
+  onClose,
+  onMissing,
+}: {
+  attachment: Attachment;
+  onClose: () => void;
+  onMissing: () => void;
+}) {
   const url = useFileUrl(attachment.sha256, attachment.mime, true);
+  useEffect(() => {
+    if (url === 'missing') onMissing();
+  }, [url, onMissing]);
+  if (url === 'missing') return null;
   return (
     <Dialog open onClose={onClose} maxWidth="lg" aria-label={attachment.name}>
-      {url && url !== 'missing' && (
+      {url ? (
         <Box
           component="img"
           src={url}
@@ -179,6 +195,11 @@ function PictureView({ attachment, onClose }: { attachment: Attachment; onClose:
           decoding="async"
           sx={{ display: 'block', maxWidth: '100%', maxHeight: '85dvh' }}
         />
+      ) : (
+        // Still coming from the server: a spinner, not an empty dark box.
+        <Box sx={{ display: 'flex', p: 4 }}>
+          <CircularProgress aria-label={t('status.waiting')} />
+        </Box>
       )}
     </Dialog>
   );
@@ -261,7 +282,16 @@ export function AttachmentList({
           );
         })}
       </Box>
-      {viewing && <PictureView attachment={viewing} onClose={() => setViewing(null)} />}
+      {viewing && (
+        <PictureView
+          attachment={viewing}
+          onClose={() => setViewing(null)}
+          onMissing={() => {
+            setViewing(null);
+            setMissing(viewing.name);
+          }}
+        />
+      )}
       {renaming && (
         <NameDialog
           open
