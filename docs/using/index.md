@@ -167,7 +167,11 @@ their start; the due date is the deadline.
   one toolbar button. Each heading has a handle at its right: drag it to move the heading with
   everything under it. It goes before any heading of its size or bigger, or to the end, so two
   top-level sections swap with their subsections, and a subsection moves within its section or
-  into another.
+  into another. Bullet, numbered and checklist items have a handle too: drag one anywhere in the
+  notes, across headings as well, with what is nested under it. A line shows where it will go.
+  Drop it on another item to indent it under that one: the line is then indented and that item's
+  row is shaded. An item that joins a list of another kind takes that kind (a checklist item
+  dropped among bullets becomes a bullet). Escape calls the drag off.
 - **Smart links**: web and email addresses, phone numbers and street addresses in the notes (and
   in comments) show as links. On a phone a tap starts the right app: the browser, email, the
   dialer or maps. With a mouse a click offers the choices: **Call**, **Text** or **Copy** for a
