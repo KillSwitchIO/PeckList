@@ -1,39 +1,14 @@
 // A handle at the right of each bullet, numbered and checklist item in the notes (R-FB-80): press
-// it and move up or down to put the item somewhere else in its list. Numbered items number
-// themselves again when the notes are written back as markdown.
+// it and move it anywhere in the notes (PL-149): beside another item, across headings, into a gap
+// between blocks, or onto an item to nest under it. Numbered items number themselves again when
+// the notes are written back as markdown.
 
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
-import { followReorder } from '../dnd/followReorder.ts';
 import { claimTouches } from '../dnd/claimTouch.ts';
-
-const ITEMS = new Set(['listItem', 'taskItem']);
-
-/**
- * Move the list item that starts at `itemPos` to index `to` among its siblings (counted without
- * it); null when that is where it already is.
- */
-export function moveListItem(state: EditorState, itemPos: number, to: number): Transaction | null {
-  const item = state.doc.nodeAt(itemPos);
-  if (!item || !ITEMS.has(item.type.name)) return null;
-  const $pos = state.doc.resolve(itemPos);
-  const list = $pos.parent;
-  const index = $pos.index();
-  const starts: number[] = [];
-  let at = $pos.start();
-  list.forEach((child) => {
-    starts.push(at);
-    at += child.nodeSize;
-  });
-  const others = starts.filter((_, each) => each !== index);
-  if (to === index) return null;
-  // Before the sibling now at `to`, or at the end of the list.
-  const target = to < others.length ? others[to]! : at;
-  const tr = state.tr.delete(itemPos, itemPos + item.nodeSize);
-  tr.insert(tr.mapping.map(target), item);
-  return tr.scrollIntoView();
-}
+import { followItemDrag } from './itemDrag.ts';
+import { ITEMS } from './itemMoves.ts';
 
 const DOTS =
   '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="currentColor">' +
@@ -64,7 +39,7 @@ export function listItemHandles(label: string, color: string) {
                       handle.setAttribute('role', 'button');
                       handle.setAttribute('aria-label', label);
                       handle.innerHTML = DOTS;
-                      // Its touch is the reorder's alone: in the task sheet, the sheet does not
+                      // Its touch is the drag's alone: in the task sheet, the sheet does not
                       // swipe on it and the comments do not pull up from it.
                       claimTouches(handle);
                       handle.addEventListener('pointerdown', (event) => {
@@ -73,23 +48,8 @@ export function listItemHandles(label: string, color: string) {
                         event.stopPropagation();
                         const at = getPos();
                         const li = handle.closest('li');
-                        const rows = li
-                          ? [...(li.parentElement?.children ?? [])].filter(
-                              (each): each is HTMLElement =>
-                                each instanceof HTMLElement && each.tagName === 'LI',
-                            )
-                          : [];
-                        if (at === undefined || !li || rows.length < 2) return;
-                        followReorder(
-                          event,
-                          rows,
-                          rows.indexOf(li),
-                          (to) => {
-                            const tr = moveListItem(view.state, at - 1, to);
-                            if (tr) view.dispatch(tr);
-                          },
-                          color,
-                        );
+                        if (at === undefined || !li) return;
+                        followItemDrag(view, event, at - 1, li, color);
                       });
                       return handle;
                     },
