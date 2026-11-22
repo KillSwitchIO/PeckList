@@ -29,7 +29,15 @@ public interface IAttachmentStore
     /// <summary>Every stored file with when it was written.</summary>
     IAsyncEnumerable<(string Sha256, DateTimeOffset Written)> ListAsync(CancellationToken cancellation = default);
 
-    Task DeleteAsync(string sha256, CancellationToken cancellation = default);
+    /// <summary>
+    /// Deletes the file if it was last written before <paramref name="writtenBefore"/> and
+    /// <paramref name="stillUnused"/>, asked then, agrees; <paramref name="deleted"/> runs right after.
+    /// All three happen as one step against uploads of the same bytes: an upload either comes first
+    /// (the file is written now, so it stays) or after (the bytes are stored again). True when deleted.
+    /// </summary>
+    Task<bool> DeleteIfOlderAsync(
+        string sha256, DateTimeOffset writtenBefore, Func<CancellationToken, bool> stillUnused,
+        Func<CancellationToken, Task> deleted, CancellationToken cancellation = default);
 }
 
 public static class AttachmentHash
