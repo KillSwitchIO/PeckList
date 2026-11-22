@@ -1,0 +1,22 @@
+# The image's two volumes: /data (the SQLite database and its snapshots) and /files (attached
+# files, often bigger, so they may live on other storage). Without a storageClassName, the cluster's
+# default class is used.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pecklist-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pecklist-files
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi

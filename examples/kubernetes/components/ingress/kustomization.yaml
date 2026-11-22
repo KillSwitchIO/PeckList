@@ -1,0 +1,19 @@
+# HTTPS through an Ingress, with a certificate from cert-manager. Change tasks.example.com (here and
+# in PUBLIC_URL), the issuer, and TRUSTED_PROXIES to your cluster's pod network.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - ingress.yaml
+
+configMapGenerator:
+  - name: pecklist-settings
+    behavior: merge
+    literals:
+      # The address people open: sign-in callbacks and the links the server makes use it.
+      - PUBLIC_URL=https://tasks.example.com
+      # Who may say who the visitor is (X-Forwarded-For): the ingress controller's pods, which are on
+      # the cluster's pod network, often on another node than PeckList. 10.42.0.0/16 is k3s's
+      # default; kubeadm clusters often use 10.244.0.0/16. `kubectl cluster-info dump | grep -m1
+      # cluster-cidr` shows yours.
+      - TRUSTED_PROXIES=10.42.0.0/16

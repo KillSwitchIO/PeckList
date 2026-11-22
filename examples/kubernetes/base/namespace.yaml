@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pecklist
+  labels:
+    # The pod runs non-root with no capabilities, so it passes the restricted Pod Security level.
+    pod-security.kubernetes.io/enforce: restricted

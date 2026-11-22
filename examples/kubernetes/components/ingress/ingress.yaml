@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pecklist
+  annotations:
+    # cert-manager makes and renews the certificate in the pecklist-tls Secret.
+    cert-manager.io/cluster-issuer: letsencrypt
+    # ingress-nginx: room for backups to restore and attached files (other controllers have no
+    # limit, or their own setting), and no buffering, so live updates (/api/events) arrive at
+    # once and their long-lived connection is not cut after a minute.
+    nginx.ingress.kubernetes.io/proxy-body-size: 200m
+    nginx.ingress.kubernetes.io/proxy-buffering: 'off'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+spec:
+  # Your controller's class: nginx, traefik, ... Leave it out to use the cluster's default class.
+  # ingressClassName: nginx
+  tls:
+    - hosts: [tasks.example.com]
+      secretName: pecklist-tls
+  rules:
+    - host: tasks.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pecklist
+                port:
+                  name: http

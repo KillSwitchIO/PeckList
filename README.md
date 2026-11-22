@@ -64,15 +64,15 @@ and [`docker.io/hambone0/pecklist`](https://hub.docker.com/r/hambone0/pecklist) 
 Both are amd64 and arm64, tagged `latest`, a minor line (`0.14`) and each version (`0.14.0`). For
 real use, see the documentation:
 
-|           |                                                                                                                                                                                                                |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Install   | [Docker](docs/install/docker.md) · [Docker Compose](docs/install/docker-compose.md) · [Linux](docs/install/linux.md) · [Windows](docs/install/windows.md) · [From source](docs/install/from-source.md)         |
-| Set up    | [First start](docs/getting-started/first-start.md) · [Reverse proxy and HTTPS](docs/install/reverse-proxy.md) · [Single sign-on](docs/guides/single-sign-on.md)                                                |
-| Configure | [How settings work](docs/configuration/index.md) · [All settings](docs/configuration/reference.md) · [Settings file](docs/configuration/config-file.md) · [Database](docs/configuration/database.md)           |
-| Run it    | [Backups](docs/guides/backups.md) · [Upgrading](docs/guides/upgrading.md) · [Logs and audit](docs/guides/logging.md) · [Security](docs/guides/security.md) · [Troubleshooting](docs/guides/troubleshooting.md) |
-| Use it    | [Tour](docs/using/index.md) · [Moving from TickTick or Todoist](docs/using/moving-from-ticktick-or-todoist.md) · [The Android app](docs/using/android-app.md) · [Privacy](docs/using/privacy.md)               |
-| Reference | [Command line](docs/reference/cli.md) · [HTTP API](docs/reference/http-api.md) · [FAQ](docs/faq.md)                                                                                                            |
-| Examples  | [`examples/`](examples/): Compose files, a settings file, proxy configs, Linux and Windows service files                                                                                                       |
+|           |                                                                                                                                                                                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install   | [Docker](docs/install/docker.md) · [Docker Compose](docs/install/docker-compose.md) · [Kubernetes](docs/install/kubernetes.md) · [Linux](docs/install/linux.md) · [Windows](docs/install/windows.md) · [From source](docs/install/from-source.md) |
+| Set up    | [First start](docs/getting-started/first-start.md) · [Reverse proxy and HTTPS](docs/install/reverse-proxy.md) · [Single sign-on](docs/guides/single-sign-on.md)                                                                                   |
+| Configure | [How settings work](docs/configuration/index.md) · [All settings](docs/configuration/reference.md) · [Settings file](docs/configuration/config-file.md) · [Database](docs/configuration/database.md)                                              |
+| Run it    | [Backups](docs/guides/backups.md) · [Upgrading](docs/guides/upgrading.md) · [Logs and audit](docs/guides/logging.md) · [Security](docs/guides/security.md) · [Troubleshooting](docs/guides/troubleshooting.md)                                    |
+| Use it    | [Tour](docs/using/index.md) · [Moving from TickTick or Todoist](docs/using/moving-from-ticktick-or-todoist.md) · [The Android app](docs/using/android-app.md) · [Privacy](docs/using/privacy.md)                                                  |
+| Reference | [Command line](docs/reference/cli.md) · [HTTP API](docs/reference/http-api.md) · [FAQ](docs/faq.md)                                                                                                                                               |
+| Examples  | [`examples/`](examples/): Compose files, a settings file, proxy configs, Linux and Windows service files                                                                                                                                          |
 
 The same docs are published as a site from `main` (GitLab Pages).
 
