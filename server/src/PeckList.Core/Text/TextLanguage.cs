@@ -24,7 +24,10 @@ public static class TextLanguage
         {
             wanted.Add(language);
         }
-        wanted.AddRange(device ?? []);
-        return Words.In(catalog, wanted);
+        var asked = (device ?? []).Where(each => !string.IsNullOrWhiteSpace(each)).ToList();
+        wanted.AddRange(asked);
+        // The tag as asked, catalog or not, for an automatic clock: the app's own Intl reads the
+        // picked language, else the browser's or phone's first (schema 22).
+        return Words.In(catalog, wanted) with { Locale = picked ?? asked.FirstOrDefault() };
     }
 }

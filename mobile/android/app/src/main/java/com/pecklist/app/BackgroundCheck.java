@@ -8,6 +8,7 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
+import android.text.format.DateFormat;
 import android.webkit.CookieManager;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -293,11 +294,6 @@ final class BackgroundCheck {
     }
 
     /**
-     * The check-in's address. With the app on screen the web app owns the reminders and the answer's
-     * would go unused, so it asks for none: the server then skips walking every task for them
-     * (audit P7). A server from before that sends them anyway, and they are left as before.
-     */
-    /**
      * Whether an answer's reminders replace the phone's alarms: only when the check asked for them
      * (the app was off screen as it went) and the app is still off screen (else the web app owns
      * them). An answer to a check that asked for none has none, and would wipe every alarm.
@@ -306,10 +302,20 @@ final class BackgroundCheck {
         return !showingWhenAsked && !showingNow;
     }
 
-    static String checkAddress(String server, String zone, String after, boolean showing, UnaryOperator<String> encode) {
+    /**
+     * The check-in's address. With the app on screen the web app owns the reminders and the answer's
+     * would go unused, so it asks for none: the server then skips walking every task for them
+     * (audit P7). A server from before that sends them anyway, and they are left as before.
+     * {@code clock24}: the phone's own 12/24-hour setting, which an automatic clock follows on the
+     * phone (schema 22), so the server words the reminders it hands back on it (Dev 1, S3).
+     */
+    static String checkAddress(
+        String server, String zone, String after, boolean showing, boolean clock24, UnaryOperator<String> encode
+    ) {
         return server + "/api/app/check?zone=" + encode.apply(zone)
             + (after == null ? "" : "&after=" + encode.apply(after))
-            + (showing ? "&reminders=0" : "");
+            + (showing ? "&reminders=0" : "")
+            + "&clock24=" + (clock24 ? "1" : "0");
     }
 
     /** One check-in. Network: call off the main thread. Signed out or offline, it waits for the next. */
@@ -339,7 +345,9 @@ final class BackgroundCheck {
         String after = prefs(context).getString(CURSOR, null);
         // Read once: the answer's reminders are what this request asked for (audit P7).
         boolean showing = MainActivity.showing();
-        String address = checkAddress(server, TimeZone.getDefault().getID(), after, showing, Uri::encode);
+        String address = checkAddress(
+            server, TimeZone.getDefault().getID(), after, showing, DateFormat.is24HourFormat(context), Uri::encode
+        );
 
         HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
         ClientCert.apply(context, connection);

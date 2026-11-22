@@ -215,8 +215,11 @@ export interface Settings extends BaseEntity {
   palette: Record<string, string>;
   pointEventMinutes: number;
   dueSoonDays: number;
-  /** Times on a 12-hour (default) or 24-hour clock */
-  clockFormat?: '12h' | '24h';
+  /**
+   * Times on a 12-hour or 24-hour clock; 'auto' or absent (schema 22): the language's own, so
+   * 24-hour for de, es and fr and 12-hour for en-US
+   */
+  clockFormat?: 'auto' | '12h' | '24h';
   /** First day of the week in calendars: 0 Sunday (default), 1 Monday */
   weekStart?: 0 | 1;
   /** IANA time zone the person picked; null or absent: the server's, else the device's (schema 8) */

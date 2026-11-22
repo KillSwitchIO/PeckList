@@ -31,6 +31,11 @@ export interface ShellInfo {
    * handed the APK to the system's installer, which is then the installer. Absent: an older shell.
    */
   installRequestedBy?: string | null;
+  /**
+   * The phone's own 12/24-hour setting (api 17), which an automatic clock follows on the phone,
+   * ahead of the language's. Absent: an older shell.
+   */
+  clock24?: boolean;
 }
 
 /** A list for the launcher's long-press menu (api 11). */
@@ -235,4 +240,9 @@ export interface NativeShell {
   saveSignIn?(): Promise<void>;
   /** Api 15: the language picked in Settings for the phone's own text too (notifications, widgets); null: the phone's. */
   setLanguage?(language: string | null): Promise<void>;
+  /**
+   * Api 17: the app's clock for the phone's own screens (snooze, widgets), Automatic worked out by
+   * the app; null: the phone's own setting, read live.
+   */
+  setClock?(twentyFour: boolean | null): Promise<void>;
 }

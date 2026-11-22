@@ -26,9 +26,22 @@ public interface ITextCatalog
     string Text(string language, string key, IReadOnlyDictionary<string, object?>? args = null);
 }
 
-/// <summary>A catalog and the language picked from it, so code can say <c>words["key"]</c>.</summary>
-public sealed record Words(ITextCatalog Catalog, string Language)
+/// <summary>
+/// A catalog and the language picked from it, so code can say <c>words["key"]</c>. <c>Locale</c>:
+/// the tag the person reads in as asked (their picked language, else their device's first), which
+/// may have no catalog of its own (pt-BR, en-GB): an automatic clock follows it (HourCycles).
+/// </summary>
+public sealed record Words(ITextCatalog Catalog, string Language, string? Locale = null)
 {
+    /// <summary>
+    /// The device's own 12/24-hour setting, when it says it: an Android phone's check-in does
+    /// (schema 22: on a phone an automatic clock follows that setting ahead of the language).
+    /// </summary>
+    public bool? Clock24 { get; init; }
+
+    /// <summary>Whether an automatic clock reads 24-hour for these words: the device's own setting, else their locale's, else their language's.</summary>
+    public bool TwentyFourHour => Clock24 ?? HourCycles.TwentyFour(Locale ?? Language);
+
     /// <summary>English from the server's own catalog: what goes out when nothing names a language.</summary>
     public static Words English { get; } = new(JsonTextCatalog.Embedded, JsonTextCatalog.Source);
 

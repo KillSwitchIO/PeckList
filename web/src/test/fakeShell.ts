@@ -28,6 +28,8 @@ export class FakeShell implements NativeShell {
   installer: string | null | undefined = undefined;
   /** The app that asked for the install (`info().installRequestedBy`); undefined: not sent. */
   installRequestedBy: string | null | undefined = undefined;
+  /** The phone's 12/24-hour setting (`info().clock24`, api 17); undefined: not sent. */
+  clock24: boolean | undefined = undefined;
 
   constructor(
     public api = 9,
@@ -45,6 +47,7 @@ export class FakeShell implements NativeShell {
       ...(this.installRequestedBy === undefined
         ? {}
         : { installRequestedBy: this.installRequestedBy }),
+      ...(this.clock24 === undefined ? {} : { clock24: this.clock24 }),
     });
   }
   checkServer() {

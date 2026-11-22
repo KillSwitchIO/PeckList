@@ -281,4 +281,50 @@ public sealed class DeviceZoneTests(ServerFixture fixture) : IClassFixture<Serve
         Assert.Contains((await ben.GetFromJsonAsync<AppCheck>("/api/app/check?zone=America/Chicago", Token))!.Reminders,
             each => each.Tag == $"ZU1@{snooze.At}");
     }
+
+    [Fact]
+    public async Task The_check_in_words_its_reminders_on_the_phones_own_clock()
+    {
+        // Dev 1, S3: on a phone an automatic clock follows the phone's own 12/24-hour setting
+        // (schema 22), which the check-in sends; an older app sends none and gets its language's.
+        using var server = Server();
+        var (ben, benId) = await SignIn(server, "ben-z8");
+        var soon = DateTimeOffset.UtcNow.AddDays(2);
+        var start = new DateTimeOffset(soon.Year, soon.Month, soon.Day, 15, 0, 0, TimeSpan.Zero);
+        await SyncAsync(ben, "UTC",
+            ("lists", Entity("ZL1", benId, new JsonObject { ["name"] = "Home", ["visibility"] = "private" })),
+            ("tasks", Entity("ZC1", benId, new JsonObject
+            {
+                ["listId"] = "ZL1",
+                ["title"] = "Call",
+                ["parentId"] = null,
+                ["status"] = "open",
+                ["assignees"] = new JsonObject(),
+                ["schedule"] = new JsonObject
+                {
+                    ["start"] = start.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture), ["end"] = null,
+                    ["allDay"] = false, ["timeZone"] = "UTC",
+                },
+                ["reminders"] = new JsonArray(new JsonObject { ["before"] = 0 }),
+            })));
+
+        async Task<string> Body(string query) =>
+            Assert.Single((await ben.GetFromJsonAsync<AppCheck>($"/api/app/check?zone=UTC{query}", Token))!.Reminders).Body;
+        Assert.EndsWith("15:00", await Body("&clock24=1"));
+        Assert.EndsWith("3:00 PM", await Body("&clock24=0"));
+        Assert.EndsWith("3:00 PM", await Body(""));
+
+        // A clock picked in the app wins over the phone's.
+        await SyncAsync(ben, "UTC", ("settings", Entity("ZS1", benId, new JsonObject
+        {
+            ["userId"] = benId,
+            ["themeMode"] = "system",
+            ["palette"] = new JsonObject(),
+            ["pointEventMinutes"] = 30,
+            ["dueSoonDays"] = 2,
+            ["clockFormat"] = "12h",
+            ["sidebar"] = new JsonObject { ["order"] = new JsonArray(), ["hidden"] = new JsonArray(), ["groupOpen"] = false },
+        })));
+        Assert.EndsWith("3:00 PM", await Body("&clock24=1"));
+    }
 }

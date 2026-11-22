@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 21,
+  "schemaVersion": 22,
   "app": {
     "name": "punchlist",
     "version": "0.1.0"
@@ -591,6 +591,7 @@
         },
         "compactViews": ["view:today"],
         "language": "pt-BR",
+        "clockFormat": "auto",
         "_hlc": {
           "createdAt": "2026-10-20T16:15:00.003Z-0000-dev1",
           "createdBy": "2026-10-20T16:15:00.003Z-0000-dev1",
@@ -608,7 +609,8 @@
           "dateFormat": "2026-10-20T16:15:00.003Z-0000-dev1",
           "newTask": "2026-10-20T16:15:00.003Z-0000-dev1",
           "compactViews": "2026-10-20T16:15:00.003Z-0000-dev1",
-          "language": "2026-10-20T16:15:00.003Z-0000-dev1"
+          "language": "2026-10-20T16:15:00.003Z-0000-dev1",
+          "clockFormat": "2026-10-20T16:15:00.003Z-0000-dev1"
         }
       }
     ],

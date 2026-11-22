@@ -432,7 +432,7 @@ subjects stand in a list beside the one that is open; on a phone each opens as a
 - **Account** (with a server): your photo, email, sign-in methods and linked accounts, passkeys and
   API keys, and, last, start over or delete your account; in the Android app, the server too.
 - **Appearance**: light, dark or system theme, and colors.
-- **Language and time**: the language PeckList speaks (automatic follows each device, or pick one and it follows you to every device; languages a machine translated say so), your time zone, how dates show, 12 or 24-hour clock, the first day of the week,
+- **Language and time**: the language PeckList speaks (automatic follows each device, or pick one and it follows you to every device; languages a machine translated say so), your time zone, how dates show, the clock (automatic follows the language, or 12 or 24-hour), the first day of the week,
   when a due date counts as soon, how long a task with only a start time shows on the calendar, and
   when all-day reminders come.
 - **Tasks**: **Lists and tags**, the Closed group, what a new task starts with, and swipe actions.
@@ -542,8 +542,11 @@ PeckList speaks English, German (Deutsch), Spanish (Español) and French (Franç
 - **A language you pick** follows you to every device you sign in on, and the device remembers it,
   so the next start opens in it straight away.
 
-Day and month names, the order of dates and sorting by title follow the language too; the 12 or
-24-hour clock is your choice under **Clock**. With a server, the emails it sends and the reminders
+Day and month names, the order of dates and sorting by title follow the language too, and so does
+the clock while **Clock** is on **Automatic**: 24-hour in German, Spanish and French, 12-hour in US
+English, and your device's own region when the language is automatic too (24-hour on a British
+English browser). On the Android app, Automatic follows the phone's own 12/24-hour setting
+instead, whatever the language. Pick **1:00 PM** or **13:00** there to keep one clock whatever the language. With a server, the emails it sends and the reminders
 and notifications it pushes are in your language as well. With automatic, each push follows the device it goes to, and
 an email follows the browser that asked for it. An invite is written in the language of the admin
 who sends it. In the Android app the phone's own parts follow as well:

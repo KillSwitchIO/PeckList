@@ -17,6 +17,57 @@ export function intlLocale(): string | undefined {
   return preferred;
 }
 
+const clocks = new Map<string, boolean>();
+
+let phoneClock: boolean | undefined;
+const phoneClockListeners = new Set<() => void>();
+
+/**
+ * The phone's own 12/24-hour setting (the Android shell's info, api 17), which an automatic clock
+ * follows on a phone ahead of the language (Manager, rc.2: it is the person's own word on it).
+ * Undefined: a browser, or an older shell.
+ */
+export function setPhoneClock(twentyFour: boolean | undefined): void {
+  if (twentyFour === phoneClock) return;
+  phoneClock = twentyFour;
+  for (const listener of phoneClockListeners) listener();
+}
+
+/** The phone's 12/24-hour setting as last told, for useSyncExternalStore. */
+export function phoneClockSetting(): boolean | undefined {
+  return phoneClock;
+}
+
+/** Calls `listener` when the phone's setting changes; returns the unsubscribe. */
+export function onPhoneClock(listener: () => void): () => void {
+  phoneClockListeners.add(listener);
+  return () => {
+    phoneClockListeners.delete(listener);
+  };
+}
+
+/**
+ * Whether a locale's own clock is 24-hour (de, es, fr, en-GB) rather than 12-hour (en-US): what an
+ * automatic clock follows off a phone (schema 22). No locale means the one set above, else the
+ * browser's. A tag Intl rejects (the schema allows `en-12`, which Intl does not) reads 12-hour
+ * rather than throwing in a render.
+ */
+export function localeUses24h(locale?: string): boolean {
+  const used = locale ?? preferred;
+  const key = used ?? '';
+  let known = clocks.get(key);
+  if (known === undefined) {
+    try {
+      const cycle = new Intl.DateTimeFormat(used, { hour: 'numeric' }).resolvedOptions().hourCycle;
+      known = cycle === 'h23' || cycle === 'h24';
+    } catch {
+      known = false;
+    }
+    clocks.set(key, known);
+  }
+  return known;
+}
+
 const formats = new Map<string, Intl.DateTimeFormat>();
 
 /** `new Intl.DateTimeFormat(locale, options)`, made once; no locale means the one set above. */

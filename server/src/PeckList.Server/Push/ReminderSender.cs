@@ -311,7 +311,7 @@ public sealed class ReminderSender(
         var (starts, day, time) = found;
         var key = starts ? "reminder.starts" : "reminder.due";
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(shownAt, zone).DateTime);
-        var clock = time is { } at ? Clock(at, (string?)settings?["clockFormat"] == "24h", words) : null;
+        var clock = time is { } at ? Clock(at, TwentyFour((string?)settings?["clockFormat"], words), words) : null;
         if (clock is not null && day == today) return words.Get(key, ("when", clock));
         var dayText = day == today ? words["reminder.today"]
             : day == today.AddDays(1) ? words["reminder.tomorrow"]
@@ -320,6 +320,18 @@ public sealed class ReminderSender(
                 ?? words[day.Year == today.Year ? "reminder.datePattern" : "reminder.datePatternYear"], words);
         return words.Get(key, ("when", clock is null ? dayText : words.Get("reminder.dayAndTime", ("day", dayText), ("time", clock))));
     }
+
+    /// <summary>
+    /// Whether times read on a 24-hour clock: the one picked in Settings &gt; Dates, else (<c>auto</c> or
+    /// absent, schema 22) the locale's own as the app has it: the picked language, else the device's,
+    /// through ICU's table (<see cref="HourCycles"/>), so en-GB reads 24-hour though its words are English.
+    /// </summary>
+    internal static bool TwentyFour(string? clockFormat, Words words) => clockFormat switch
+    {
+        "24h" => true,
+        "12h" => false,
+        _ => words.TwentyFourHour,
+    };
 
     /// <summary>A time of day: 15:00 on a 24-hour clock, else "3:00 PM" in the language's words.</summary>
     private static string Clock(TimeOnly at, bool twentyFour, Words words) => twentyFour

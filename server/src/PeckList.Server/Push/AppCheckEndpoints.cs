@@ -35,7 +35,7 @@ public static class AppCheckEndpoints
 
     public static RouteGroupBuilder MapAppCheck(this RouteGroupBuilder api)
     {
-        api.MapGet("/app/check", async (string? after, string? zone, string? reminders, ClaimsPrincipal user, INotificationStore store,
+        api.MapGet("/app/check", async (string? after, string? zone, string? reminders, string? clock24, ClaimsPrincipal user, INotificationStore store,
             IAccountStore accounts, SharingState sharing, TimeProvider time, Core.Push.IPushStore push,
             Core.Configuration.ServerSettings settings, Text.ServerWords serverWords, HttpRequest request, CancellationToken cancellation) =>
         {
@@ -46,7 +46,12 @@ public static class AppCheckEndpoints
             var index = sharing.Index;
             var mine = ReminderSender.SettingsOf(index, me);
             // Their language, else the phone's (its Accept-Language), else English (PL-148).
-            var words = TextLanguage.For(serverWords.Catalog, mine, AcceptLanguage.Tags(request.Headers.AcceptLanguage));
+            var words = TextLanguage.For(serverWords.Catalog, mine, AcceptLanguage.Tags(request.Headers.AcceptLanguage)) with
+            {
+                // The phone's own 12/24-hour setting (schema 22, Dev 1 S3): an automatic clock on the
+                // phone follows it, so these reminders read as the app's. An older app sends none.
+                Clock24 = clock24 switch { "1" or "true" => true, "0" or "false" => false, _ => null },
+            };
             // A first check starts from now (a ULID sorts by time), taken before looking so nothing slips past.
             var start = after ?? Ids.NewUlid(time);
             var latest = await store.ListAsync(me, NotificationEndpoints.FeedSize, cancellation);

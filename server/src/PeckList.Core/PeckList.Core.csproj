@@ -4,5 +4,7 @@
     <PackageReference Include="MessageFormat" />
     <!-- The server's text catalogs (PL-148), read by JsonTextCatalog. -->
     <EmbeddedResource Include="Text\locales\*.json" LogicalName="Text.locales.%(Filename)%(Extension)" />
+    <!-- Which locales read a 12-hour clock, made from ICU (scripts/hour-cycles.mjs), read by HourCycles. -->
+    <EmbeddedResource Include="Text\hour-cycles.json" LogicalName="Text.hour-cycles.json" />
   </ItemGroup>
 </Project>

@@ -1,4 +1,5 @@
 import { localTimeZone } from '../../core/dates.ts';
+import { setPhoneClock } from '../../core/intl.ts';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -147,6 +148,18 @@ describe('settings: colors', () => {
     expect(settings().purgeAfterDays).toBe(7);
   });
 
+  it('on a phone, the clock’s hint says Automatic follows the phone’s own setting', async () => {
+    setPhoneClock(true); // what the Android shell's info reports (api 17)
+    try {
+      await renderApp('/settings/dates');
+      expect(
+        await screen.findByText("Automatic follows the phone's own setting: 13:00"),
+      ).toBeInTheDocument();
+    } finally {
+      setPhoneClock(undefined);
+    }
+  });
+
   it('24-hour clock and Monday weeks show everywhere at once', async () => {
     const store = testStore();
     await store.getState().init();
@@ -166,6 +179,12 @@ describe('settings: colors', () => {
     await store.getState().flush();
     await renderApp('/settings/dates', store);
     const clock = await screen.findByRole('group', { name: 'Clock' });
+    // Nothing picked yet: Automatic, which here (en-US) is 12-hour, as the hint says.
+    expect(within(clock).getByRole('button', { name: 'Automatic' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByText('Automatic follows the language: 1:00 PM')).toBeInTheDocument();
     await userEvent.click(within(clock).getByRole('button', { name: '13:00' }));
     expect(store.getState().workspace!.entities.settings[0]!.clockFormat).toBe('24h');
     const week = screen.getByRole('group', { name: 'Week starts on' });
@@ -175,6 +194,14 @@ describe('settings: colors', () => {
     await userEvent.click(within(screen.getAllByRole('navigation')[0]!).getByText('All'));
     expect(await screen.findByText(/14:30/)).toBeInTheDocument();
     expect(screen.queryByText(/2:30 PM/)).toBeNull();
+
+    // Back to Automatic follows the language again.
+    act(() =>
+      store.getState().apply((ctx, ws) => updateSettings(ctx, ws, { clockFormat: 'auto' })),
+    );
+    expect(await screen.findByText(/2:30 PM/)).toBeInTheDocument();
+    act(() => store.getState().apply((ctx, ws) => updateSettings(ctx, ws, { clockFormat: '24h' })));
+    expect(await screen.findByText(/14:30/)).toBeInTheDocument();
 
     // The date picker's month starts on Monday.
     await userEvent.click(screen.getByTestId('task-date'));

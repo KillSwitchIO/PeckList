@@ -6,6 +6,7 @@ import { NotificationOpen } from './native/NotificationOpen.tsx';
 import { ListShortcuts } from './native/listShortcuts.ts';
 import { PhoneChannelSync } from './native/phoneChannels.ts';
 import { NativeLanguage } from './native/nativeLanguage.ts';
+import { NativeClock } from './native/nativeClock.ts';
 import { SaveSignIn } from './native/saveSignIn.ts';
 import { WidgetFeed } from './native/widgetFeed.ts';
 import { installBackHandler } from './native/back.ts';
@@ -63,6 +64,7 @@ export function App() {
           <WidgetFeed />
           <SaveSignIn />
           <NativeLanguage />
+          <NativeClock />
           <BackgroundCheckPrompt />
         </BrowserRouter>
         {viewAs && <ViewAsBanner view={viewAs} />}
