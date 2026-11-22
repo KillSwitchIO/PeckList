@@ -91,6 +91,45 @@ describe('blocked-by arrows (PL-055)', () => {
     expect(linkPath(from, to, 34)).toBe('M 78 61 H 154 V 95 H 162');
   });
 
+  it('turns down where it runs across nothing in the way (QA: it crossed a neighbouring bar)', () => {
+    // Blocker on row 1, waiting bar on row 4; a bar on row 2 reaches where the arrow would turn.
+    const from = { left: 2, right: 78, y: 61 };
+    const to = { left: 162, right: 198, y: 163 };
+    const sand = { left: 120, right: 158, y: 95 };
+    // Not at 154 through it: just after the blocker, before the bar between begins.
+    expect(linkPath(from, to, 34, [sand])).toBe('M 78 61 H 86 V 163 H 162');
+    // A bar on row 3 under that spot too: through the gap between the two.
+    const wide = { left: 40, right: 110, y: 129 };
+    expect(linkPath(from, to, 34, [sand, wide])).toBe('M 78 61 H 116 V 163 H 162');
+    // Bars in rows not between are no reason to move.
+    expect(linkPath(from, to, 34, [{ ...sand, y: 197 }])).toBe('M 78 61 H 154 V 163 H 162');
+  });
+
+  it('does not run through the blocker’s own title beside it', () => {
+    // The timeline leaves a blocker's title 14 px of room, so the arrow turns down 8 px out.
+    const from = { left: 2, right: 40, y: 61 };
+    const to = { left: 162, right: 198, y: 95 };
+    const title = { left: 54, right: 144, y: 61 };
+    expect(linkPath(from, to, 34, [title])).toBe('M 40 61 H 48 V 95 H 162');
+  });
+
+  it('keeps clear of the edge of a bar it passes (QA: flush looked like the bar’s border)', () => {
+    const from = { left: 2, right: 78, y: 61 };
+    const to = { left: 162, right: 198, y: 163 };
+    // Turning at 154 would run 2 px from this bar's end.
+    const close = { left: 100, right: 152, y: 95 };
+    expect(linkPath(from, to, 34, [close])).toBe('M 78 61 H 86 V 163 H 162');
+  });
+
+  it('crosses as little as it can when nothing is clear', () => {
+    const from = { left: 2, right: 78, y: 61 };
+    const to = { left: 162, right: 198, y: 163 };
+    // One bar under the whole way on row 2, another on row 3 only near the waiting bar.
+    const under = { left: 0, right: 200, y: 95 };
+    const near = { left: 130, right: 160, y: 129 };
+    expect(linkPath(from, to, 34, [under, near])).toBe('M 78 61 H 86 V 163 H 162');
+  });
+
   it('with no room, goes round so it never crosses the bars it joins', () => {
     // The waiting bar starts under the blocker (a date conflict): out, down half a row, back past
     // its start, down, in.
