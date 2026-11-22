@@ -134,6 +134,18 @@ describe('blocked-by links on the timeline (PL-055)', () => {
     expect(store.getState().workspace).toBe(before);
   });
 
+  it('a bar being moved when the timeline goes away moves nothing on a later let-go', async () => {
+    const { bar, store } = await garden();
+    const before = store.getState().workspace;
+    fireEvent.pointerDown(bar('Buy soil'), { clientX: 100, clientY: 60, button: 0, ...mouse });
+    fireEvent.pointerMove(window, { clientX: 400, clientY: 60, ...mouse });
+    // Off to another page mid-move (a click, so no pointer events of its own end the move).
+    fireEvent.click(within(screen.getAllByRole('navigation')[0]!).getByText('Today'));
+    await waitFor(() => expect(screen.queryByRole('grid', { name: 'Timeline' })).toBeNull());
+    fireEvent.pointerUp(window, { clientX: 400, clientY: 60, ...mouse });
+    expect(store.getState().workspace).toBe(before);
+  });
+
   it('a finger gets no handle: a touch on it does nothing', async () => {
     const { handle, bar, store } = await garden();
     const before = store.getState().workspace;
