@@ -2086,6 +2086,7 @@
   "timeline.rows.each": "One per task",
   "timeline.rows.fit": "Fit together",
   "timeline.bar": "Open {title}",
+  "timeline.linkHandle": "Drag to a task that waits on this one",
   "timeline.empty": "No dated tasks yet: give a task a date to see it here.",
   "timeline.undated": "No date",
   "photo.title": "Profile photo",
