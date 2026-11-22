@@ -12,7 +12,17 @@ import { useCallback, useState } from 'react';
 import type { AdminApi, ServerCrash, TelemetryView } from '../../ports/admin.ts';
 import { useLoaded } from './useAdmin.ts';
 import { t } from '../i18n/i18n.ts';
-import { intlLocale } from '../../core/intl.ts';
+import { formatDateIn } from '../../core/intl.ts';
+
+/** A date and time as `toLocaleString` writes them, on the app's calendar (formatDateIn). */
+const DATE_TIME: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: 'numeric',
+  second: 'numeric',
+};
 
 /** The usage report exactly as it would go, as JSON (PL-116: nothing hidden). */
 function ReportDialog({
@@ -61,7 +71,7 @@ export function TelemetryPanel({
   const status = !view.enabled
     ? t('telemetry.off')
     : view.sentAt
-      ? t('telemetry.sentAt', { when: new Date(view.sentAt).toLocaleString(intlLocale()) })
+      ? t('telemetry.sentAt', { when: formatDateIn(new Date(view.sentAt), DATE_TIME) })
       : t('telemetry.notSent');
   return (
     <Box sx={{ py: 1, display: 'grid', gap: 1 }}>
@@ -124,7 +134,7 @@ function ServerCrashes({ api }: { api: AdminApi }) {
             <Typography variant="caption" color="text.secondary">
               {t('telemetry.crashSeen', {
                 count: crash.count,
-                when: new Date(crash.lastAt).toLocaleString(intlLocale()),
+                when: formatDateIn(new Date(crash.lastAt), DATE_TIME),
               })}
             </Typography>
           </Box>

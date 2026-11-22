@@ -1,12 +1,12 @@
 import { Box, Typography } from '@mui/material';
 import type { MonthCount } from '../../ports/stats.ts';
 import { t } from '../i18n/i18n.ts';
-import { intlLocale } from '../../core/intl.ts';
+import { formatDateIn } from '../../core/intl.ts';
 
 /** "Oct" for "2026-10". */
 function monthName(month: string): string {
   const [year, number] = month.split('-').map(Number) as [number, number];
-  return new Date(year, number - 1, 1).toLocaleDateString(intlLocale(), { month: 'short' });
+  return formatDateIn(new Date(year, number - 1, 1), { month: 'short' });
 }
 
 /** Closed tasks per month as bars, oldest first; each bar names its month and count. */
