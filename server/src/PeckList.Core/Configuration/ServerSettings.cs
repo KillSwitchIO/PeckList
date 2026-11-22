@@ -122,6 +122,12 @@ public sealed record ServerSettings
     public bool ApiDocs { get; init; } = true;
 
     /// <summary>
+    /// Serve the MCP connector at <c>/mcp</c> (<c>MCP</c>, PL-113): assistants such as Claude and
+    /// ChatGPT read and change a person's tasks with their API key. Off unless turned on.
+    /// </summary>
+    public bool Mcp { get; init; }
+
+    /// <summary>
     /// The SQLite file when DB_PATH is not set: pecklist.db, or punchlist.db where a server from before
     /// the rename (PL-127) already keeps its data. The old file is used where it is, never moved, so
     /// going back to an older version still finds it.
@@ -400,6 +406,7 @@ public sealed record ServerSettings
             AttachmentDailyMb = Count("ATTACHMENT_DAILY_MB", 1024, 0),
             UpdateCheck = Flag("UPDATE_CHECK", true),
             ApiDocs = Flag("API_DOCS", true),
+            Mcp = Flag("MCP", false),
             Telemetry = Flag("TELEMETRY", true) && !Flag("DO_NOT_TRACK", false),
             CrashReports = Flag("CRASH_REPORTS", true),
             TelemetryUrl = telemetryUrl,
@@ -435,6 +442,8 @@ public sealed record ServerSettings
         {
             errors.Add("OIDC_PROVIDERS: the name passkey is taken (passkeys use it); call the provider something else");
         }
+        // With no sign-in, a key would be the only thing between an assistant and everyone's tasks.
+        if (settings.Mcp && settings.AuthMode == AuthMode.None) errors.Add("MCP needs AUTH_MODE=local (AUTH_MODE=none has no sign-in)");
         if (settings.OidcProviders.Count > 0 && settings.AuthMode == AuthMode.None)
         {
             errors.Add("OIDC_PROVIDERS needs AUTH_MODE=local (AUTH_MODE=none has no sign-in)");

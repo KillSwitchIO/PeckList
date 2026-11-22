@@ -97,6 +97,9 @@ public static class ApiKeyAuth
         if (path.Equals("/api/v1/me")) return get ? AnyScope : null;
         // Signing the CLI in is never a key's (approving makes keys); signing out is any key's own.
         if (path.StartsWithSegments("/api/v1/cli")) return path.Equals("/api/v1/cli/sign-in") && HttpMethods.IsDelete(method) ? AnyScope : null;
+        // The MCP connector (PL-113): every call is a POST; each tool's own scope is checked as it
+        // runs (Mcp.McpConnector.ToolScopes), so reaching it at all takes tasks:read.
+        if (path.Equals(Mcp.McpConnector.Path)) return HttpMethods.IsPost(method) ? ApiScopes.TasksRead : null;
         if (path.StartsWithSegments("/api/v1"))
         {
             if (get) return ApiScopes.TasksRead;
@@ -111,7 +114,9 @@ public static class ApiKeyAuth
         var path = context.Request.Path;
         if (context.User.ByKey() && !path.Equals("/api/info"))
         {
-            var scope = path.StartsWithSegments("/api") ? ScopeFor(context.Request.Method, path) : null;
+            var scope = path.StartsWithSegments("/api") || path.StartsWithSegments(Mcp.McpConnector.Path)
+                ? ScopeFor(context.Request.Method, path)
+                : null;
             if (scope is null || (scope != AnyScope && !context.User.KeyMay(scope)))
             {
                 var message = scope is null ? "API keys cannot use this" : $"this key lacks the {scope} permission";
@@ -121,6 +126,11 @@ public static class ApiKeyAuth
                     return;
                 }
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                // What an MCP client reads to know which permission to ask for.
+                if (scope is not null && path.StartsWithSegments(Mcp.McpConnector.Path))
+                {
+                    context.Response.Headers.WWWAuthenticate = $"Bearer error=\"insufficient_scope\", scope=\"{scope}\"";
+                }
                 await context.Response.WriteAsJsonAsync(new
                 {
                     error = "scope",

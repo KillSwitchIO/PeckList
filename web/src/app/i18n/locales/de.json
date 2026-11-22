@@ -577,6 +577,7 @@
   "serverSettings.AUDIT_ARCHIVE": "Einträge vor dem Entfernen archivieren",
   "serverSettings.UPDATE_CHECK": "Nach neuen Versionen suchen",
   "serverSettings.API_DOCS": "API-Dokumentation (Swagger)",
+  "serverSettings.MCP": "MCP-Connector für Assistenten",
   "serverSettings.group.telemetry": "Telemetrie",
   "serverSettings.group.email": "E-Mail",
   "serverSettings.SMTP_PROVIDER": "Anbieter",

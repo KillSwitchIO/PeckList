@@ -214,6 +214,14 @@ Swagger UI page at `/api/docs` to read it and try calls with an API key (see the
 they show what the API offers, never anyone's data. Turn it off and both answer 404.
 **Default:** `true`. **Where:** any, live.
 
+### `MCP`
+
+Serve the MCP connector at `/mcp`, so assistants that speak the Model Context Protocol (Claude,
+ChatGPT, editors such as Cursor) can read and change a person's tasks. Each person connects with
+one of their own API keys, and the assistant can do only what the key allows and the person could
+do in the app. Off, `/mcp` answers 404. It needs sign-in: the server does not start with `MCP=on`
+and `AUTH_MODE=none`. **Default:** `false`. **Where:** any, live.
+
 ### `ATTACHMENT_DIR`
 
 Where attached files are kept, one file per content hash. Back this folder up with the database.
