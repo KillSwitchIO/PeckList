@@ -633,7 +633,10 @@ describe('lists and sections', () => {
     await userEvent.click(screen.getByRole('button', { name: 'New list' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(within(dialog).getByLabelText('Name'), 'Home');
-    await userEvent.click(within(dialog).getByRole('radio', { name: 'Pastel green' }));
+    // By label: the icon picker's whole catalog may be on show (see the icon tests below).
+    const green = within(dialog).getByLabelText('Pastel green');
+    expect(green).toHaveAttribute('role', 'radio');
+    await userEvent.click(green);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
     await addTasks('Fix gate');
@@ -645,6 +648,8 @@ describe('lists and sections', () => {
   // costs about half a second with coverage, and a role query over it as much again, several
   // times that on a busy CI runner. So these tests find a choice by its label, not its role,
   // never clear the search (back to every choice) in between, and split the walk in two.
+  // 90 s: above the default on CI (45 s) and here (30 s), never below it (a 30 s one here gave
+  // CI's busy runner 15 s less than any other test).
   it('gives a list an icon, shown where its color dot was, and takes it off again', async () => {
     await renderApp('/today');
     await userEvent.click(screen.getByRole('button', { name: 'New list' }));
@@ -668,7 +673,7 @@ describe('lists and sections', () => {
     await waitFor(() =>
       expect(within(nav).getByRole('button', { name: /^Groceries/ })).not.toHaveTextContent('🛒'),
     );
-  }, 30_000);
+  }, 90_000);
 
   it('finds icons and emoji by name, and takes an emoji the catalog lacks', async () => {
     await renderApp('/today');
@@ -688,7 +693,7 @@ describe('lists and sections', () => {
     const row = await within(nav).findByRole('button', { name: /^Groceries/ });
     expect(row).toHaveTextContent('🫎');
     expect(row).not.toHaveTextContent('🥕');
-  }, 30_000);
+  }, 90_000);
 
   it('gives a list a line icon in its color instead of an emoji', async () => {
     await renderApp('/today');
@@ -706,7 +711,7 @@ describe('lists and sections', () => {
     expect(row.querySelector('svg[data-testid="WorkOutlineRoundedIcon"]')).not.toBeNull();
     // The stored name is never shown as text.
     expect(row).not.toHaveTextContent('symbol:');
-  }, 30_000);
+  }, 90_000);
 
   it('has no sections: ones in old data fold into their list, in the order they showed', async () => {
     const store = testStore();

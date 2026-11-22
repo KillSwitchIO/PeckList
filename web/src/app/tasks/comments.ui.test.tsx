@@ -48,7 +48,7 @@ async function sharedTask() {
 }
 
 describe('comments', () => {
-  // A long flow: under a full parallel run with coverage it can pass 15 seconds.
+  // A long flow: under a full parallel run with coverage it has passed 15 seconds.
   it('posts with Ctrl+Enter, mentions people on the task, edits and deletes', async () => {
     const { details } = await sharedTask();
     const box = within(details).getByRole('textbox', { name: /Add a comment/ });
@@ -85,7 +85,7 @@ describe('comments', () => {
     expect(
       await within(details).findByRole('listitem', { name: 'Comment by You' }),
     ).toHaveTextContent('Green after all');
-  }, 30_000);
+  }, 90_000);
 
   // Ben, 2026-11-12: a group in the @ list writes each member who can see the task (the server
   // notifies by name, and only people who can see the task); the others are left out.
@@ -140,5 +140,5 @@ describe('comments', () => {
     expect(garden).not.toHaveTextContent('@kim');
     await userEvent.keyboard('{Enter}');
     expect(box).toHaveValue('Seeds, (@ana @sam ');
-  }, 30_000);
+  }, 90_000);
 });

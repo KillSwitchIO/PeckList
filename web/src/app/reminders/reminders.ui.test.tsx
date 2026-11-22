@@ -108,9 +108,21 @@ describe('reminders', () => {
     expect(
       within(details).getByRole('button', { name: 'Reminders: 1 day early' }),
     ).toBeInTheDocument();
+  });
 
+  // Its own test, not the end of the one above: each walk is half as long, and so half as near
+  // the timeout on a busy runner (the two together took 8.4 s on CI).
+  it('take a custom time from the Hour tab’s wheel, beside the ones set', async () => {
+    setNotifier(fakeNotifier('granted'));
+    const store = testStore();
+    await renderApp('/inbox', store);
+    // One reminder already, so the custom one is added after it, not instead (Dev 2).
+    const id = addTask(store, 'Dentist', inMinutes(24 * 60), [{ before: 1440 }]);
+    const task = () => store.getState().workspace!.entities.tasks.find((each) => each.id === id)!;
+    await userEvent.click(screen.getByRole('button', { name: 'Open Dentist' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
     // Custom: 2 hours early, from the Hour tab's wheel.
-    await userEvent.click(within(details).getByRole('button', { name: /^Reminders: / }));
+    await userEvent.click(within(details).getByRole('button', { name: 'Reminders: 1 day early' }));
     const again = await screen.findByRole('dialog', { name: 'Reminder' });
     await userEvent.click(within(again).getByRole('menuitemcheckbox', { name: /Custom/ }));
     await userEvent.click(within(again).getByRole('tab', { name: 'Hour' }));
@@ -544,12 +556,16 @@ describe('snoozing a reminder (audit B3)', () => {
     const store = testStore();
     await renderApp('/inbox', store);
     const id = addTask(store, 'Take the pills', inMinutes(120), [{ before: 0 }]);
+    // Taken before the press: the app reads the clock after it, so a minute may turn in between.
+    const soon = [inMinutes(10), inMinutes(11)];
     worker.press({ action: 'snooze', taskId: id, first: Date.now() - 60_000 });
-    await waitFor(() =>
-      expect(
-        store.getState().workspace!.entities.tasks.find((task) => task.id === id)!.reminders,
-      ).toEqual([{ before: 0 }, { at: inMinutes(10) }]),
-    );
+    await waitFor(() => {
+      const reminders = store
+        .getState()
+        .workspace!.entities.tasks.find((task) => task.id === id)!.reminders;
+      expect(reminders).toEqual([{ before: 0 }, { at: expect.any(String) }]);
+      expect(soon).toContain((reminders![1] as { at: string }).at);
+    });
   });
 
   it('in the Android app go to the system with the reminders ahead, asked for before each hand-over', async () => {
@@ -617,5 +633,5 @@ describe('snoozing a reminder (audit B3)', () => {
     await waitFor(() => expect(handed.at(-1)).toEqual({ titles: ['Call mum'], keep: false }), {
       timeout: 9000,
     });
-  }, 30_000);
+  }, 90_000);
 });

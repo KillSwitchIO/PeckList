@@ -66,5 +66,5 @@ describe('long lists of closed tasks', () => {
     act(() => FakeObserver.reach());
     expect(rows()).toBe(215);
     expect(document.querySelector('[aria-hidden][style*="height"]')).toBeNull();
-  }, 30_000);
+  }, 90_000);
 });

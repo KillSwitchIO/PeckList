@@ -28,6 +28,10 @@ const oldest = 2;
  * Put a document where a past or future version would have saved it, over whatever is there:
  * `records` as the app saves today (one record per entity), `text` as older versions did (one JSON
  * text). `null` empties storage, as on a new device. The page is reloaded by what comes next.
+ *
+ * Each write waits for its transaction to commit, not just for its request: the next step leaves
+ * the page, and leaving aborts a transaction still open. The old text copy was lost that way on a
+ * busy runner (!525, !530), and the app then opened an empty workspace instead of the upgrade page.
  */
 async function store(document: Document | null, form: 'records' | 'text' = 'records') {
   await browser.execute(
@@ -36,6 +40,11 @@ async function store(document: Document | null, form: 'records' | 'text' = 'reco
         new Promise<T>((resolve, reject) => {
           request.onsuccess = () => resolve(request.result);
           request.onerror = () => reject(request.error ?? new Error('IndexedDB failed'));
+        });
+      const committed = (tx: IDBTransaction) =>
+        new Promise((resolve, reject) => {
+          tx.oncomplete = resolve;
+          tx.onerror = tx.onabort = () => reject(tx.error ?? new Error('IndexedDB failed'));
         });
       const records = await done(indexedDB.open('pecklist-records'));
       const tx = records.transaction(['entities', 'doc'], 'readwrite');
@@ -52,18 +61,15 @@ async function store(document: Document | null, form: 'records' | 'text' = 'reco
         }
         tx.objectStore('doc').put({ doc, order }, 'header');
       }
-      await new Promise((resolve, reject) => {
-        tx.oncomplete = resolve;
-        tx.onerror = () => reject(tx.error ?? new Error('IndexedDB failed'));
-      });
+      await committed(tx);
       records.close();
       const first = await done(indexedDB.open('pecklist'));
-      const store = first.transaction('workspace', 'readwrite').objectStore('workspace');
-      await done(store.clear());
+      const texts = first.transaction('workspace', 'readwrite');
+      texts.objectStore('workspace').clear();
       if (document && form === 'text') {
-        const text = first.transaction('workspace', 'readwrite').objectStore('workspace');
-        await done(text.put(JSON.stringify(document), 'current'));
+        texts.objectStore('workspace').put(JSON.stringify(document), 'current');
       }
+      await committed(texts);
       first.close();
       localStorage.clear();
     },

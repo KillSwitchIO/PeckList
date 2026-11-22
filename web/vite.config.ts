@@ -95,7 +95,10 @@ export default defineConfig({
     // UI tests type and click through whole flows in jsdom; under coverage on a busy machine the
     // longer ones pass 5 s now and then, which failed pushes at random. CI's runner is shared and
     // slower again (a settings flow took 15 s there; with other jobs on the same runner, 30 s).
-    testTimeout: process.env.CI ? 45_000 : 15_000,
+    // Here too the machine is often shared: with other suites running beside a push, 15 s failed
+    // tests that take 2 to 6 s alone (four pushes on 2026-11-21), so 30 s. The longest walks name
+    // 90_000 of their own, above both.
+    testTimeout: process.env.CI ? 45_000 : 30_000,
     include: ['src/**/*.test.{ts,tsx}'],
     // The real-browser tests run in vitest.browser.config.ts only: in jsdom there is no layout.
     exclude: [...configDefaults.exclude, 'src/**/*.browser.test.{ts,tsx}'],
