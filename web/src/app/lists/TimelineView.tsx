@@ -10,7 +10,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { addBlocker, blockersOf, warns, wouldLoop } from '../../core/blocking.ts';
 import { addDays, daysBetween, localTimeZone } from '../../core/dates.ts';
 import {
@@ -56,6 +56,25 @@ const weekdayNarrow = localeDateFormat({ weekday: 'narrow', timeZone: 'UTC' });
 const at = (day: string) => new Date(`${day}T12:00:00Z`);
 
 /**
+ * Holds clean-ups to run if the component goes away first (a gesture's window listeners). Adding
+ * one returns its release, for when the gesture ends by itself; each press has its own, so a
+ * second finger's press neither replaces nor drops the first's.
+ */
+function useOnUnmount(): (cleanup: () => void) => () => void {
+  const pending = useRef(new Set<() => void>());
+  useEffect(() => {
+    const all = pending.current;
+    return () => [...all].forEach((cleanup) => cleanup());
+  }, []);
+  return useCallback((cleanup) => {
+    pending.current.add(cleanup);
+    return () => {
+      pending.current.delete(cleanup);
+    };
+  }, []);
+}
+
+/**
  * A list as a timeline (spec: PL-055, R-FB-56): each dated task a bar across its days, to drag to
  * other days or stretch by its ends; tasks without a date sit under it. Rows are one per task, or
  * fitted together so tasks that do not overlap share a row.
@@ -86,6 +105,9 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
   // links nothing).
   const cancelLink = useRef<(() => void) | null>(null);
   useEffect(() => () => cancelLink.current?.(), []);
+  // The same for a bar being moved or resized: gone with the timeline, a let-go on the next page
+  // changes nothing there.
+  const endPressOnUnmount = useOnUnmount();
   const theme = useTheme();
   const markers = useId();
 
@@ -177,6 +199,7 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', finish);
       document.removeEventListener('touchmove', hold);
+      release();
       setDrag(null);
     };
     const up = (next: PointerEvent) => {
@@ -197,6 +220,7 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
         );
       }
     };
+    const release = endPressOnUnmount(finish);
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', finish);
