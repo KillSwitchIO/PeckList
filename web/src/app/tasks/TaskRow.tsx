@@ -4,16 +4,20 @@ import RadioButtonUncheckedRounded from '@mui/icons-material/RadioButtonUnchecke
 import NotificationsNoneRounded from '@mui/icons-material/NotificationsNoneRounded';
 import RepeatRounded from '@mui/icons-material/RepeatRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
+import LinkRounded from '@mui/icons-material/LinkRounded';
 import SubdirectoryArrowRightRounded from '@mui/icons-material/SubdirectoryArrowRightRounded';
 import { Box, ButtonBase, Checkbox, IconButton, Typography, useTheme } from '@mui/material';
 import { useRef, useState } from 'react';
 import { useLocation } from 'react-router';
+import { blockersOf, waitingOn, warns } from '../../core/blocking.ts';
 import { getEntity } from '../../core/collections.ts';
+import { localTimeZone } from '../../core/dates.ts';
 import { subtaskProgress } from '../../core/queries.ts';
 import { assigneesOf, describePrincipal } from '../../core/sharing.ts';
 import { tagsOfTask } from '../../core/tags.ts';
 import { isPinned, setPinned, setTaskStatus, toggleTaskDone } from '../../core/tasks.ts';
-import type { Priority, Task } from '../../core/types.ts';
+import type { Priority, Task, WorkspaceFile } from '../../core/types.ts';
+import { waitingText } from './blockingText.ts';
 import { ownEvent } from '../hooks/ownEvent.ts';
 import { useLongPress } from '../hooks/useLongPress.ts';
 import { t } from '../i18n/i18n.ts';
@@ -156,6 +160,12 @@ export interface RowSelection {
 
 type TaskRowProps = Parameters<typeof TaskRowContent>[0];
 
+/** Whether a task has a blocked-by link to show (a live task, or one this device can't see). */
+function hasLinks(workspace: WorkspaceFile, task: Task): boolean {
+  const { shown, hidden } = blockersOf(workspace, task);
+  return shown.length > 0 || hidden.length > 0;
+}
+
 /**
  * One task in a list. A blank task the add bar's expand button made for its form stays out of the
  * lists until it has a title (R-FB-93): closed still empty, it goes again.
@@ -215,6 +225,12 @@ function TaskRowContent({
   const progress = subtaskProgress(workspace, task.id);
   const tags = tagsOfTask(workspace, task);
   const assigned = assigneesOf(task).map((principal) => describePrincipal(workspace, principal));
+  // Blocked-by links (PL-055): the chain mark while a task it waits on is open, warning-coloured
+  // when it starts before one of them ends. Linked at all keeps a phone row's second line, so the
+  // row keeps its height as the last blocker is completed.
+  const linked = Object.keys(task.blockedBy).length > 0 && hasLinks(workspace, task);
+  const waiting = linked ? waitingOn(workspace, task) : [];
+  const late = waiting.filter((blocker) => warns(task, blocker, localTimeZone()));
   // Two lines on phones and in narrow list columns (beside the details panel), unless the view's
   // rows are compact: then one line everywhere, and a narrow one keeps only the title, the small
   // marks and the date.
@@ -278,6 +294,21 @@ function TaskRowContent({
           sx={{ display: 'inline-flex', color: 'text.secondary' }}
         >
           <RepeatRounded sx={{ fontSize: 15 }} />
+        </Box>
+      )}
+      {waiting.length > 0 && (
+        <Box
+          component="span"
+          role="img"
+          aria-label={waitingText(waiting, late)}
+          title={waitingText(waiting, late)}
+          data-testid="waiting-mark"
+          sx={{
+            display: 'inline-flex',
+            color: late.length > 0 ? 'warning.main' : 'text.secondary',
+          }}
+        >
+          <LinkRounded sx={{ fontSize: 15, transform: 'rotate(-45deg)' }} />
         </Box>
       )}
       {task.status === 'open' && (task.reminders?.length ?? 0) > 0 && (
@@ -350,7 +381,8 @@ function TaskRowContent({
     assigned.length > 0 ||
     progress.total > 0 ||
     (showParent && parent !== undefined) ||
-    showsList;
+    showsList ||
+    linked;
   const openButton = {
     onClick: (event: React.MouseEvent) => {
       if (select) {
@@ -552,6 +584,8 @@ function TaskRowContent({
                       typography: 'body2',
                       fontSize: '0.8125rem',
                       color: 'text.secondary',
+                      // A link alone keeps a line's height when its mark goes (the last blocker done).
+                      ...(linked ? { minHeight: '1.43em' } : {}),
                     }}
                   >
                     {showsList && <Box component="span">{listName(list, workspace)}</Box>}

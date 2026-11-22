@@ -1,20 +1,15 @@
 import { isPinned, setPinned } from '../../core/tasks.ts';
 import { PinIcon, PinOffIcon } from '../icons/icons.tsx';
 import AccountTreeOutlined from '@mui/icons-material/AccountTreeOutlined';
+import HourglassEmptyRounded from '@mui/icons-material/HourglassEmptyRounded';
 import ContentCopyRounded from '@mui/icons-material/ContentCopyRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import DriveFileMoveOutlined from '@mui/icons-material/DriveFileMoveOutlined';
 import LinkOffRounded from '@mui/icons-material/LinkOffRounded';
 import OpenInNewRounded from '@mui/icons-material/OpenInNewRounded';
-import SearchRounded from '@mui/icons-material/SearchRounded';
 import {
   Box,
   Dialog,
-  DialogContent,
-  DialogTitle,
-  InputBase,
-  List,
-  ListItemButton,
   ListItemIcon,
   ListItemText,
   Menu,
@@ -23,7 +18,9 @@ import {
   Typography,
   Divider,
 } from '@mui/material';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
+import { MAX_RESULTS, PickerDialog } from './PickerDialog.tsx';
+import { BlockedByDialog } from './BlockingProperty.tsx';
 import { getEntity } from '../../core/collections.ts';
 import { ALL_TASKS, filterTasks } from '../../core/filters.ts';
 import {
@@ -54,90 +51,6 @@ import { ProgressRing } from './ProgressRing.tsx';
 import { deleteAsking } from '../repeat/repeatActions.ts';
 import { useTaskSelection } from './selection.ts';
 import { duplicate } from './duplicateActions.ts';
-
-const MAX_RESULTS = 50;
-
-/** Pick one thing out of a searched list: a search box, the matches, and Enter takes the first. */
-function PickerDialog<T>({
-  title,
-  searchLabel,
-  emptyText,
-  listLabel,
-  matching,
-  keyOf,
-  render,
-  onPick,
-  onClose,
-}: {
-  title: string;
-  searchLabel: string;
-  emptyText: string;
-  listLabel?: string;
-  /** The candidates for what was typed (trimmed, lowercase; empty for all). */
-  matching: (wanted: string) => T[];
-  keyOf: (item: T) => string;
-  render: (item: T) => ReactNode;
-  onPick: (item: T) => void;
-  onClose: () => void;
-}) {
-  const [query, setQuery] = useState('');
-  const found = matching(query.trim().toLowerCase());
-  return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle sx={{ pb: 1 }}>{title}</DialogTitle>
-      <DialogContent sx={{ px: 1, pb: 1 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            mx: 1,
-            mb: 1,
-            px: 1.5,
-            py: 0.5,
-            borderRadius: 2,
-            bgcolor: 'action.hover',
-            color: 'text.secondary',
-          }}
-        >
-          <SearchRounded fontSize="small" />
-          <InputBase
-            autoFocus
-            fullWidth
-            value={query}
-            placeholder={searchLabel}
-            inputProps={{ 'aria-label': searchLabel }}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && found[0]) {
-                event.preventDefault();
-                onPick(found[0]);
-              }
-            }}
-            sx={{ color: 'text.primary' }}
-          />
-        </Box>
-        {found.length === 0 ? (
-          <Typography color="text.secondary" sx={{ px: 2, py: 1 }}>
-            {emptyText}
-          </Typography>
-        ) : (
-          <List dense sx={{ maxHeight: 360, overflowY: 'auto' }} aria-label={listLabel}>
-            {found.map((item) => (
-              <ListItemButton
-                key={keyOf(item)}
-                onClick={() => onPick(item)}
-                sx={{ borderRadius: 2 }}
-              >
-                {render(item)}
-              </ListItemButton>
-            ))}
-          </List>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 /** Pick the task that `task` should become a subtask of. */
 function NestUnderDialog({ task, onClose }: { task: Task; onClose: () => void }) {
@@ -253,6 +166,7 @@ export function TaskMenu({
   const apply = useApply();
   const { selectedId, on, open, close } = useTaskSelection();
   const [nesting, setNesting] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [moving, setMoving] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const today = useToday();
@@ -411,6 +325,13 @@ export function TaskMenu({
           </ListItemIcon>
           {t('task.nestUnder')}
         </MenuItem>
+        {/* The way to a task's first blocked-by link (PL-055); later ones come from its details row too. */}
+        <MenuItem onClick={run(() => setBlocking(true))}>
+          <ListItemIcon>
+            <HourglassEmptyRounded fontSize="small" />
+          </ListItemIcon>
+          {t('blocking.menu')}
+        </MenuItem>
         {task.parentId && (
           <MenuItem
             onClick={run(() =>
@@ -438,6 +359,7 @@ export function TaskMenu({
         </MenuItem>
       </Menu>
       {nesting && <NestUnderDialog task={task} onClose={() => setNesting(false)} />}
+      {blocking && <BlockedByDialog task={task} onClose={() => setBlocking(false)} />}
       {moving && <MoveToListDialog task={task} onClose={() => setMoving(false)} />}
       {savingTemplate && (
         <SaveTemplateDialog

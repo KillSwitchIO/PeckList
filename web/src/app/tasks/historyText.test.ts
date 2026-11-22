@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createList } from '../../core/lists.ts';
+import { createList, inboxList } from '../../core/lists.ts';
+import { createTask } from '../../core/tasks.ts';
 import { createWorkspace } from '../../core/workspace.ts';
 import type { HistoryEntry } from '../../ports/sync.ts';
 import { testContext } from '../../test/fixtures.ts';
@@ -36,5 +37,21 @@ describe('history text (R-FB-105)', () => {
     expect(say('notes', undefined, undefined)).toBe('edited the notes');
     expect(say('pinnedAt', null, '2026-10-27T15:00:00.000Z')).toBe('pinned it');
     expect(say('progress', 0, 40)).toBe('set progress to 40%');
+  });
+
+  it('names the tasks a blocked-by change is about, and never one this device cannot see (PL-055)', () => {
+    const ctx = testContext();
+    const ws0 = createWorkspace(ctx);
+    const made = createTask(ctx, ws0, { title: 'Buy paint', listId: inboxList(ws0).id });
+    const ws = made.workspace;
+    const paint = made.task.id;
+    const unseen = '01TESTUNSEEN0000000000000A';
+    const say = (before: unknown, after: unknown) =>
+      historyText(entry('blockedBy', before, after), ws, TODAY);
+
+    expect(say([], [paint])).toBe('made it wait on Buy paint');
+    expect(say([paint], [])).toBe('stopped it waiting on Buy paint');
+    expect(say([paint], [paint, unseen])).toBe('made it wait on a task you cannot see');
+    expect(say([paint], [unseen])).toBe('changed what it waits on');
   });
 });

@@ -15,16 +15,17 @@ import type { Id, Task, WorkspaceFile } from './types.ts';
 /** The tasks a task waits on: the ones this device can show, and how many it cannot. */
 export interface Blockers {
   shown: Task[];
-  hidden: number;
+  /** Ids of tasks this device does not hold: shown as a count, never named */
+  hidden: Id[];
 }
 
 /** What a task waits on (live tasks only; a trashed or purged one counts as neither). */
 export function blockersOf(workspace: WorkspaceFile, task: Task): Blockers {
   const shown: Task[] = [];
-  let hidden = 0;
+  const hidden: Id[] = [];
   for (const id of members(task.blockedBy)) {
     const other = getEntity(workspace, 'tasks', id);
-    if (other === undefined) hidden += 1;
+    if (other === undefined) hidden.push(id);
     else if (other.deletedAt === null && other.id !== task.id) shown.push(other);
   }
   return { shown, hidden };
@@ -95,11 +96,20 @@ export function startsTooSoon(blocked: Task, blocker: Task, zone: string): boole
   return hasTime(waiting.start) && hasTime(first.end) && waiting.start < first.end;
 }
 
-/** The shown blockers `blocked` starts too soon after. */
-export function conflictsOf(workspace: WorkspaceFile, blocked: Task, zone: string): Task[] {
-  return blockersOf(workspace, blocked).shown.filter((blocker) =>
-    startsTooSoon(blocked, blocker, zone),
+/**
+ * Whether to warn about a link's dates (the orange mark and row, the red arrow): only while both
+ * tasks are open. A blocker that is done no longer holds anything up, and a waiting task that is
+ * done has nothing left to start.
+ */
+export function warns(blocked: Task, blocker: Task, zone: string): boolean {
+  return (
+    blocked.status === 'open' && blocker.status === 'open' && startsTooSoon(blocked, blocker, zone)
   );
+}
+
+/** The shown blockers to warn about: `blocked` starts too soon after them, both still open. */
+export function conflictsOf(workspace: WorkspaceFile, blocked: Task, zone: string): Task[] {
+  return blockersOf(workspace, blocked).shown.filter((blocker) => warns(blocked, blocker, zone));
 }
 
 /** Make `blockedId` wait on `blockerId`. A link that would make a loop is refused (no change). */

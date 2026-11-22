@@ -236,6 +236,31 @@ public sealed class SharingTests(ServerFixture fixture) : IClassFixture<ServerFi
     }
 
     [Fact]
+    public async Task A_blocked_by_link_and_its_removal_are_in_the_history_as_task_ids()
+    {
+        var ben = await SignIn("ben-hb");
+        var sam = await SignIn("sam-hb");
+        await Befriend(ben, sam);
+        await ben.SyncAsync(List("BL1", "shared"), Member("BM1", "BL1", sam.UserId, "editor"),
+            Task("BT1", "BL1", "Hang door"), Task("BT2", "BL1", "Buy paint"));
+        // Sam links the door to the paint, then Ben takes the link off (another person: no folding).
+        (string, JsonObject) Linked(bool isIn, string at)
+        {
+            var task = Task("BT1", "BL1", "Hang door");
+            task.Item2["blockedBy"] = new JsonObject { ["BT2"] = new JsonObject { ["in"] = isIn, ["hlc"] = at } };
+            ((JsonObject)task.Item2["_hlc"]!)["blockedBy"] = at;
+            return task;
+        }
+        await sam.SyncAsync(Linked(true, "2026-10-21T13:00:00.000Z-0000-dev2"));
+        await ben.SyncAsync(Linked(false, "2026-10-21T14:00:00.000Z-0000-dev1"));
+
+        var history = (await ben.Client.GetFromJsonAsync<List<HistoryView>>("/api/tasks/BT1/history", Token))!;
+        Assert.Equal(["blockedBy", "blockedBy", "created"], history.Select(each => each.Field));
+        Assert.Equal(("[\"BT2\"]", "[]", ben.UserId), (history[0].Before, history[0].After, history[0].ActorId));
+        Assert.Equal(("[]", "[\"BT2\"]", sam.UserId), (history[1].Before, history[1].After, history[1].ActorId));
+    }
+
+    [Fact]
     public async Task A_task_for_a_group_tells_its_members_and_calling_dibs_tells_the_rest()
     {
         var ben = await SignIn("ben-g");

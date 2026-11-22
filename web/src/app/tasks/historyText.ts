@@ -89,6 +89,24 @@ export function historyText(entry: HistoryEntry, workspace: WorkspaceFile, today
       if (added.length) return t('history.assigned', { people: names(added) });
       return t('history.unassigned', { people: names(removed) });
     }
+    case 'blockedBy': {
+      // A task this device doesn't hold is one it can't see: never named here either.
+      const titles = (ids: string[]) =>
+        ids
+          .map((id) => {
+            const task = getEntity(workspace, 'tasks', id);
+            return task ? task.title || t('task.untitled') : t('history.aHiddenTask');
+          })
+          .join(', ');
+      const was = strings(before);
+      const now = strings(after);
+      const added = now.filter((each) => !was.includes(each));
+      const removed = was.filter((each) => !now.includes(each));
+      if (added.length && !removed.length) return t('history.blocked', { tasks: titles(added) });
+      if (removed.length && !added.length)
+        return t('history.unblocked', { tasks: titles(removed) });
+      return t('history.blocking');
+    }
     case 'tags': {
       const was = strings(before);
       const now = strings(after);
