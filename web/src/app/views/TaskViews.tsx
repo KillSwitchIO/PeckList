@@ -1,20 +1,8 @@
 import { pinnedFirst } from '../../core/tasks.ts';
 import { groupDeleted } from './closedGroups.ts';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
-import DeleteForeverOutlined from '@mui/icons-material/DeleteForeverOutlined';
-import RestoreRounded from '@mui/icons-material/RestoreRounded';
-import {
-  Box,
-  Button,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import { useState } from 'react';
-import { getEntity } from '../../core/collections.ts';
 import { localTimeZone } from '../../core/dates.ts';
 import { findInbox } from '../../core/lists.ts';
 import {
@@ -31,17 +19,16 @@ import { emptyTrash, mayErase, purgeTask } from '../../core/trash.ts';
 import type { Task, WorkspaceFile } from '../../core/types.ts';
 import { ConfirmDialog } from '../lists/ListDialog.tsx';
 import { purgePeriod } from '../settings/purgePeriod.ts';
-import { formatDay } from '../format.ts';
 import { useNow, useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { Page } from '../layout/Page.tsx';
-import { listName } from '../lists/listName.ts';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { AddTaskInput, AddToInbox } from '../tasks/AddTaskInput.tsx';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { useNoteEmpty } from './emptyMarkPlays.ts';
 import { EmptyState } from './EmptyState.tsx';
 import { GroupSection } from './GroupSection.tsx';
+import { TrashRow } from './TrashRow.tsx';
 import { hasOwnDate, weekdayName } from './dayLabels.ts';
 import {
   CompletedGroup,
@@ -361,55 +348,19 @@ export function TrashView() {
                   {t('trash.othersListsHint')}
                 </Typography>
               )}
-              <List>
-                {group.rows.map((task) => {
-                  const list = getEntity(workspace, 'lists', task.listId);
-                  return (
-                    <ListItem
-                      key={task.id}
-                      divider
-                      secondaryAction={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Button
-                            size="small"
-                            startIcon={<RestoreRounded />}
-                            onClick={() =>
-                              apply((ctx, ws) => restoreTask(ctx, ws, task.id), t('undo.restored'))
-                            }
-                          >
-                            {t('task.restore')}
-                          </Button>
-                          {group.key !== 'others' && (
-                            <Tooltip title={t('trash.deleteForever')}>
-                              <IconButton
-                                size="small"
-                                aria-label={t('trash.deleteForeverOf', {
-                                  title: task.title || t('task.untitled'),
-                                })}
-                                onClick={() => setConfirm(task)}
-                              >
-                                <DeleteForeverOutlined fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
+              <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
+                {group.rows.map((task) => (
+                  <li key={task.id}>
+                    <TrashRow
+                      task={task}
+                      onRestore={() =>
+                        apply((ctx, ws) => restoreTask(ctx, ws, task.id), t('undo.restored'))
                       }
-                    >
-                      <ListItemText
-                        primary={task.title || t('task.untitled')}
-                        secondary={[
-                          list && listName(list, workspace),
-                          t('trash.deletedOn', {
-                            date: formatDay(task.deletedAt!.slice(0, 10), today),
-                          }),
-                        ]
-                          .filter(Boolean)
-                          .join(' . ')}
-                      />
-                    </ListItem>
-                  );
-                })}
-              </List>
+                      {...(group.key === 'others' ? {} : { onErase: () => setConfirm(task) })}
+                    />
+                  </li>
+                ))}
+              </Box>
             </GroupSection>
           ))}
           {tasks.length > limit && (
