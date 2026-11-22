@@ -11,8 +11,11 @@
 //   4. every English key is used in the source: a literal ('nav.today') anywhere in the code, or
 //      the prefix of a key built at run time (`audit.outcome.${x}`, 'serverSettings.' + key,
 //      and in C# $"date.month.{n}");
-//   5. how much of each language is translated (a report: a missing key shows English).
-// Exits 1 on any error from 1 to 4.
+//   5. how much of each language is translated (a report: a missing key shows English), and
+//      that the languages a catalog lists as `complete` have every English key: the ones the app
+//      ships speak whole, so a new string can't land in English alone (de, es and fr lacked the
+//      Duplicate strings for a release). A new language may still come in part by part.
+// Exits 1 on any error from 1 to 4, or a key a complete language lacks.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
@@ -20,15 +23,19 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
+/** The languages the app ships whole. */
+const SHIPPED = ['de', 'es', 'fr'];
+
 /**
- * The catalogs, each with the source folders its keys are used from and which files there count
- * (TypeScript unless `files` says otherwise).
+ * The catalogs, each with the source folders its keys are used from, which files there count
+ * (TypeScript unless `files` says otherwise), and the languages that must have every key.
  */
 export const CATALOGS = [
   {
     name: 'web',
     folder: 'web/src/app/i18n/locales',
     sources: ['web/src'],
+    complete: SHIPPED,
   },
   {
     // The server's own words: pushes, the Android check-in and emails (PL-148 piece 5).
@@ -36,6 +43,7 @@ export const CATALOGS = [
     folder: 'server/src/PeckList.Core/Text/locales',
     sources: ['server/src'],
     files: /\.cs$/,
+    complete: SHIPPED,
   },
 ];
 
@@ -226,6 +234,10 @@ export async function check({ root = ROOT, catalogs = CATALOGS, log = console.lo
       const translated = read(file);
       for (const error of compareCatalog(english, translated, locale, IntlMessageFormat))
         fail(`${locale} ${error}`);
+      if (catalog.complete?.includes(locale)) {
+        for (const key of Object.keys(english).filter((key) => !(key in translated)))
+          fail(`${locale} ${key}: not translated (shows English)`);
+      }
       const done = Object.keys(translated).filter((key) => key in english).length;
       log(
         `  ${locale}: ${done} of ${Object.keys(english).length} translated (${Math.floor((done * 100) / Object.keys(english).length)}%)`,
