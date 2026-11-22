@@ -27,6 +27,7 @@ public sealed class LiveSettings(ServerSettings start)
             SignUpRateLimit = next.SignUpRateLimit,
             UpdateCheck = next.UpdateCheck,
             ApiDocs = next.ApiDocs,
+            Mcp = next.Mcp,
             Telemetry = next.Telemetry,
             CrashReports = next.CrashReports,
             TelemetryUrl = next.TelemetryUrl,

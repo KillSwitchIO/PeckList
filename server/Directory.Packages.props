@@ -13,6 +13,7 @@
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.14" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.4.0" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <!-- Fido2 asks for 9.0.0, which has a CBOR hash-flooding DoS (GHSA-vmv3-wvjp-wqpj, fixed in
          9.0.24). The server runs on the shared framework's copy; the test project gets the package,

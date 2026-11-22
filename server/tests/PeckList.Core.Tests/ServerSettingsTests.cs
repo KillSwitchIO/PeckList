@@ -356,6 +356,15 @@ public sealed class ServerSettingsTests
     }
 
     [Fact]
+    public void Mcp_is_off_by_default_and_needs_sign_in()
+    {
+        Assert.False(Read(new()).Mcp);
+        Assert.True(Read(new() { ["MCP"] = "on" }).Mcp);
+        Assert.Contains("MCP needs AUTH_MODE=local",
+            Assert.Throws<SettingsException>(() => Read(new() { ["AUTH_MODE"] = "none", ["MCP"] = "true" })).Message);
+    }
+
+    [Fact]
     public void Oidc_needs_logins_and_hiding_the_password_form_needs_a_provider()
     {
         var error = Assert.Throws<SettingsException>(() => Read(new()

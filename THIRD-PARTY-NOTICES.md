@@ -28,13 +28,13 @@ The production packages of the web app, which the server and the Android app als
 
 The .NET packages the server projects use.
 
-### MIT (31)
+### MIT (32)
 
-`BouncyCastle.Cryptography`, `Fido2`, `Fido2.Models`, `Lib.Net.Http.EncryptedContentEncoding`, `Lib.Net.Http.WebPush`, `MailKit`, `MessageFormat`, `Microsoft.AspNetCore.Authentication.OpenIdConnect`, `Microsoft.AspNetCore.OpenApi`, `Microsoft.Bcl.Cryptography`, `Microsoft.Bcl.Memory`, `Microsoft.Data.Sqlite`, `Microsoft.Data.Sqlite.Core`, `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Hosting.Systemd`, `Microsoft.Extensions.Hosting.WindowsServices`, `Microsoft.Extensions.Logging.Abstractions`, `Microsoft.IdentityModel.Abstractions`, `Microsoft.IdentityModel.JsonWebTokens`, `Microsoft.IdentityModel.Logging`, `Microsoft.IdentityModel.Protocols`, `Microsoft.IdentityModel.Protocols.OpenIdConnect`, `Microsoft.IdentityModel.Tokens`, `Microsoft.NET.ILLink.Tasks`, `Microsoft.OpenApi`, `MimeKit`, `NSec.Cryptography`, `Swashbuckle.AspNetCore.SwaggerUI`, `System.IdentityModel.Tokens.Jwt`, `System.Security.Cryptography.Pkcs`, `System.ServiceProcess.ServiceController`
+`BouncyCastle.Cryptography`, `Fido2`, `Fido2.Models`, `Lib.Net.Http.EncryptedContentEncoding`, `Lib.Net.Http.WebPush`, `MailKit`, `MessageFormat`, `Microsoft.AspNetCore.Authentication.OpenIdConnect`, `Microsoft.AspNetCore.OpenApi`, `Microsoft.Bcl.Cryptography`, `Microsoft.Bcl.Memory`, `Microsoft.Data.Sqlite`, `Microsoft.Data.Sqlite.Core`, `Microsoft.Extensions.AI.Abstractions`, `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Hosting.Systemd`, `Microsoft.Extensions.Hosting.WindowsServices`, `Microsoft.Extensions.Logging.Abstractions`, `Microsoft.IdentityModel.Abstractions`, `Microsoft.IdentityModel.JsonWebTokens`, `Microsoft.IdentityModel.Logging`, `Microsoft.IdentityModel.Protocols`, `Microsoft.IdentityModel.Protocols.OpenIdConnect`, `Microsoft.IdentityModel.Tokens`, `Microsoft.NET.ILLink.Tasks`, `Microsoft.OpenApi`, `MimeKit`, `NSec.Cryptography`, `Swashbuckle.AspNetCore.SwaggerUI`, `System.IdentityModel.Tokens.Jwt`, `System.Security.Cryptography.Pkcs`, `System.ServiceProcess.ServiceController`
 
-### Apache-2.0 (5)
+### Apache-2.0 (8)
 
-`Dapper`, `SQLitePCLRaw.bundle_e_sqlite3`, `SQLitePCLRaw.core`, `SQLitePCLRaw.lib.e_sqlite3`, `SQLitePCLRaw.provider.e_sqlite3`
+`Dapper`, `ModelContextProtocol`, `ModelContextProtocol.AspNetCore`, `ModelContextProtocol.Core`, `SQLitePCLRaw.bundle_e_sqlite3`, `SQLitePCLRaw.core`, `SQLitePCLRaw.lib.e_sqlite3`, `SQLitePCLRaw.provider.e_sqlite3`
 
 ### BSD-2-Clause (1)
 

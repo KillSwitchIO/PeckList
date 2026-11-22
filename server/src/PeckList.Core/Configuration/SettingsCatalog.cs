@@ -36,6 +36,7 @@ public static class SettingsCatalog
         new("ATTACHMENT_DAILY_MB", "general", SettingKind.Number, "1024", Live: true),
         new("UPDATE_CHECK", "general", SettingKind.Flag, "true", Live: true),
         new("API_DOCS", "general", SettingKind.Flag, "true", Live: true),
+        new("MCP", "general", SettingKind.Flag, "false", Live: true),
         new("TELEMETRY", "telemetry", SettingKind.Flag, "true", Live: true),
         new("CRASH_REPORTS", "telemetry", SettingKind.Flag, "true", Live: true),
         new("TELEMETRY_URL", "telemetry", SettingKind.Url, "https://telemetry.pecklist.com/api/public/v1/ping", Live: true),

@@ -9,6 +9,7 @@ using PeckList.Server.Auth;
 using PeckList.Server.Attachments;
 using PeckList.Server.Audit;
 using PeckList.Server.Logging;
+using PeckList.Server.Mcp;
 using PeckList.Core.Sync;
 
 namespace PeckList.Server;
@@ -159,6 +160,7 @@ public static partial class ServerApp
         builder.Services.AddResponseHardening();
         builder.Services.AddDemoMode(settings);
         builder.Services.AddApiDocs();
+        builder.Services.AddMcpConnector();
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -202,7 +204,11 @@ public static partial class ServerApp
         app.UseServerCrashes();
         app.UseForwardedHeaders();
         app.UseResponseHardening(Analytics.ContentSecurityPolicy(settings.Umami));
-        // After the forwarded headers, so the request's own address is the one people use.
+        // Off, /mcp is simply not there, whatever the request carries.
+        app.UseMcpGate();
+        // After the forwarded headers, so the request's own address is the one people use. It also
+        // refuses another site's page posting to /mcp. It cannot tell a DNS-rebound page from this
+        // site, so the real guard there is that /mcp takes only a Bearer key, which no page holds.
         app.UseSameOriginGuard();
         // The task API answers every error as a problem, the 503s and 401s of what follows too.
         app.UseApiProblems();
@@ -226,6 +232,7 @@ public static partial class ServerApp
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapStartOver().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports().MapAccountSupporter();
         app.MapGroup("/api/v1").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapTaskApi();
         app.MapCliSignIn();
+        app.MapMcpConnector();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapAdminEmail().MapAdminPasskeys().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry().MapAdminCrashReports().MapAdminSupporter();
 
         var webRoot = settings.WebRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");

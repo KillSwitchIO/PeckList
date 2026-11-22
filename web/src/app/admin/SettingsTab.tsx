@@ -69,6 +69,7 @@ const LABELS: Record<string, MessageKey> = {
   AUDIT_ARCHIVE: 'serverSettings.AUDIT_ARCHIVE',
   UPDATE_CHECK: 'serverSettings.UPDATE_CHECK',
   API_DOCS: 'serverSettings.API_DOCS',
+  MCP: 'serverSettings.MCP',
   TELEMETRY: 'serverSettings.TELEMETRY',
   CRASH_REPORTS: 'serverSettings.CRASH_REPORTS',
   TELEMETRY_URL: 'serverSettings.TELEMETRY_URL',
