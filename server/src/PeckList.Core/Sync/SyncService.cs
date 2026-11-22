@@ -480,6 +480,25 @@ public sealed partial class SyncService(
         {
             throw new SyncRejected("invalid_change", $"{Where()} ({id}): {problem}");
         }
+        // A language that is not BCP 47 (`en-12`, which the schema's pattern lets through) is set
+        // aside when it would be set, so a script hears why. Only then: the same tag sent again, or
+        // an old one the merge would not take (Dev 2: a device still holding one), holds back none
+        // of the person's other settings, and the apps read any tag safely.
+        if (change.Collection == "settings" && entity["language"] is JsonValue picked && picked.TryGetValue<string>(out var language)
+            && !Text.LanguageTags.IsWellFormed(language) && WouldSetLanguage(sharing.Index.DocOf(id), language, clocks["language"]))
+        {
+            throw new SyncRejected("invalid_change", $"{Where()} ({id}): language '{language}' is not a BCP 47 tag, such as de or pt-BR");
+        }
         return new IncomingEntity(change.Collection, entity);
+    }
+
+    /// <summary>Whether <paramref name="language"/> stamped <paramref name="clock"/> would replace what <paramref name="kept"/> holds.</summary>
+    private static bool WouldSetLanguage(JsonObject? kept, string language, JsonNode? clock)
+    {
+        if (kept is null) return true;
+        if (kept["language"] is JsonValue value && value.TryGetValue<string>(out var was) && was == language) return false;
+        var keptClock = kept["_hlc"] is JsonObject clocks && clocks["language"] is JsonValue stamp && stamp.TryGetValue<string>(out var text) ? text : null;
+        var arriving = clock is JsonValue arrived && arrived.TryGetValue<string>(out var given) ? given : null;
+        return Hlc.Compare(arriving, keptClock) > 0;
     }
 }

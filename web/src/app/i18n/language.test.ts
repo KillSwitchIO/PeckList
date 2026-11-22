@@ -62,6 +62,12 @@ describe('the language choice (PL-148)', () => {
     expect(intlLocale()).toBe('en-GB');
   });
 
+  it('a picked tag Intl rejects still speaks its language, with that language’s dates', async () => {
+    // Written by the API or a script: the setting's pattern lets it through.
+    await expect(applyLanguageChoice('de-12')).resolves.toBe('de');
+    expect(intlLocale()).toBe('de');
+  });
+
   it('stays wholly English, dates too, when the picked catalog does not load', async () => {
     await expect(applyLanguageChoice('fr')).resolves.toBe('en');
     expect(intlLocale()).toBeUndefined();
