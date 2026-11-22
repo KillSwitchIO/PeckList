@@ -3,8 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { sampleTask, sampleWorkspace, T0, testContext } from '../test/fixtures.ts';
 import { importCounts, importWorkspace, openDocument, parseJson, upgradeDocument } from './io.ts';
+import { createList } from './lists.ts';
 import { updateEntity } from './ops.ts';
-import { serializeWorkspace } from './workspace.ts';
+import { siblings, createTask } from './tasks.ts';
+import { createTemplate, fromListTemplate, templateOfList, templatesOf } from './templates.ts';
+import type { WorkspaceFile } from './types.ts';
+import { createWorkspace, serializeWorkspace } from './workspace.ts';
 
 const validator = createAjvValidator();
 
@@ -110,7 +114,7 @@ describe('importWorkspace', () => {
     const merged = importWorkspace(here, exported);
     expect(merged.entities.tasks.find((each) => each.id === task.id)?.title).toBe('Mow the lawn');
     expect(merged.entities.tasks.map((each) => each.title)).toContain('Only in the file');
-    expect(importCounts(here, merged)).toEqual({ tasks: 1, lists: 0, tags: 0 });
+    expect(importCounts(here, merged)).toEqual({ tasks: 1, lists: 0, tags: 0, templates: 0 });
   });
 
   it("takes in another person's file as this owner's, its Mess Drawer tasks moving into this one", () => {
@@ -127,5 +131,78 @@ describe('importWorkspace', () => {
     expect(merged.entities.tasks.every((each) => each.createdBy === here.owner)).toBe(true);
     expect(merged.entities.settings).toHaveLength(here.entities.settings.length);
     expect(openDocument(JSON.parse(serializeWorkspace(merged)), validator).kind).toBe('ok');
+  });
+});
+
+describe('templates in an exported file (PL-140)', () => {
+  const ZONE = 'America/Chicago';
+
+  /** A list template, Camping: Tent due the day after use at 9:00, with a Pegs subtask due on the day. */
+  function withCampingTemplate(): { workspace: WorkspaceFile; templateId: string } {
+    const ctx = testContext();
+    let ws = createWorkspace(ctx);
+    const list = createList(ctx, ws, { name: 'Camping', color: '#2e7d32', icon: 'tent' });
+    const tent = createTask(ctx, list.workspace, {
+      title: 'Tent',
+      listId: list.list.id,
+      due: { at: '2026-11-24T09:00', allDay: false, timeZone: ZONE },
+    });
+    ws = createTask(ctx, tent.workspace, {
+      title: 'Pegs',
+      listId: list.list.id,
+      parentId: tent.task.id,
+      due: { at: '2026-11-23', allDay: true, timeZone: ZONE },
+    }).workspace;
+    const saved = createTemplate(ctx, ws, {
+      name: 'Camping',
+      kind: 'list',
+      body: templateOfList(ws, list.list.id, '2026-11-23'),
+    });
+    return { workspace: saved.workspace, templateId: saved.template.id };
+  }
+
+  it('keeps a list template, its subtasks and relative dates, from export to import on another device', () => {
+    const { workspace, templateId } = withCampingTemplate();
+    const file = openDocument(JSON.parse(serializeWorkspace(workspace)), validator);
+    if (file.kind !== 'ok') throw new Error(file.kind);
+    // Another person's device: the file becomes this owner's, its templates with it.
+    const here = createWorkspace(testContext('dev2', T0, '01TESTMEMBER00000000000002'));
+    const merged = importWorkspace(here, file.workspace);
+    expect(openDocument(JSON.parse(serializeWorkspace(merged)), validator).kind).toBe('ok');
+
+    const [template] = templatesOf(merged);
+    expect(template).toMatchObject({ id: templateId, name: 'Camping', kind: 'list' });
+    expect(template!.body).toEqual(templatesOf(workspace)[0]!.body);
+
+    // Used there in May, the dates count from the day it is used.
+    const used = fromListTemplate(testContext('dev2', T0, here.owner), merged, templateId, '', {
+      day: '2027-05-01',
+      timeZone: ZONE,
+    });
+    const [tent] = siblings(used.workspace, used.listId, null);
+    expect([tent!.title, tent!.due?.at]).toEqual(['Tent', '2027-05-02T09:00']);
+    expect(
+      siblings(used.workspace, used.listId, tent!.id).map((task) => [task.title, task.due?.at]),
+    ).toEqual([['Pegs', '2027-05-01']]);
+  });
+
+  it('imports a file from before templates (schema 20) without touching the templates here', () => {
+    const { workspace: here } = withCampingTemplate();
+    const old = JSON.parse(serializeWorkspace(sampleWorkspace(testContext('dev3')))) as {
+      schemaVersion: number;
+      entities: Record<string, unknown>;
+    };
+    old.schemaVersion = 20;
+    delete old.entities.templates;
+    expect(openDocument(old, validator).kind).toBe('needs-upgrade');
+
+    const upgraded = upgradeDocument(old, validator);
+    if (upgraded.kind !== 'ok') throw new Error(upgraded.kind);
+    expect(upgraded.workspace.entities.templates).toEqual([]);
+    const merged = importWorkspace(here, upgraded.workspace);
+    expect(templatesOf(merged).map((template) => template.name)).toEqual(['Camping']);
+    expect(merged.entities.tasks.map((task) => task.title)).toEqual(
+      expect.arrayContaining(['Tent', 'Pegs', 'Mow lawn', 'Call vet']),
+    );
   });
 });

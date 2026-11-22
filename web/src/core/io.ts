@@ -98,12 +98,17 @@ export function importWorkspace(current: WorkspaceFile, incoming: WorkspaceFile)
 export function importCounts(
   before: WorkspaceFile,
   after: WorkspaceFile,
-): { tasks: number; lists: number; tags: number } {
-  const added = (collection: 'tasks' | 'lists' | 'tags') => {
+): { tasks: number; lists: number; tags: number; templates: number } {
+  const added = (collection: 'tasks' | 'lists' | 'tags' | 'templates') => {
     const known = new Set(before.entities[collection].map((entity) => entity.id));
     return after.entities[collection].filter(
       (entity) => !known.has(entity.id) && entity.deletedAt === null,
     ).length;
   };
-  return { tasks: added('tasks'), lists: added('lists'), tags: added('tags') };
+  return {
+    tasks: added('tasks'),
+    lists: added('lists'),
+    tags: added('tags'),
+    templates: added('templates'),
+  };
 }

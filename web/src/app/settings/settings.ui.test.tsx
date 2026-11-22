@@ -10,6 +10,14 @@ import { themeSwatches } from '../../core/themeColors.ts';
 import { createTask, deleteTask } from '../../core/tasks.ts';
 import { updateSettings } from '../../core/settings.ts';
 import { createList } from '../../core/lists.ts';
+import {
+  createTemplate,
+  templateOfList,
+  templateOfTask,
+  templatesOf,
+} from '../../core/templates.ts';
+import { createWorkspace } from '../../core/workspace.ts';
+import { T0, testContext } from '../../test/fixtures.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -282,7 +290,9 @@ describe('settings: your data', () => {
       file,
     );
     expect(
-      await within(data).findByText('Imported: 1 new tasks, 0 new lists and 0 new tags.'),
+      await within(data).findByText(
+        'Imported: 1 new task, 0 new lists, 0 new tags and 0 new templates.',
+      ),
     ).toBeInTheDocument();
     expect(store.getState().workspace!.entities.tasks.map((task) => task.title)).toContain(
       'From the file',
@@ -293,6 +303,93 @@ describe('settings: your data', () => {
       new File(['not json'], 'notes.txt', { type: 'application/json' }),
     );
     expect(await within(data).findByText(/is not a PeckList export/)).toBeInTheDocument();
+  });
+});
+
+describe('settings: your data, templates (PL-140)', () => {
+  it('downloads templates with the rest and imports the ones a file brings', async () => {
+    const store = testStore();
+    await renderApp('/settings/data', store);
+    const data = await screen.findByRole('region', { name: 'Your data' });
+
+    // Here: a list template, Camping, its Tent due tomorrow at 9:00 with a Pegs subtask.
+    store.getState().apply((ctx, ws) => {
+      const list = createList(ctx, ws, { name: 'Camping', color: '#2e7d32', icon: 'tent' });
+      const tent = createTask(ctx, list.workspace, {
+        title: 'Tent',
+        listId: list.list.id,
+        due: { at: '2026-11-24T09:00', allDay: false, timeZone: 'America/Chicago' },
+      });
+      const next = createTask(ctx, tent.workspace, {
+        title: 'Pegs',
+        listId: list.list.id,
+        parentId: tent.task.id,
+      }).workspace;
+      return createTemplate(ctx, next, {
+        name: 'Camping',
+        kind: 'list',
+        body: templateOfList(next, list.list.id, '2026-11-23'),
+      }).workspace;
+    });
+    const camping = templatesOf(store.getState().workspace!)[0]!;
+    expect(camping.body).toMatchObject({
+      tasks: [{ title: 'Tent', due: { inDays: 1, time: '09:00' }, subtasks: [{ title: 'Pegs' }] }],
+    });
+
+    const blobs: Blob[] = [];
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: (blob: Blob) => {
+        blobs.push(blob);
+        return 'blob:pecklist';
+      },
+      revokeObjectURL: () => undefined,
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    await userEvent.click(within(data).getByRole('button', { name: 'Download a copy' }));
+    const exported = JSON.parse(await blobs[0]!.text()) as {
+      entities: { templates: { id: string; body: unknown }[] };
+    };
+    expect(exported.entities.templates).toEqual([
+      expect.objectContaining({ id: camping.id, body: camping.body }),
+    ]);
+
+    // A file from another device with a task template: it joins the one here.
+    const ctx = testContext('dev2', T0, '01TESTMEMBER00000000000002');
+    let theirs = createWorkspace(ctx);
+    const review = createTask(ctx, theirs, {
+      title: 'Weekly review',
+      listId: inboxList(theirs)!.id,
+      due: { at: '2026-11-25', allDay: true, timeZone: 'America/Chicago' },
+    });
+    theirs = createTask(ctx, review.workspace, {
+      title: 'Clear the inbox',
+      listId: inboxList(theirs)!.id,
+      parentId: review.task.id,
+    }).workspace;
+    const saved = createTemplate(ctx, theirs, {
+      name: 'Weekly review',
+      kind: 'task',
+      body: templateOfTask(theirs, review.task.id, '2026-11-23'),
+    });
+    await userEvent.upload(
+      within(data).getByLabelText('Import a file', { selector: 'input' }),
+      new File([JSON.stringify(saved.workspace)], 'pecklist.json', { type: 'application/json' }),
+    );
+    // The message counts the template it brought, with its two tasks.
+    expect(
+      await within(data).findByText(
+        'Imported: 2 new tasks, 0 new lists, 0 new tags and 1 new template.',
+      ),
+    ).toBeInTheDocument();
+    expect(templatesOf(store.getState().workspace!)).toHaveLength(2);
+    const imported = templatesOf(store.getState().workspace!, 'task')[0]!;
+    expect(imported.body).toEqual(saved.template.body);
+    expect(imported.body).toMatchObject({
+      due: { inDays: 2, time: null },
+      subtasks: [{ title: 'Clear the inbox' }],
+    });
+    expect(templatesOf(store.getState().workspace!, 'list')[0]!.body).toEqual(camping.body);
   });
 });
 

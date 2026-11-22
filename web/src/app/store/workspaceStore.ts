@@ -37,7 +37,7 @@ export interface UndoEntry {
 }
 
 export type ImportOutcome =
-  | { kind: 'ok'; tasks: number; lists: number; tags: number }
+  | { kind: 'ok'; tasks: number; lists: number; tags: number; templates: number }
   | { kind: 'newer'; fileVersion: number }
   | { kind: 'invalid'; errors: string[] };
 

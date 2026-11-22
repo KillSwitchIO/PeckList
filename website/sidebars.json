@@ -190,6 +190,11 @@
         },
         {
           "type": "doc",
+          "id": "using/templates",
+          "label": "Templates"
+        },
+        {
+          "type": "doc",
           "id": "using/sharing",
           "label": "Sharing"
         },

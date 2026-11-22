@@ -114,7 +114,7 @@
   "settings.data.purgeGo": "Effacer et raccourcir",
   "settings.data.download": "Télécharger une copie",
   "settings.data.import": "Importer un fichier",
-  "settings.data.imported": "Importé : {tasks} nouvelles tâches, {lists} nouvelles listes et {tags} nouvelles étiquettes.",
+  "settings.data.imported": "Importé : {tasks, plural, one {# nouvelle tâche} other {# nouvelles tâches}}, {lists, plural, one {# nouvelle liste} other {# nouvelles listes}}, {tags, plural, one {# nouvelle étiquette} other {# nouvelles étiquettes}} et {templates, plural, one {# nouveau modèle} other {# nouveaux modèles}}.",
   "settings.data.notJson": "Ce fichier n’est pas un export PeckList (ce n’est pas du JSON).",
   "settings.data.newer": "Ce fichier vient d’une version plus récente de PeckList. Mettez l’app à jour, puis importez-le.",
   "settings.data.notMoved": "PeckList n’a pas encore pu déplacer vos données vers le stockage propre de l’app. Rien n’est perdu : elles restent où elles étaient, et l’app réessaie à chaque démarrage.",

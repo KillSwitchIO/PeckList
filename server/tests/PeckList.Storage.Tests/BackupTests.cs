@@ -165,6 +165,35 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
     }
 
     [Fact]
+    public async Task Templates_come_back_from_a_backup_on_either_database()
+    {
+        // A list template (PL-140): its tasks, a subtask and dates as days from the day it is used.
+        var body = JsonNode.Parse("""
+            {"name":"Camping","color":"#2e7d32","icon":"tent","tasks":[{"title":"Tent","due":{"inDays":1,"time":"09:00"},
+             "subtasks":[{"title":"Pegs","due":{"inDays":0,"time":null},"subtasks":[]}]}]}
+            """)!;
+        var source = await files.NewDatabaseAsync();
+        await FillAsync(source);
+        await new SqlEntityStore(source).WriteAsync("01JBACCT000000000000000001",
+            [new IncomingEntity("templates", new JsonObject
+            {
+                ["id"] = "TP1", ["name"] = "Camping", ["kind"] = "list", ["order"] = "V", ["body"] = body.DeepClone(),
+                ["deletedAt"] = null, ["_hlc"] = new JsonObject(),
+            })],
+            (_, incoming) => incoming.Doc, cancellation: Token);
+        var exported = await ExportAsync(source);
+
+        foreach (var target in new[] { await files.NewDatabaseAsync(), await postgres.NewDatabaseAsync() })
+        {
+            await ImportAsync(target, exported);
+            var ben = await new SqlEntityStore(target).ChangesAsync("01JBACCT000000000000000001", 0, 50, Token);
+            var template = Assert.Single(ben.Entities, each => each.Collection == "templates");
+            Assert.Equal("TP1", template.Id);
+            Assert.True(JsonNode.DeepEquals(body, template.Doc["body"]));
+        }
+    }
+
+    [Fact]
     public async Task Imports_only_into_an_empty_database_unless_replacing()
     {
         var source = await files.NewDatabaseAsync();
