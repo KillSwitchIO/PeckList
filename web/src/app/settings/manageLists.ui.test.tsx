@@ -20,7 +20,9 @@ beforeEach(() => {
 const slow = { timeout: 10_000 };
 
 describe('Settings, Lists and tags', () => {
-  // A long walk through five dialogs: near the 15 s default under a full parallel run.
+  // A long walk through five dialogs: it once ran out of a 15 s timeout under a full parallel run.
+  // 90 s: above the default on CI (45 s) and here (30 s), never below it (a 30 s one here gave
+  // CI's busy runner 15 s less than any other test).
   it('opens from Settings and edits, pins, archives and deletes lists and tags', async () => {
     const store = testStore();
     await renderApp('/settings/tasks', store);
@@ -65,5 +67,5 @@ describe('Settings, Lists and tags', () => {
     await userEvent.click(within(tags).getByRole('button', { name: 'Delete tag errands' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(within(tags).queryByText('errands')).toBeNull());
-  }, 30_000);
+  }, 90_000);
 });
