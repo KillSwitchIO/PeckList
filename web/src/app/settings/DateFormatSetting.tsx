@@ -10,7 +10,7 @@ import {
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { SettingRow } from './settingsLayout.tsx';
-import { intlLocale } from '../../core/intl.ts';
+import { dateTimeFormat } from '../../core/intl.ts';
 
 const CUSTOM = 'custom';
 const PRESETS: readonly string[] = DATE_FORMAT_PRESETS;
@@ -35,7 +35,7 @@ export function DateFormatSetting({
   const example = (pattern: string) =>
     pattern === DATE_FORMAT_AUTO
       ? t('settings.dateFormat.auto', {
-          example: new Intl.DateTimeFormat(intlLocale(), {
+          example: dateTimeFormat(undefined, {
             weekday: 'short',
             month: 'short',
             day: 'numeric',

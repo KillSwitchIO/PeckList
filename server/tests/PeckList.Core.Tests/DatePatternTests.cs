@@ -38,4 +38,19 @@ public sealed class DatePatternTests
         Assert.Null(DatePattern.Of("[just text]"));
         Assert.Equal("DD/MM/YYYY", DatePattern.Of("DD/MM/YYYY"));
     }
+
+    [Theory]
+    // French writes the first of a month "1er" beside the month's name, as the app does (PL-148):
+    // the reminders' and invites' own patterns, and a typed one; not in numbers, not on other days.
+    [InlineData("2026-12-01", "ddd D MMM", "fr", "mar. 1er déc.")]
+    [InlineData("2026-12-01", "D MMMM YYYY", "fr", "1er décembre 2026")]
+    [InlineData("2026-12-01", "D/M/YYYY", "fr", "1/12/2026")]
+    [InlineData("2026-12-01", "DD MMM", "fr", "01 déc.")]
+    [InlineData("2026-12-02", "D MMM", "fr", "2 déc.")]
+    [InlineData("2026-12-01", "D MMM", "en", "1 Dec")]
+    [InlineData("2026-12-01", "D. MMM", "de", "1. Dez.")]
+    public void The_first_of_a_month_in_French_is_1er(string date, string pattern, string language, string text) =>
+        Assert.Equal(text, DatePattern.Format(
+            DateOnly.Parse(date, System.Globalization.CultureInfo.InvariantCulture), pattern,
+            new PeckList.Core.Text.Words(PeckList.Core.Text.JsonTextCatalog.Embedded, language)));
 }

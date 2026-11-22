@@ -38,6 +38,11 @@ export function formatDatePattern(date: string, pattern: string, locale?: string
   const at = new Date(Date.UTC(year, month - 1, day, 12));
   const name = (options: Intl.DateTimeFormatOptions) =>
     dateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(at);
+  // French's "1er" (PL-148): beside a month's name, not in numbers ("D MMMM", not "D/M").
+  const firstOfMonth =
+    day === 1 &&
+    dateTimeFormat(locale, {}).resolvedOptions().locale.split('-')[0] === 'fr' &&
+    [...pattern.matchAll(TOKENS)].some(([token]) => token === 'MMM' || token === 'MMMM');
   return pattern.replace(TOKENS, (token) => {
     switch (token) {
       case 'YYYY':
@@ -65,7 +70,7 @@ export function formatDatePattern(date: string, pattern: string, locale?: string
         return pad(day);
       case 'D':
       case 'd':
-        return String(day);
+        return firstOfMonth ? '1er' : String(day);
       default:
         // [literal text]
         return token.slice(1, -1);

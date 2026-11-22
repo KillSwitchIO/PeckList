@@ -1,9 +1,9 @@
 import type { AdminInvite } from '../../ports/admin.ts';
 import { t } from '../i18n/i18n.ts';
-import { intlLocale } from '../../core/intl.ts';
+import { formatDateIn } from '../../core/intl.ts';
 
 function day(iso: string): string {
-  return new Date(iso).toLocaleDateString(intlLocale(), { month: 'short', day: 'numeric' });
+  return formatDateIn(new Date(iso), { month: 'short', day: 'numeric' });
 }
 
 /** "1 of 3 used · until Oct 30 · ana": how much is left, when it ends, who came in on it. */
