@@ -492,6 +492,74 @@ public sealed class AttachmentTests(ServerFixture fixture) : IClassFixture<Serve
         Assert.False(await store.ExistsAsync(Sha(orphan), Token));
     }
 
+    [Fact]
+    public async Task The_clean_up_keeps_a_file_sent_again_or_named_again_while_it_runs()
+    {
+        // Dev 2, file-holders: the clean-up judged a file by what it saw when it listed, so bytes sent
+        // again after the list (marked written now), or an attachment synced since naming them, were
+        // still deleted, and the attachment pointed at nothing.
+        var holders = factory.Services.GetRequiredService<FileHolders>();
+        var (ida, idaId) = await SignIn("ida");
+        var folder = Directory.CreateTempSubdirectory("pecklist-cleanup-").FullName;
+        try
+        {
+            var files = new FileAttachmentStore(folder);
+            var sent = Encoding.UTF8.GetBytes("sent again mid-clean-up");
+            var named = Encoding.UTF8.GetBytes("named again mid-clean-up");
+            var idle = Encoding.UTF8.GetBytes("wanted by nothing");
+            foreach (var bytes in new[] { sent, named, idle })
+            {
+                Assert.Equal(PutResult.Stored, await files.PutAsync(Sha(bytes), new MemoryStream(bytes), 100, Token));
+                File.SetLastWriteTimeUtc(Path.Combine(folder, Sha(bytes)[..2], Sha(bytes)), DateTime.UtcNow.AddDays(-3));
+                await holders.AddAsync(Sha(bytes), idaId, Token);
+            }
+            var store = new BetweenListAndDelete(files, async () =>
+            {
+                Assert.Equal(PutResult.Stored, await files.PutAsync(Sha(sent), new MemoryStream(sent), 100, Token));
+                Assert.Empty((await Sync(ida, OwnList("RCL1"), OwnTask("RCT1", "RCL1"), Attachment("RCA1", "RCT1", "named.txt", named)))["rejected"]!.AsArray());
+            });
+            var cleanup = ActivatorUtilities.CreateInstance<AttachmentCleanup>(factory.Services, (IAttachmentStore)store, TimeProvider.System);
+
+            Assert.Equal(1, await cleanup.CleanAsync(Token));
+            Assert.True(await files.ExistsAsync(Sha(sent), Token));
+            Assert.True(await files.ExistsAsync(Sha(named), Token));
+            Assert.False(await files.ExistsAsync(Sha(idle), Token));
+            // Holds go with the bytes, and only then.
+            Assert.True(holders.Holds(Sha(sent), idaId));
+            Assert.True(holders.Holds(Sha(named), idaId));
+            Assert.False(holders.Holds(Sha(idle), idaId));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    /// <summary>A store whose list is taken, then <paramref name="between"/> runs, then the list is handed out.</summary>
+    private sealed class BetweenListAndDelete(IAttachmentStore inner, Func<Task> between) : IAttachmentStore
+    {
+        public Task<bool> ExistsAsync(string sha256, CancellationToken cancellation = default) => inner.ExistsAsync(sha256, cancellation);
+
+        public Task<PutResult> PutAsync(string sha256, Stream content, long maxBytes, CancellationToken cancellation = default) =>
+            inner.PutAsync(sha256, content, maxBytes, cancellation);
+
+        public Task<Stream?> OpenAsync(string sha256, CancellationToken cancellation = default) => inner.OpenAsync(sha256, cancellation);
+
+        public async IAsyncEnumerable<(string Sha256, DateTimeOffset Written)> ListAsync(
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellation = default)
+        {
+            var listed = new List<(string, DateTimeOffset)>();
+            await foreach (var each in inner.ListAsync(cancellation)) listed.Add(each);
+            await between();
+            foreach (var each in listed) yield return each;
+        }
+
+        public Task<bool> DeleteIfOlderAsync(
+            string sha256, DateTimeOffset writtenBefore, Func<CancellationToken, bool> stillUnused,
+            Func<CancellationToken, Task> deleted, CancellationToken cancellation = default) =>
+            inner.DeleteIfOlderAsync(sha256, writtenBefore, stillUnused, deleted, cancellation);
+    }
+
     private Task<HttpStatusCode> Head(HttpClient client, string sha256) =>
         client.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"/api/attachments/{sha256}"), Token).ContinueWith(sent => sent.Result.StatusCode, Token);
 

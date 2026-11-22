@@ -139,15 +139,23 @@ public sealed class AttachmentCleanup(IAttachmentStore store, SharingState shari
         var now = Time.GetUtcNow();
         var wanted = sharing.Index.WantedFiles(now - KeepDeleted, now - KeepInTrash);
         var removed = 0;
+        var youngest = now - TimeSpan.FromDays(1);
         await foreach (var (sha256, written) in store.ListAsync(cancellation))
         {
-            if (wanted.Contains(sha256) || now - written < TimeSpan.FromDays(1)) continue;
-            // Nobody holds bytes that are gone: a later upload proves it again. Forgotten first, so an
-            // upload landing in between keeps its hold (at worst a hold outlives bytes, which opens
-            // nothing until they are sent again).
-            await holders.ForgetFileAsync(sha256, cancellation);
-            await store.DeleteAsync(sha256, cancellation);
-            removed++;
+            if (wanted.Contains(sha256) || written >= youngest) continue;
+            // Judged again at the moment of deleting, against uploads (Dev 2, file-holders): the same
+            // bytes sent since the list mark the file written now, and an attachment synced since names
+            // it. Nobody holds bytes that are gone: a later upload proves it again, and as that upload
+            // waits for the delete, its hold comes after the holds are forgotten.
+            if (await store.DeleteIfOlderAsync(
+                    sha256,
+                    youngest,
+                    _ => !sharing.Index.WantsFile(sha256, Time.GetUtcNow() - KeepDeleted, Time.GetUtcNow() - KeepInTrash),
+                    token => holders.ForgetFileAsync(sha256, token),
+                    cancellation))
+            {
+                removed++;
+            }
         }
         return removed;
     }

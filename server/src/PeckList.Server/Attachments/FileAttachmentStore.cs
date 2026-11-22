@@ -11,6 +11,11 @@ namespace PeckList.Server.Attachments;
 /// </summary>
 public sealed class FileAttachmentStore(string folder) : IAttachmentStore
 {
+    // An upload putting its bytes in place and the clean-up deleting them take turns (Dev 2,
+    // file-holders): the hashing stays outside, only the few file operations wait. Shared by every
+    // store on the folder in this process.
+    private static readonly SemaphoreSlim Turn = new(1, 1);
+
     private string PathOf(string sha256) =>
         AttachmentHash.IsValid(sha256)
             ? Path.Combine(folder, sha256[..2], sha256)
@@ -41,29 +46,51 @@ public sealed class FileAttachmentStore(string folder) : IAttachmentStore
                 }
             }
             if (Convert.ToHexStringLower(hash.GetHashAndReset()) != sha256) return PutResult.Mismatch;
-            if (File.Exists(target))
+            await Turn.WaitAsync(cancellation);
+            try
             {
-                // The same bytes are here already (uploads always send them now): keep that copy,
-                // which a reader may have open, and only mark it written now, so the clean-up keeps
-                // it for the attachment about to name it, as it would a new file.
-                try
-                {
-                    File.SetLastWriteTimeUtc(target, DateTime.UtcNow);
-                }
-                catch (IOException)
-                {
-                    // Busy this moment: the copy is there either way.
-                }
-                return PutResult.Stored;
+                return Place(temporary, target);
             }
-            // The same file may have arrived meanwhile: either copy is the same bytes.
-            File.Move(temporary, target, overwrite: true);
-            return PutResult.Stored;
+            finally
+            {
+                Turn.Release();
+            }
         }
         finally
         {
             if (File.Exists(temporary)) File.Delete(temporary);
         }
+    }
+
+    private static PutResult Place(string temporary, string target)
+    {
+        if (File.Exists(target))
+        {
+            // The same bytes are here already (uploads always send them now): keep that copy,
+            // which a reader may have open, and only mark it written now, so the clean-up keeps
+            // it for the attachment about to name it, as it would a new file.
+            try
+            {
+                File.SetLastWriteTimeUtc(target, DateTime.UtcNow);
+                return PutResult.Stored;
+            }
+            catch (IOException)
+            {
+                // Busy this moment: the new copy goes in its place instead, written now too. Busy
+                // as well: the copy is there either way.
+                try
+                {
+                    File.Move(temporary, target, overwrite: true);
+                }
+                catch (IOException)
+                {
+                }
+                return PutResult.Stored;
+            }
+        }
+        // The same file may have arrived meanwhile: either copy is the same bytes.
+        File.Move(temporary, target, overwrite: true);
+        return PutResult.Stored;
     }
 
     public Task<Stream?> OpenAsync(string sha256, CancellationToken cancellation = default)
@@ -84,9 +111,23 @@ public sealed class FileAttachmentStore(string folder) : IAttachmentStore
         await Task.CompletedTask;
     }
 
-    public Task DeleteAsync(string sha256, CancellationToken cancellation = default)
+    public async Task<bool> DeleteIfOlderAsync(
+        string sha256, DateTimeOffset writtenBefore, Func<CancellationToken, bool> stillUnused,
+        Func<CancellationToken, Task> deleted, CancellationToken cancellation = default)
     {
-        if (AttachmentHash.IsValid(sha256) && File.Exists(PathOf(sha256))) File.Delete(PathOf(sha256));
-        return Task.CompletedTask;
+        if (!AttachmentHash.IsValid(sha256)) return false;
+        var path = PathOf(sha256);
+        await Turn.WaitAsync(cancellation);
+        try
+        {
+            if (!File.Exists(path) || File.GetLastWriteTimeUtc(path) >= writtenBefore.UtcDateTime || !stillUnused(cancellation)) return false;
+            File.Delete(path);
+            await deleted(cancellation);
+            return true;
+        }
+        finally
+        {
+            Turn.Release();
+        }
     }
 }

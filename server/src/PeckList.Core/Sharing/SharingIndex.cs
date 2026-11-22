@@ -746,26 +746,29 @@ public sealed class SharingIndex
     /// kept while its task deleted after <paramref name="keepInTrashSince"/> can still come back; one
     /// erased when the Trash was emptied is wanted no more.
     /// </summary>
-    public HashSet<string> WantedFiles(DateTimeOffset keepDeletedSince, DateTimeOffset keepInTrashSince)
+    public HashSet<string> WantedFiles(DateTimeOffset keepDeletedSince, DateTimeOffset keepInTrashSince) =>
+        Each(By.Collection, "attachments")
+            .Where(each => WantsAttachment(each, keepDeletedSince, keepInTrashSince))
+            .Select(each => each.Get("sha256"))
+            .OfType<string>()
+            .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>Whether <paramref name="sha256"/> is one of <see cref="WantedFiles"/>, asked of one file.</summary>
+    public bool WantsFile(string sha256, DateTimeOffset keepDeletedSince, DateTimeOffset keepInTrashSince) =>
+        Each(By.Sha, sha256).Any(each => each.Collection == "attachments" && WantsAttachment(each, keepDeletedSince, keepInTrashSince));
+
+    private bool WantsAttachment(Facts each, DateTimeOffset keepDeletedSince, DateTimeOffset keepInTrashSince)
     {
         static bool Since(string? deletedAt, DateTimeOffset since) =>
             DateTimeOffset.TryParse(deletedAt, System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.AssumeUniversal, out var at) && at >= since;
-        bool Wanted(Facts each)
+        if (each.Deleted && each.Get("name") == Erased) return false;
+        if (each.Get("taskId") is { } taskId && byId.TryGetValue(taskId, out var task) && task.Deleted)
         {
-            if (each.Deleted && each.Get("name") == Erased) return false;
-            if (each.Get("taskId") is { } taskId && byId.TryGetValue(taskId, out var task) && task.Deleted)
-            {
-                var taskGone = task.Get("deletedAt");
-                if (!each.Deleted || each.Get("deletedAt") == taskGone) return Since(taskGone, keepInTrashSince);
-            }
-            return !each.Deleted || Since(each.Get("deletedAt"), keepDeletedSince);
+            var taskGone = task.Get("deletedAt");
+            if (!each.Deleted || each.Get("deletedAt") == taskGone) return Since(taskGone, keepInTrashSince);
         }
-        return Each(By.Collection, "attachments")
-            .Where(Wanted)
-            .Select(each => each.Get("sha256"))
-            .OfType<string>()
-            .ToHashSet(StringComparer.Ordinal);
+        return !each.Deleted || Since(each.Get("deletedAt"), keepDeletedSince);
     }
 
     /// <summary>Every entity id the user may see (a whole scan: tests and checks; writes use <see cref="Dependents"/>).</summary>
