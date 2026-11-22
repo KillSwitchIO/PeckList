@@ -9,6 +9,7 @@ using PeckList.Core;
 using PeckList.Core.Accounts;
 using PeckList.Core.Push;
 using PeckList.Core.Sharing;
+using PeckList.Core.Text;
 using PeckList.Server.Push;
 
 namespace PeckList.Server.Tests;
@@ -325,6 +326,36 @@ public sealed class PushTests(ServerFixture fixture) : IClassFixture<ServerFixtu
         var shown = new DateTimeOffset(2026, 11, 19, 11, 0, 0, TimeSpan.Zero);
         var settings = clock is null ? null : new JsonObject { ["clockFormat"] = clock };
         Assert.Equal(expected, ReminderSender.BodyOf(task, shown, chicago, settings));
+    }
+
+    [Theory]
+    // Schema 22: an automatic clock (absent or "auto") is the device's locale's own, as the app's
+    // Intl has it, though the words may be another language's (en-GB: English words, 24-hour, Dev 1
+    // S1); a picked one wins.
+    [InlineData("en-US", null, "Due 3:00 PM")]
+    [InlineData("en-US", "auto", "Due 3:00 PM")]
+    [InlineData("en-US", "24h", "Due 15:00")]
+    [InlineData("en-GB", null, "Due 15:00")]
+    [InlineData("en-GB", "12h", "Due 3:00 PM")]
+    [InlineData("en-AU", "auto", "Due 3:00 PM")]
+    [InlineData("nl-NL", null, "Due 15:00")]
+    [InlineData("de", null, "Fällig 15:00")]
+    [InlineData("de", "auto", "Fällig 15:00")]
+    [InlineData("de", "12h", "Fällig 3:00 PM")]
+    [InlineData("es", null, "Vence 15:00")]
+    [InlineData("fr", "auto", "Échéance 15:00")]
+    public void An_automatic_clock_follows_the_language(string device, string? clock, string expected)
+    {
+        var chicago = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+        var task = new JsonObject
+        {
+            ["reminders"] = new JsonArray(new JsonObject { ["before"] = 1440 }),
+            ["due"] = new JsonObject { ["at"] = "2026-11-19T15:00", ["allDay"] = false, ["timeZone"] = "America/Chicago" },
+        };
+        var shown = new DateTimeOffset(2026, 11, 19, 11, 0, 0, TimeSpan.Zero);
+        var settings = clock is null ? null : new JsonObject { ["clockFormat"] = clock };
+        var words = TextLanguage.For(JsonTextCatalog.Embedded, settings, [device]);
+        Assert.Equal(expected, ReminderSender.BodyOf(task, shown, chicago, settings, words));
     }
 
     [Theory]

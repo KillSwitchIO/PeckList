@@ -6,7 +6,9 @@ import {
   updateSettings,
   type SettingsPatch,
 } from '../../core/settings.ts';
+import { phoneClockSetting } from '../../core/intl.ts';
 import { TimeField } from '../dates/TimeField.tsx';
+import { automaticIs24, formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
 import { DateFormatSetting } from './DateFormatSetting.tsx';
@@ -29,14 +31,25 @@ export function DateTimeSection() {
         value={settings?.dateFormat ?? null}
         onChange={(dateFormat) => change({ dateFormat })}
       />
-      <SettingRow label={t('settings.clock')}>
+      <SettingRow
+        label={t('settings.clock')}
+        hint={t(
+          phoneClockSetting() === undefined ? 'settings.clock.hint' : 'settings.clock.hintPhone',
+          {
+            example: formatTime('13:00', undefined, !automaticIs24()),
+          },
+        )}
+      >
         <ToggleButtonGroup
           exclusive
           size="small"
-          value={settings?.clockFormat ?? '12h'}
+          value={settings?.clockFormat ?? 'auto'}
           aria-label={t('settings.clock')}
-          onChange={(_, next: '12h' | '24h' | null) => next && change({ clockFormat: next })}
+          onChange={(_, next: 'auto' | '12h' | '24h' | null) =>
+            next && change({ clockFormat: next })
+          }
         >
+          <ToggleButton value="auto">{t('settings.clock.auto')}</ToggleButton>
           <ToggleButton value="12h">{t('settings.clock.12h')}</ToggleButton>
           <ToggleButton value="24h">{t('settings.clock.24h')}</ToggleButton>
         </ToggleButtonGroup>

@@ -3,6 +3,7 @@
 One file per schema version, `<N>.md`, describing what changed from N-1 and how the migration transforms data.
 
 - Version 1: initial schema.
+- Version 22: `settings.clockFormat` may be `auto`: the clock the language uses (24-hour for de, es and fr, 12-hour for en-US). A missing value now means `auto` too, where it meant 12-hour; an explicit `12h` or `24h` is kept. Documents change only in version.
 - Version 21: `entities.templates` (saved tasks and lists to make again: a name, a `kind` of `task` or `list`, an order key, a `body` with the task or list it makes and its dates as days from the day it's used, and how many times it was used; PL-140). Personal, like saved filters. The migration adds an empty collection.
 - Version 20: `settings.language` (the language the app speaks, a BCP 47 tag such as `de` or `pt-BR`; PL-148). Optional, absent or null means automatic (the browser's or phone's language), so documents change only in version.
 - Version 19: `settings.compactViews` (the views whose task rows show compact, one line each; view ids such as `view:today`). Optional, absent means none, so documents change only in version.

@@ -2,7 +2,7 @@
 import { addDays, datePart, timePart } from '../core/dates.ts';
 import { DATE_FORMAT_AUTO, formatDatePattern, isDatePattern } from '../core/dateFormat.ts';
 import { t } from './i18n/i18n.ts';
-import { dateTimeFormat } from '../core/intl.ts';
+import { dateTimeFormat, localeUses24h, phoneClockSetting } from '../core/intl.ts';
 
 function toDate(date: string): Date {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number];
@@ -40,14 +40,19 @@ export function formatMonth(month: string, today: string, locale?: string): stri
 
 // How the user likes dates shown (Settings, PL-025): set from the open workspace's settings
 // (WorkspaceTheme) before anything renders, like the locale.
-const display = { clock24: false, weekStart: 0 as 0 | 1, dateFormat: null as string | null };
+const display = {
+  clock: 'auto' as 'auto' | '12h' | '24h',
+  weekStart: 0 as 0 | 1,
+  dateFormat: null as string | null,
+};
 
 export function setDisplayPreferences(settings: {
-  clockFormat?: '12h' | '24h' | undefined;
+  clockFormat?: 'auto' | '12h' | '24h' | undefined;
   weekStart?: 0 | 1 | undefined;
   dateFormat?: string | undefined;
 }) {
-  display.clock24 = settings.clockFormat === '24h';
+  // Absent is automatic (schema 22): the language's own clock.
+  display.clock = settings.clockFormat ?? 'auto';
   display.weekStart = settings.weekStart ?? 0;
   const pattern = settings.dateFormat;
   display.dateFormat =
@@ -57,14 +62,29 @@ export function setDisplayPreferences(settings: {
 /** Whether dates follow a pattern the user typed (not the automatic style). */
 export const customDateFormat = () => display.dateFormat !== null;
 
-/** Whether times show on a 24-hour clock. */
-export const clockIs24 = () => display.clock24;
+/**
+ * What Automatic gives (schema 22): on a phone that told its own 12/24-hour setting, that setting
+ * (Manager, rc.2: the stronger signal there); elsewhere the language's own (the picked language,
+ * else the browser's).
+ */
+export const automaticIs24 = () => phoneClockSetting() ?? localeUses24h();
+
+/** Whether times show on a 24-hour clock: the one picked in Settings > Dates, else Automatic's, as of now. */
+export const clockIs24 = () =>
+  display.clock === '24h' || (display.clock === 'auto' && automaticIs24());
+
+/**
+ * The clock for the Android shell's own screens (shell api 17): null while they should follow the
+ * phone's own setting live (Automatic, on a phone that told its setting), else the picked clock.
+ */
+export const phoneScreensClock = (): boolean | null =>
+  display.clock === 'auto' && phoneClockSetting() !== undefined ? null : clockIs24();
 
 /** The first day of the week in calendars: 0 Sunday, 1 Monday. */
 export const weekStart = () => display.weekStart;
 
 /** Display a 24-hour `HH:mm` on the user's clock: "9:00 AM", or "09:00" on a 24-hour clock. */
-export function formatTime(time: string, locale?: string, hour12 = !display.clock24): string {
+export function formatTime(time: string, locale?: string, hour12 = !clockIs24()): string {
   const [h, m] = time.split(':').map(Number) as [number, number];
   return dateTimeFormat(locale, {
     timeZone: 'UTC',
@@ -76,7 +96,7 @@ export function formatTime(time: string, locale?: string, hour12 = !display.cloc
 
 /** An hour on the time grid's edge: "10 PM", or "22:00" on a 24-hour clock. */
 export function formatHour(hour: number, locale?: string): string {
-  if (display.clock24) return `${String(hour).padStart(2, '0')}:00`;
+  if (clockIs24()) return `${String(hour).padStart(2, '0')}:00`;
   return dateTimeFormat(locale, { timeZone: 'UTC', hour: 'numeric', hour12: true }).format(
     new Date(Date.UTC(2000, 0, 1, hour)),
   );

@@ -31,6 +31,13 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   session only seconds old could be lost when the app was stopped. The shell writes them when the
   app leaves the screen and after each page load, and the web app asks with `saveSignIn` (shell
   api 14, `web/src/app/native/saveSignIn.ts`) as soon as an account is signed in.
+- **Clock**: the snooze screen and the widgets read times on the app's clock. The web app works it
+  out with the same rule as its own times (Settings > Dates: schema 22) and hands it to the shell
+  with `setClock` (shell api 17, `web/src/app/native/nativeClock.ts`); `Clock.java` keeps it and
+  formats those times in the app's language. On the phone, Automatic is the phone's own 12/24-hour
+  setting, not the language's convention: the shell's `info()` reports it (`clock24`), the web app
+  shows it, and `setClock(null)` has the shell read it live. A clock picked in the app wins. Until
+  the app has said, the phone's setting holds too.
 - **Language**: the app's own text (notification actions, channel names, widgets, dialogs) is in
   `res/values/strings.xml`, with a `res/values-<language>/strings.xml` per translation. The web app
   hands the language picked in Settings to the shell with `setLanguage` (shell api 15,

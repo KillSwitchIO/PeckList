@@ -8,6 +8,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.text.format.DateFormat;
 import androidx.activity.result.ActivityResult;
 import androidx.browser.customtabs.CustomTabsIntent;
 import com.getcapacitor.JSObject;
@@ -40,10 +41,10 @@ public class ShellPlugin extends Plugin {
      * Bumped when a method is added; the web app checks it before calling a newer one. Since 0.13.0:
      * 10 brought both notification channels and scheduleReminders' keep (they shipped together in
      * 0.14.0, so a shell at 10 has both), 11 setShortcuts and showKeyboard, 12 setWidgetTasks, 13
-     * takeAddText, 14 saveSignIn, 15 setLanguage, 16 the native store (storeLoad and the rest). The
-     * next method is 17.
+     * takeAddText, 14 saveSignIn, 15 setLanguage, 16 the native store (storeLoad and the rest), 17
+     * setClock. The next method is 18.
      */
-    private static final int API = 16;
+    private static final int API = 17;
 
     static final String NOTIFICATIONS = "notifications";
 
@@ -120,6 +121,9 @@ public class ShellPlugin extends Plugin {
         result.put("installer", installer == null ? JSONObject.NULL : installer);
         String requestedBy = Installer.requestedBy(getContext());
         result.put("installRequestedBy", requestedBy == null ? JSONObject.NULL : requestedBy);
+        // Api 17: the phone's own 12/24-hour setting, which an automatic clock follows on the phone,
+        // ahead of the language's (Clock).
+        result.put("clock24", DateFormat.is24HourFormat(getContext()));
         call.resolve(result);
     }
 
@@ -448,6 +452,25 @@ public class ShellPlugin extends Plugin {
             Languages.change(getContext(), tag);
             call.resolve();
         });
+    }
+
+    /**
+     * Api 17: the clock the app reads times on (Settings &gt; Dates, schema 22), for the phone's own
+     * screens too: snooze and the widgets (Clock, web/src/app/native/nativeClock.ts). Null: the
+     * phone's own 12/24-hour setting, read each time (Automatic, which on a phone is that setting
+     * ahead of the language's). The widgets redraw when
+     * it changes.
+     */
+    @PluginMethod
+    public void setClock(PluginCall call) {
+        // Missing is a mistake; null is the phone's own.
+        if (!call.getData().has("twentyFour")) {
+            call.reject("twentyFour is required");
+            return;
+        }
+        Boolean twentyFour = call.getData().isNull("twentyFour") ? null : call.getBoolean("twentyFour");
+        if (Clock.set(getContext(), twentyFour)) Widgets.redraw(getContext());
+        call.resolve();
     }
 
     /**

@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
-      "const": 21
+      "const": 22
     },
     "app": {
       "type": "object",
@@ -825,8 +825,8 @@
           "maximum": 30
         },
         "clockFormat": {
-          "description": "Times show on a 12-hour (default) or 24-hour clock",
-          "enum": ["12h", "24h"]
+          "description": "Times show on a 12-hour or 24-hour clock. \"auto\" or absent (schema 22): the language's own, e.g. 24-hour for de, es and fr, 12-hour for en-US.",
+          "enum": ["auto", "12h", "24h"]
         },
         "weekStart": {
           "description": "The first day of the week in calendars: 0 Sunday (default), 1 Monday",

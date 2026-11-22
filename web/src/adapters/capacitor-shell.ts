@@ -47,6 +47,7 @@ interface ShellPlugin {
   takeAddText(): Promise<{ text?: unknown }>;
   saveSignIn(): Promise<void>;
   setLanguage(options: { language: string | null }): Promise<void>;
+  setClock(options: { twentyFour: boolean | null }): Promise<void>;
   storeLoad(options: { origin: string; after: string | null; budget?: number }): Promise<unknown>;
   storeSave(options: { origin: string } & StoreSave): Promise<void>;
   storeClear(options: { origin: string }): Promise<void>;
@@ -262,6 +263,7 @@ export function createCapacitorShell(): NativeShell | null {
       ),
     saveSignIn: () => plugin.saveSignIn(),
     setLanguage: (language) => plugin.setLanguage({ language }),
+    setClock: (twentyFour) => plugin.setClock({ twentyFour }),
     store: nativeStoreCalls(plugin),
   };
 }

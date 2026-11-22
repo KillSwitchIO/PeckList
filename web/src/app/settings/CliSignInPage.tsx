@@ -18,6 +18,7 @@ import { Page } from '../layout/Page.tsx';
 import { useSyncState } from '../sync/syncContext.ts';
 import { formatCode } from './cliCode.ts';
 import { intlLocale } from '../../core/intl.ts';
+import { clockIs24 } from '../format.ts';
 
 const PROBLEMS: Record<CliSignInProblem, MessageKey> = {
   not_found: 'cliSignIn.notFound',
@@ -155,6 +156,7 @@ export function CliSignInPage() {
     const time = new Date(request.requestedAt).toLocaleTimeString(intlLocale(), {
       hour: 'numeric',
       minute: '2-digit',
+      hour12: !clockIs24(),
     });
     const elsewhere =
       request.address !== null &&

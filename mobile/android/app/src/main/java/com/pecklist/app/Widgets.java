@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
-import android.text.format.DateFormat;
 import android.text.format.DateUtils;
 import com.getcapacitor.Logger;
 import java.text.ParseException;
@@ -157,11 +156,11 @@ final class Widgets {
         return Color.parseColor(color);
     }
 
-    /** "17:30" as the phone shows times (12 or 24 hours). */
+    /** "17:30" on the app's clock (12 or 24 hours, Clock). */
     static String timeText(Context context, String time) {
         try {
             Date at = new SimpleDateFormat("HH:mm", Locale.US).parse(time);
-            return at == null ? time : DateFormat.getTimeFormat(context).format(at);
+            return at == null ? time : Clock.format(context, at);
         } catch (ParseException error) {
             return time;
         }

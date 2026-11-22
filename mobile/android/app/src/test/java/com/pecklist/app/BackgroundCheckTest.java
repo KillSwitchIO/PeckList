@@ -51,10 +51,17 @@ public class BackgroundCheckTest {
     /** Audit P7: with the app on screen the check asks for no reminders, which go unused there. */
     @Test
     public void onScreenTheCheckAsksForNoReminders() {
-        assertEquals("https://tasks.example.com/api/app/check?zone=[Europe/Oslo]",
-            BackgroundCheck.checkAddress("https://tasks.example.com", "Europe/Oslo", null, false, each -> "[" + each + "]"));
-        assertEquals("https://tasks.example.com/api/app/check?zone=[Europe/Oslo]&after=[01J]&reminders=0",
-            BackgroundCheck.checkAddress("https://tasks.example.com", "Europe/Oslo", "01J", true, each -> "[" + each + "]"));
+        assertEquals("https://tasks.example.com/api/app/check?zone=[Europe/Oslo]&clock24=0",
+            BackgroundCheck.checkAddress("https://tasks.example.com", "Europe/Oslo", null, false, false, each -> "[" + each + "]"));
+        assertEquals("https://tasks.example.com/api/app/check?zone=[Europe/Oslo]&after=[01J]&reminders=0&clock24=0",
+            BackgroundCheck.checkAddress("https://tasks.example.com", "Europe/Oslo", "01J", true, false, each -> "[" + each + "]"));
+    }
+
+    /** Dev 1, S3: the phone's own 12/24-hour setting goes along, for the reminders the server words. */
+    @Test
+    public void theCheckSaysThePhonesClock() {
+        assertEquals("https://tasks.example.com/api/app/check?zone=[UTC]&clock24=1",
+            BackgroundCheck.checkAddress("https://tasks.example.com", "UTC", null, false, true, each -> "[" + each + "]"));
     }
 
     /** The Play build opens the list of apps only for a button pressed, never for an older web app's first run. */

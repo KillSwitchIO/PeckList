@@ -1,5 +1,13 @@
 import { CssBaseline, ThemeProvider, useMediaQuery } from '@mui/material';
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
+import { onPhoneClock, phoneClockSetting } from '../../core/intl.ts';
 import { effectivePalette, paletteTint } from '../../core/paletteSettings.ts';
 import { updateSettings } from '../../core/settings.ts';
 import { useApply, useWorkspace } from '../store/hooks.ts';
@@ -26,9 +34,11 @@ export function WorkspaceTheme({ children }: { children: ReactNode }) {
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)', { noSsr: true });
   const settings = workspace.entities.settings[0];
   const mode = settings?.themeMode ?? 'system';
-  // Clock and week start for every date shown below (set before they render).
+  // Clock and week start for every date shown below (set before they render). The phone's own
+  // 12/24-hour setting is in the key too: an automatic clock follows it on a phone (api 17).
   setDisplayPreferences(settings ?? {});
-  const display = `${settings?.clockFormat ?? '12h'}/${settings?.weekStart ?? 0}`;
+  const phoneClock = useSyncExternalStore(onPhoneClock, phoneClockSetting);
+  const display = `${settings?.clockFormat ?? 'auto'}/${settings?.weekStart ?? 0}/${phoneClock ?? ''}`;
   const resolved = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode;
   const overrides = effectivePalette(workspace);
   const key = JSON.stringify(overrides);

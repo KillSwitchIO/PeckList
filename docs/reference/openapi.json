@@ -1768,6 +1768,13 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "clock24",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {

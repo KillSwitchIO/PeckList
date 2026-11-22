@@ -3,7 +3,7 @@
 
 import { keyBetween } from './ordering.ts';
 
-export const CURRENT_SCHEMA_VERSION = 21;
+export const CURRENT_SCHEMA_VERSION = 22;
 
 export type Migration = (document: Record<string, unknown>) => Record<string, unknown>;
 
@@ -140,6 +140,9 @@ export const MIGRATIONS: MigrationRegistry = {
     if (!entities) return document;
     return { ...document, entities: { ...entities, templates: entities.templates ?? [] } };
   },
+  // 22: settings' clockFormat may be "auto", the language's own clock, which a missing one now
+  // means too (it meant 12-hour). Documents change only in version.
+  22: (document) => document,
 };
 
 export type VersionCheck =

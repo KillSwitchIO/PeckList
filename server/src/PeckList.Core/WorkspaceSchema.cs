@@ -4,7 +4,7 @@ namespace PeckList.Core;
 public static class WorkspaceSchema
 {
     /// <summary>Must match <c>CURRENT_SCHEMA_VERSION</c> in web/src/core/migrations.ts.</summary>
-    public const int CurrentVersion = 21;
+    public const int CurrentVersion = 22;
 
     /// <summary>
     /// Older versions whose data this build reads as it is: their migrations only added optional
@@ -13,7 +13,7 @@ public static class WorkspaceSchema
     /// <c>newTask</c>; 10 to 11: settings' <c>palettePreset</c>;
     /// 11 to 12: tasks' <c>reminders</c>; 12 to 13: settings' <c>dateFormat</c>; 13 to 14: users' <c>photo</c>; 14 to 15: tasks' <c>constantReminder</c>, reminders after 9:00; 15 to 16: settings' <c>allDayReminderTime</c>;
     /// 16 to 17: settings' <c>notifications</c>; 17 to 18: settings' <c>purgeAfterDays</c>; 18 to 19: settings'
-    /// <c>compactViews</c>; 19 to 20: settings' <c>language</c>; 20 to 21: templates). Backups from them restore without a migration.
+    /// <c>compactViews</c>; 19 to 20: settings' <c>language</c>; 20 to 21: templates; 21 to 22: settings' <c>clockFormat</c> may be <c>auto</c>). Backups from them restore without a migration.
     /// </summary>
     public static bool Readable(int? version) => version is >= 5 and <= CurrentVersion;
 

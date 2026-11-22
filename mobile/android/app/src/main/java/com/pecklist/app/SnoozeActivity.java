@@ -7,7 +7,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.text.format.DateFormat;
 import android.text.format.DateUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -206,7 +205,7 @@ public class SnoozeActivity extends AppCompatActivity {
             quickUntil.get(index).setText(clock(SnoozeTimes.until(now, SnoozeTimes.QUICK[index])));
         }
         tomorrowAt = SnoozeTimes.until(now, SnoozeTimes.tomorrowMorning(now, TimeZone.getDefault()));
-        tomorrowLabel.setText(getString(R.string.snooze_tomorrow, DateFormat.getTimeFormat(this).format(new Date(tomorrowAt))));
+        tomorrowLabel.setText(getString(R.string.snooze_tomorrow, Clock.format(this, new Date(tomorrowAt))));
     }
 
     private View addQuickPick(LayoutInflater inflater, ViewGroup list, String label) {
@@ -238,7 +237,7 @@ public class SnoozeActivity extends AppCompatActivity {
     /** Snooze is on only for a choice that fits; the Date and time tab says why not. */
     private void refresh() {
         if (dialog == null) return;
-        timeValue.setText(DateFormat.getTimeFormat(this).format(picked.getTime()));
+        timeValue.setText(Clock.format(this, picked.getTime()));
         long now = System.currentTimeMillis();
         long minutes = SnoozeTimes.minutesUntil(now, picked.getTimeInMillis());
         String limit = when(this, SnoozeTimes.until(now, SnoozeTimes.MAX_MINUTES));
@@ -258,7 +257,7 @@ public class SnoozeActivity extends AppCompatActivity {
             picked.set(Calendar.SECOND, 0);
             picked.set(Calendar.MILLISECOND, 0);
             refresh();
-        }, picked.get(Calendar.HOUR_OF_DAY), picked.get(Calendar.MINUTE), DateFormat.is24HourFormat(this)).show();
+        }, picked.get(Calendar.HOUR_OF_DAY), picked.get(Calendar.MINUTE), Clock.is24(this)).show();
     }
 
     private void snoozeChosen() {
@@ -295,15 +294,13 @@ public class SnoozeActivity extends AppCompatActivity {
 
     /** A quick pick's time: the clock today, with the weekday on another day ("3 hours" late at night). */
     private String clock(long at) {
-        if (DateUtils.isToday(at)) return DateFormat.getTimeFormat(this).format(new Date(at));
-        return DateUtils.formatDateTime(this, at, DateUtils.FORMAT_SHOW_WEEKDAY | DateUtils.FORMAT_ABBREV_WEEKDAY
-            | DateUtils.FORMAT_SHOW_TIME);
+        if (DateUtils.isToday(at)) return Clock.format(this, new Date(at));
+        return Clock.format(this, new Date(at), "EEE");
     }
 
     /** When a snooze comes back: the time today, the day and time on another day. */
     static String when(Context context, long at) {
-        if (DateUtils.isToday(at)) return DateFormat.getTimeFormat(context).format(new Date(at));
-        return DateUtils.formatDateTime(context, at, DateUtils.FORMAT_SHOW_WEEKDAY | DateUtils.FORMAT_SHOW_DATE
-            | DateUtils.FORMAT_SHOW_TIME | DateUtils.FORMAT_ABBREV_ALL | DateUtils.FORMAT_NO_YEAR);
+        if (DateUtils.isToday(at)) return Clock.format(context, new Date(at));
+        return Clock.format(context, new Date(at), "EEEMMMd");
     }
 }
