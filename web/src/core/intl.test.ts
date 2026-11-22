@@ -34,4 +34,17 @@ describe('the locale dates and numbers use (PL-148)', () => {
     // Swedish puts Ö after Z.
     expect(sorted()).toEqual(['Ost', 'Zebra', 'Öl']);
   });
+
+  it('a tag Intl rejects falls back to its language, so no format throws', () => {
+    // The synced setting's pattern allows `en-12`, which Intl rejects outright.
+    setIntlLocale('de-12');
+    expect(intlLocale()).toBe('de');
+    expect(dateTimeFormat(undefined, weekday).format(DAY)).toBe('Donnerstag');
+    expect(() => (1234.5).toLocaleString(intlLocale())).not.toThrow();
+    setIntlLocale('fr_FR');
+    expect(intlLocale()).toBe('fr');
+    setIntlLocale('x1-12');
+    expect(intlLocale()).toBeUndefined();
+    expect(localeDateFormat(weekday).format(DAY)).toBe('Thursday');
+  });
 });

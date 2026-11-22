@@ -236,6 +236,55 @@ public sealed class SyncTests(ServerFixture fixture) : IClassFixture<ServerFixtu
     }
 
     [Fact]
+    public async Task Sets_aside_a_language_that_is_not_BCP_47_and_one_already_kept_holds_nothing_back()
+    {
+        // The schema's pattern lets `en-12` through, and Intl rejects it: every date in the web app threw.
+        var client = await SignedIn();
+        var me = (await client.GetFromJsonAsync<JsonObject>("/auth/me", Token))!["id"]!.GetValue<string>();
+        JsonObject Settings(string id, string language, string theme, int minute)
+        {
+            var clock = $"2026-10-21T10:{minute:00}:00.000Z-0000-dev1";
+            return new()
+            {
+                ["id"] = id, ["userId"] = me, ["language"] = language, ["themeMode"] = theme,
+                ["_hlc"] = new JsonObject { ["language"] = clock, ["themeMode"] = clock },
+            };
+        }
+        async Task<SyncResponse> Push(JsonObject settings) =>
+            (await (await client.PostAsJsonAsync("/api/sync", new
+            {
+                schemaVersion = WorkspaceSchema.CurrentVersion,
+                cursor = (long?)null,
+                changes = new[] { new { collection = "settings", entity = settings } },
+            }, Token)).Content.ReadFromJsonAsync<SyncResponse>(Token))!;
+        var store = factory.Services.GetRequiredService<PeckList.Core.Storage.IEntityStore>();
+
+        var aside = Assert.Single((await Push(Settings("LANG1", "en-12", "dark", 0))).Invalid!);
+        Assert.Equal((0, "LANG1", "invalid_change"), (aside.Index, aside.Id, aside.Code));
+        Assert.Contains("language 'en-12' is not a BCP 47 tag", aside.Reason);
+        Assert.Null(await store.GetAsync("LANG1", Token));
+        Assert.Empty((await Push(Settings("LANG1", "pt-BR", "dark", 1))).Invalid ?? []);
+        Assert.Equal("pt-BR", (string?)(await store.GetAsync("LANG1", Token))!.Doc["language"]);
+
+        // Kept from before this check: the person's other settings still sync with it.
+        await factory.Services.GetRequiredService<SyncService>().WriteAsServerAsync(me,
+            [new PeckList.Core.Storage.IncomingEntity("settings", Settings("LANG2", "en-12", "light", 2))], Token);
+        Assert.Empty((await Push(Settings("LANG2", "en-12", "dark", 3))).Invalid ?? []);
+        Assert.Equal("dark", (string?)(await store.GetAsync("LANG2", Token))!.Doc["themeMode"]);
+        // Changing it to another malformed tag is still set aside.
+        Assert.Single((await Push(Settings("LANG2", "de-34", "dark", 4))).Invalid!);
+
+        // Dev 2: a device still holding an old en-12 after another fixed it. The merge keeps pt-BR,
+        // so its theme change is not set aside with it.
+        Assert.Empty((await Push(Settings("LANG2", "pt-BR", "dark", 5))).Invalid ?? []);
+        var stale = Settings("LANG2", "en-12", "system", 6);
+        stale["_hlc"]!["language"] = "2026-10-21T10:02:00.000Z-0000-dev1";
+        Assert.Empty((await Push(stale)).Invalid ?? []);
+        var kept = (await store.GetAsync("LANG2", Token))!.Doc;
+        Assert.Equal(("pt-BR", "system"), ((string?)kept["language"], (string?)kept["themeMode"]));
+    }
+
+    [Fact]
     public async Task Sets_aside_an_entity_of_the_wrong_shape_or_size_and_keeps_a_whole_one()
     {
         // Audit S4, with the server's own validator (the fixture swaps in one that takes anything).

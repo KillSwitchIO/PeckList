@@ -7,9 +7,24 @@
 
 let preferred: string | undefined;
 
-/** Dates and numbers follow this locale from now on; undefined: the browser's. */
+/**
+ * Dates and numbers follow this locale from now on; undefined: the browser's. A tag Intl rejects
+ * falls back to its language alone, else the browser's: the synced setting's pattern lets through
+ * tags such as `en-12`, and one written by the API or a script must not make every formatter throw
+ * in every render, on every device, with Settings out of reach.
+ */
 export function setIntlLocale(locale: string | undefined): void {
-  preferred = locale;
+  preferred = [locale, locale?.split(/[-_]/)[0]].find(accepted);
+}
+
+function accepted(tag: string | undefined): tag is string {
+  if (!tag) return false;
+  try {
+    Intl.getCanonicalLocales(tag);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** The locale dates and numbers use, for `toLocaleString(intlLocale())` and the like. */
