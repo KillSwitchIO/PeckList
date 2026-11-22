@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import { useState, type ReactNode } from 'react';
 import { isLive } from '../../core/collections.ts';
+import { MAX_NOTES_LENGTH } from '../../core/tasks.ts';
 import { formatRule, type Recurrence } from '../../core/recurrence.ts';
 import {
   listBody,
@@ -37,6 +38,7 @@ import type {
   TemplateTask,
 } from '../../core/types.ts';
 import { ColorPicker } from '../colors/ColorPicker.tsx';
+import { NotesEditor } from '../editor/NotesEditor.tsx';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import {
@@ -273,12 +275,15 @@ function TaskFields({
         onChange={(event) => set({ title: event.target.value })}
         slotProps={{ htmlInput: { maxLength: 1000 } }}
       />
-      <TextField
+      {/* The same notes as a task's details: formatted as typed, with the full editor and its
+          toolbar behind the button at the bottom right (PL-149). */}
+      <NotesEditor
+        title={task.title}
         label={t('task.notes')}
+        placeholder={t('task.notesPlaceholder')}
         value={task.notes}
-        multiline
-        minRows={2}
-        onChange={(event) => set({ notes: event.target.value })}
+        maxLength={MAX_NOTES_LENGTH}
+        onCommit={(notes) => set({ notes })}
       />
       <Part label={t('task.priority')}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>

@@ -68,6 +68,53 @@ describe('templates (PL-140)', () => {
     await waitFor(() => expect(tasks(store.getState().workspace!)).toHaveLength(0));
   });
 
+  it("edit their notes like a task's: formatted, in the full editor with its toolbar (PL-149)", async () => {
+    const store = testStore();
+    await renderApp('/templates', store);
+    await userEvent.click(await screen.findByRole('button', { name: 'New template' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'New task template' }));
+    await userEvent.type(
+      await screen.findByRole('textbox', { name: 'Template name' }),
+      'Trip{Enter}',
+    );
+    const editor = await screen.findByRole('dialog', { name: 'Edit template' });
+    await within(editor).findByRole('textbox', { name: 'Notes' });
+    await userEvent.click(within(editor).getByRole('button', { name: 'Full editor' }));
+    const full = await screen.findByRole('dialog', { name: 'Trip' });
+    expect(within(full).getByRole('toolbar', { name: 'Formatting' })).toBeInTheDocument();
+    await userEvent.type(await within(full).findByRole('textbox', { name: 'Notes' }), 'Passport');
+    await userEvent.click(within(full).getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Trip' })).toBeNull());
+    expect(within(editor).getByRole('textbox', { name: 'Notes' })).toHaveTextContent('Passport');
+    await userEvent.click(within(editor).getByRole('button', { name: 'Save' }));
+
+    // Used, the task it makes has them.
+    const group = await screen.findByRole('list', { name: 'Tasks' });
+    await userEvent.click(within(group).getByRole('button', { name: 'Use' }));
+    await waitFor(() => expect(tasks(store.getState().workspace!)).toHaveLength(1));
+    expect(tasks(store.getState().workspace!)[0]!.notes).toBe('Passport');
+  });
+
+  it('keep notes typed inline when Save is clicked straight away', async () => {
+    const store = testStore();
+    await renderApp('/templates', store);
+    await userEvent.click(await screen.findByRole('button', { name: 'New template' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'New task template' }));
+    await userEvent.type(
+      await screen.findByRole('textbox', { name: 'Template name' }),
+      'Trip{Enter}',
+    );
+    const editor = await screen.findByRole('dialog', { name: 'Edit template' });
+    // The editor commits on blur: Save's press takes the focus, so what was typed is saved.
+    await userEvent.type(await within(editor).findByRole('textbox', { name: 'Notes' }), 'Tickets');
+    await userEvent.click(within(editor).getByRole('button', { name: 'Save' }));
+
+    const group = await screen.findByRole('list', { name: 'Tasks' });
+    await userEvent.click(within(group).getByRole('button', { name: 'Use' }));
+    await waitFor(() => expect(tasks(store.getState().workspace!)).toHaveLength(1));
+    expect(tasks(store.getState().workspace!)[0]!.notes).toBe('Tickets');
+  });
+
   it('close the task they opened when Undo takes it back', async () => {
     const store = testStore();
     await renderApp('/templates', store);
