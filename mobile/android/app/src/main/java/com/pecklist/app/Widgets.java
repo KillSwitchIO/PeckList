@@ -8,7 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
-import android.text.format.DateUtils;
+import android.text.format.DateFormat;
 import com.getcapacitor.Logger;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -166,12 +166,13 @@ final class Widgets {
         }
     }
 
-    /** "2026-11-18" as a short date ("Nov 18"). */
+    /** "2026-11-18" as a short date ("Nov 18", "18 nov.", French's "1er déc."). */
     static String dayText(Context context, String day) {
         try {
             Date at = new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(day);
-            return at == null ? day : DateUtils.formatDateTime(context, at.getTime(),
-                DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_ABBREV_MONTH | DateUtils.FORMAT_NO_YEAR);
+            if (at == null) return day;
+            Locale locale = Clock.locale(context);
+            return Clock.formatDate(DateFormat.getBestDateTimePattern(locale, "MMMd"), locale, at);
         } catch (ParseException error) {
             return day;
         }
