@@ -57,8 +57,14 @@ public static class HistoryRules
     public static readonly string[] Fields =
     [
         "title", "status", "schedule", "due", "priority", "listId", "parentId", "assignees", "tags",
-        "notes", "recurrence", "reminders", "progress", "pinnedAt",
+        "blockedBy", "notes", "recurrence", "reminders", "progress", "pinnedAt",
     ];
+
+    /// <summary>
+    /// Element sets: kept as the ids now in, so only joining or leaving is a change (not a merge
+    /// clock moving), and the apps read them as a list (historyText.ts).
+    /// </summary>
+    private static readonly string[] Sets = ["assignees", "tags", "blockedBy"];
 
     /// <summary>Notes can be long: only that they changed is kept.</summary>
     private const string Notes = "notes";
@@ -92,20 +98,24 @@ public static class HistoryRules
         }
     }
 
-    /// <summary>A field as compact JSON; assignees as the principals now in, sorted.</summary>
+    /// <summary>
+    /// A field as compact JSON; an element set (assignees, tags, blocked-by) as the ids now in,
+    /// sorted, with a missing set the same as an empty one (tasks from before the field).
+    /// </summary>
     public static string? Value(JsonObject? doc, string field)
     {
-        var node = doc?[field];
-        if (node is null) return null;
-        if (field == "assignees" && node is JsonObject assignees)
+        if (doc is null) return null;
+        var node = doc[field];
+        if (Sets.Contains(field))
         {
-            var current = assignees
+            var current = (node as JsonObject ?? [])
                 .Where(each => each.Value?["in"] is JsonValue value && value.TryGetValue<bool>(out var isIn) && isIn)
                 .Select(each => each.Key)
                 .Order(StringComparer.Ordinal)
                 .ToArray();
             return JsonSerializer.Serialize(current);
         }
+        if (node is null) return null;
         var text = node.ToJsonString();
         return SafeText.Cut(text, MaxValue);
     }

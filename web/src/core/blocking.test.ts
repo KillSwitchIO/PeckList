@@ -8,6 +8,7 @@ import {
   removeBlocker,
   startsTooSoon,
   waitingOn,
+  warns,
   wouldLoop,
 } from './blocking.ts';
 import { getEntity } from './collections.ts';
@@ -94,21 +95,24 @@ describe('blocked-by links (PL-055)', () => {
     ws = updateTask(ctx, ws, bedroom, {
       blockedBy: setElement(ctx, task(ws, bedroom).blockedBy, UNSEEN, true),
     });
-    expect(blockersOf(ws, task(ws, bedroom))).toEqual({ shown: [task(ws, paint)], hidden: 1 });
+    expect(blockersOf(ws, task(ws, bedroom))).toEqual({
+      shown: [task(ws, paint)],
+      hidden: [UNSEEN],
+    });
     // The chain mark counts only what it can know is open.
     expect(titles(waitingOn(ws, task(ws, bedroom)))).toEqual(['Buy paint']);
     ws = setTaskStatus(ctx, ws, paint, 'done');
     expect(waitingOn(ws, task(ws, bedroom))).toEqual([]);
     // Whoever may edit the waiting task can take the unseen link off.
     ws = removeBlocker(ctx, ws, bedroom, UNSEEN);
-    expect(blockersOf(ws, task(ws, bedroom)).hidden).toBe(0);
+    expect(blockersOf(ws, task(ws, bedroom)).hidden).toEqual([]);
   });
 
   it('links follow a blocker into the trash and back', () => {
     const { ctx, ws: start, paint, bedroom } = setup();
     let ws = addBlocker(ctx, start, bedroom, paint);
     ws = deleteTask(ctx, ws, paint);
-    expect(blockersOf(ws, task(ws, bedroom))).toEqual({ shown: [], hidden: 0 });
+    expect(blockersOf(ws, task(ws, bedroom))).toEqual({ shown: [], hidden: [] });
     expect(waitingOn(ws, task(ws, bedroom))).toEqual([]);
     expect(members(task(ws, bedroom).blockedBy)).toEqual([paint]);
     ws = restoreTask(ctx, ws, paint);
@@ -130,7 +134,7 @@ describe('blocked-by links (PL-055)', () => {
     let ws = addBlocker(ctx, start, bedroom, paint);
     ws = addBlocker(ctx, ws, pictures, bedroom);
     ws = purgeTask(ctx, deleteTask(ctx, ws, paint), paint);
-    expect(blockersOf(ws, task(ws, bedroom))).toEqual({ shown: [], hidden: 0 });
+    expect(blockersOf(ws, task(ws, bedroom))).toEqual({ shown: [], hidden: [] });
     ws = purgeTask(ctx, deleteTask(ctx, ws, pictures), pictures);
     expect(members(task(ws, pictures).blockedBy)).toEqual([]);
     expect(blockedByTask(ws, task(ws, bedroom))).toEqual([]);
@@ -195,6 +199,14 @@ describe('blocked-by links (PL-055)', () => {
       ws = dated(ws, ctx, bedroom, day('2026-11-24'));
       expect(startsTooSoon(task(ws, bedroom), task(ws, paint), ZONE)).toBe(true);
       expect(titles(conflictsOf(ws, task(ws, bedroom), ZONE))).toEqual(['Buy paint']);
+      // Warned about only while both are open (Dev 1's review): done, the blocker holds nothing up.
+      const finished = setTaskStatus(ctx, ws, paint, 'done');
+      expect(startsTooSoon(task(finished, bedroom), task(finished, paint), ZONE)).toBe(true);
+      expect(conflictsOf(finished, task(finished, bedroom), ZONE)).toEqual([]);
+      expect(warns(task(finished, bedroom), task(finished, paint), ZONE)).toBe(false);
+      const closed = setTaskStatus(ctx, ws, bedroom, 'wontdo');
+      expect(warns(task(closed, bedroom), task(closed, paint), ZONE)).toBe(false);
+      expect(warns(task(ws, bedroom), task(ws, paint), ZONE)).toBe(true);
       ws = dated(ws, ctx, bedroom, day('2026-11-25'));
       expect(conflictsOf(ws, task(ws, bedroom), ZONE)).toEqual([]);
       ws = dated(ws, ctx, bedroom, day('2026-11-26', '2026-11-27'));

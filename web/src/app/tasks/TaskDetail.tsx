@@ -46,6 +46,7 @@ import { canEditTask } from '../../core/sharing.ts';
 import { TaskReadOnly } from './readOnly.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { AssigneeProperty } from './AssigneeProperty.tsx';
+import { BlockingProperty } from './BlockingProperty.tsx';
 import { ReminderProperty } from '../reminders/ReminderProperty.tsx';
 import { OccurrenceActions } from '../repeat/OccurrenceActions.tsx';
 import { shifted } from '../../core/occurrences.ts';
@@ -466,6 +467,7 @@ export function TaskDetail({
             <OccurrenceActions task={task} />
             <ReminderProperty task={task} />
             {canAssign && <AssigneeProperty task={task} />}
+            <BlockingProperty task={task} />
           </Box>
           {(!readOnly || task.notes) && (
             <NotesEditor
