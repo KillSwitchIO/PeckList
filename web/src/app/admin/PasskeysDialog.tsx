@@ -11,7 +11,7 @@ import { useCallback } from 'react';
 import type { AdminApi, AdminUser } from '../../ports/admin.ts';
 import { t } from '../i18n/i18n.ts';
 import { useLoaded } from './useAdmin.ts';
-import { intlLocale } from '../../core/intl.ts';
+import { formatDateIn } from '../../core/intl.ts';
 
 /** Someone's passkeys, so an admin can remove a lost one (PL-123). */
 export function PasskeysDialog({
@@ -41,7 +41,7 @@ export function PasskeysDialog({
               <Typography variant="caption" color="text.secondary">
                 {passkey.lastUsedAt
                   ? t('admin.passkeys.used', {
-                      date: new Date(passkey.lastUsedAt).toLocaleDateString(intlLocale()),
+                      date: formatDateIn(new Date(passkey.lastUsedAt)),
                     })
                   : t('admin.passkeys.unused')}
               </Typography>

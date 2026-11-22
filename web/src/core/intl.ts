@@ -123,7 +123,18 @@ function frenchDateTimeFormat(): DateTimeFormatClass {
   return french;
 }
 
-/** `new Intl.DateTimeFormat(locale, options)`, made once; no locale means the one set above. */
+/** Calendars whose months and days are Gregorian, only the year numbered differently. */
+// Not ISO 8601: ICU prints no month names in it (" 1" for Dec 1 in en-GB; Dev 1).
+const GREGORIAN_MONTHS = new Set(['gregory', 'buddhist', 'japanese', 'roc']);
+
+/**
+ * `new Intl.DateTimeFormat(locale, options)`, made once; no locale means the one set above. Every
+ * date in the app is Gregorian (due dates, the month grid), so a locale whose own calendar has
+ * other months (Persian, Islamic, Hebrew, Chinese) gets the Gregorian one, still named in its
+ * language and digits: fa's own would name months the grid doesn't have (Dev 1, PL-148). One with
+ * Gregorian months keeps its own year (Thai's Buddhist 2569, Manager): the year rules compare
+ * Gregorian years, and only the number shown differs.
+ */
 export function dateTimeFormat(
   locale: string | undefined,
   options: Intl.DateTimeFormatOptions,
@@ -132,9 +143,14 @@ export function dateTimeFormat(
   const key = `${used ?? ''}|${JSON.stringify(options)}`;
   let format = formats.get(key);
   if (!format) {
-    format = new Intl.DateTimeFormat(used, options);
+    let made = options;
+    format = new Intl.DateTimeFormat(used, made);
+    if (!GREGORIAN_MONTHS.has(format.resolvedOptions().calendar)) {
+      made = { ...options, calendar: 'gregory' };
+      format = new Intl.DateTimeFormat(used, made);
+    }
     if (format.resolvedOptions().locale.split('-')[0] === 'fr') {
-      format = new (frenchDateTimeFormat())(used, options);
+      format = new (frenchDateTimeFormat())(used, made);
     }
     formats.set(key, format);
   }
