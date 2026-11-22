@@ -108,6 +108,18 @@ android {
         test.java.srcDirs += 'src/sharedTest/java'
         androidTest.java.srcDirs += 'src/sharedTest/java'
     }
+    // Robolectric fetches Android's framework (one jar, about 200 MB) from Maven Central on first
+    // use and keeps it in ~/.m2. ROBOLECTRIC_REPO_URL names another Maven repository for it, and
+    // ROBOLECTRIC_LOCAL_REPO where to keep it. CI sets both: Central answers 429 for a day to an
+    // address that fetches the same large file over and over, and a CI job starts with no ~/.m2.
+    testOptions {
+        unitTests.all {
+            def repo = System.getenv('ROBOLECTRIC_REPO_URL')
+            if (repo) systemProperty 'robolectric.dependency.repo.url', repo
+            def kept = System.getenv('ROBOLECTRIC_LOCAL_REPO')
+            if (kept) systemProperty 'maven.repo.local', kept
+        }
+    }
     // A block of dependency metadata encrypted for Google Play: F-Droid refuses it, and nobody else
     // can read it.
     dependenciesInfo {
