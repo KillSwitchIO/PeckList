@@ -4,6 +4,26 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.15.0-rc.2] - 2026-11-22
+
+### Added
+
+- **android:** No app update notice when F-Droid installed the app
+- **android:** Keep the app's data in its own SQLite (PL-070)
+- The clock follows the language (schema 22)
+- The calendar's Days title in the language's own words
+- French writes the first of a month 1er
+
+### Fixed
+
+- **web:** Undo of a template Use or a duplicate closes the opened task
+- **web:** A saved filter keeps view fields a later version added (PL-015)
+- **android-e2e:** Fail fast and clean up on the runner
+
+### Documentation
+
+- **android:** Screenshots of the Today widget's view picker
+
 ## [0.15.0-rc.1] - 2026-11-21
 
 ### Added
