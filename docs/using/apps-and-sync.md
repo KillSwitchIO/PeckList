@@ -55,6 +55,10 @@ deletes it, so download a copy now and then.
   so an old copy cannot undo newer work.
 - A file from another person or another device without an account becomes yours, and its Mess
   Drawer tasks move into yours.
+- Signed in, a file from another account (moving to a new account, or a copy someone gave you)
+  comes in as new tasks, lists, tags and templates of your own. Lists already shared with you stay
+  as they are. Its people, sharing, settings, and other people's comments and files stay out.
+  Importing the same file again adds nothing new.
 - A file from a newer PeckList is refused until the app updates; an older one is upgraded.
 - One import is one step: the undo toast takes it all back.
 

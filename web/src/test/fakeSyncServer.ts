@@ -1,5 +1,5 @@
 // An in-memory stand-in for the server's /api/sync, with the same rules: merge what is pushed
-// (entities owned by someone else are skipped), give each change a seq, hand back what is newer
+// (another account's entities are refused), give each change a seq, hand back what is newer
 // than the cursor. The C# server is tested against the same expectations.
 
 import { mergeEntity } from '../core/merge.ts';
@@ -36,7 +36,16 @@ export class FakeSyncServer {
         continue;
       }
       const row = this.rows.get(change.entity.id);
-      if (row && (row.owner !== userId || row.change.collection !== change.collection)) continue;
+      // Another account's id, or one that names something else, is refused (SharingIndex.MayWrite;
+      // this fake shares nothing). So is something new said to be made by someone else.
+      const author = (change.entity as { createdBy?: unknown }).createdBy;
+      if (
+        (row && (row.owner !== userId || row.change.collection !== change.collection)) ||
+        (!row && typeof author === 'string' && author !== userId)
+      ) {
+        rejected.push(change.entity.id);
+        continue;
+      }
       const entity: BaseEntity = row
         ? mergeEntity(row.change.entity, change.entity, ELEMENT_SET_FIELDS[change.collection])
         : structuredClone(change.entity);

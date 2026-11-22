@@ -4,6 +4,7 @@ import { parseJson } from '../../core/io.ts';
 import { t } from '../i18n/i18n.ts';
 import { ConfirmDialog } from '../lists/ListDialog.tsx';
 import { useWorkspaceStore } from '../store/hooks.ts';
+import { useSyncState } from '../sync/syncContext.ts';
 import {
   deleteOlderCopy,
   FAILURES_TO_SAY,
@@ -24,6 +25,8 @@ import { Section, SettingRow } from './settingsLayout.tsx';
  */
 export function DataSection() {
   const store = useWorkspaceStore();
+  // Signed in: another account's file takes fresh ids, which the server accepts (1.0).
+  const onServer = useSyncState((state) => state.account !== null);
   const input = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [open, setOpen] = useState<'import' | 'export' | null>(null);
@@ -46,7 +49,7 @@ export function DataSection() {
       setNotice({ ok: false, text: t('settings.data.notJson') });
       return;
     }
-    say(store.getState().importDocument(parsed.value, t('undo.imported')));
+    say(store.getState().importDocument(parsed.value, t('undo.imported'), { onServer }));
   };
 
   const say = (outcome: ImportOutcome) => {

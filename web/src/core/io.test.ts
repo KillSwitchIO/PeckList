@@ -2,12 +2,29 @@ import { CURRENT_SCHEMA_VERSION } from './migrations.ts';
 import { describe, expect, it } from 'vitest';
 import { createAjvValidator } from '../adapters/ajv-validator.ts';
 import { sampleTask, sampleWorkspace, T0, testContext } from '../test/fixtures.ts';
-import { importCounts, importWorkspace, openDocument, parseJson, upgradeDocument } from './io.ts';
+import { addComment } from './comments.ts';
+import {
+  adoptedId,
+  importCounts,
+  importWorkspace,
+  openDocument,
+  parseJson,
+  upgradeDocument,
+} from './io.ts';
+import { members, setElement } from './ops.ts';
+import { createTag } from './tags.ts';
+import { PURGED_AT } from './trash.ts';
 import { createList } from './lists.ts';
 import { updateEntity } from './ops.ts';
 import { siblings, createTask } from './tasks.ts';
-import { createTemplate, fromListTemplate, templateOfList, templatesOf } from './templates.ts';
-import type { WorkspaceFile } from './types.ts';
+import {
+  createTemplate,
+  fromListTemplate,
+  templateOfList,
+  templatesOf,
+  templateOfTask,
+} from './templates.ts';
+import type { Task, WorkspaceFile } from './types.ts';
 import { createWorkspace, serializeWorkspace } from './workspace.ts';
 
 const validator = createAjvValidator();
@@ -204,5 +221,156 @@ describe('templates in an exported file (PL-140)', () => {
     expect(merged.entities.tasks.map((task) => task.title)).toEqual(
       expect.arrayContaining(['Tent', 'Pegs', 'Mow lawn', 'Call vet']),
     );
+  });
+});
+
+describe("importWorkspace: another account's file, on a server (1.0)", () => {
+  const ANN = '01TESTMEMBER00000000000002';
+  const CAL = '01TESTMEMBER00000000000003';
+
+  /** Ann's export: a list Ben already has (shared with him), and one of her own with all kinds of links. */
+  function setup() {
+    const benCtx = testContext('dev1');
+    const ben = createWorkspace(benCtx);
+    const sharedList = createList(benCtx, ben, { name: 'Shared', color: '#CFE3A3' });
+    const here = sharedList.workspace;
+
+    const annCtx = testContext('dev2', T0, ANN);
+    const calCtx = testContext('dev3', T0, CAL);
+    let theirs = createWorkspace(annCtx);
+    theirs = {
+      ...theirs,
+      entities: { ...theirs.entities, lists: [...theirs.entities.lists, sharedList.list] },
+    };
+    const camping = createList(annCtx, theirs, { name: 'Camping', color: '#A7C7E7' });
+    const tag = createTag(annCtx, camping.workspace, 'outdoors');
+    const tent = createTask(annCtx, tag.workspace, {
+      title: 'Tent',
+      listId: camping.list.id,
+      tags: [tag.tag.id],
+    });
+    const pegs = createTask(annCtx, tent.workspace, {
+      title: 'Pegs',
+      listId: camping.list.id,
+      parentId: tent.task.id,
+    });
+    // Pegs waits on Tent, and Tent is Ann's and Cal's.
+    let ws = pegs.workspace;
+    ws = {
+      ...ws,
+      entities: {
+        ...ws.entities,
+        tasks: ws.entities.tasks.map((task): Task => {
+          if (task.id === pegs.task.id) {
+            return { ...task, blockedBy: setElement(annCtx, task.blockedBy, tent.task.id, true) };
+          }
+          if (task.id !== tent.task.id) return task;
+          let assignees = setElement(annCtx, task.assignees, `user:${ANN}`, true);
+          assignees = setElement(annCtx, assignees, `user:${CAL}`, true);
+          return { ...task, assignees };
+        }),
+      },
+    };
+    const mine = addComment(annCtx, ws, tent.task.id, 'Bring the big one');
+    const cals = addComment(calCtx, mine.workspace, tent.task.id, 'I have one');
+    const saved = createTemplate(annCtx, cals.workspace, {
+      name: 'Tent',
+      kind: 'task',
+      body: templateOfTask(cals.workspace, tent.task.id, '2026-11-22'),
+    });
+    return {
+      here,
+      theirs: saved.workspace,
+      sharedList: sharedList.list,
+      tent: tent.task,
+      tag: tag.tag,
+    };
+  }
+
+  it('gives fresh ids to what this account does not hold, and changes every reference to match', () => {
+    const { here, theirs, sharedList, tent, tag } = setup();
+    const merged = importWorkspace(here, theirs, { onServer: true });
+    const me = here.owner;
+    const live = (ws: WorkspaceFile) => ws.entities.tasks.filter((task) => task.deletedAt === null);
+    const newTent = live(merged).find((task) => task.title === 'Tent')!;
+    const newPegs = live(merged).find((task) => task.title === 'Pegs')!;
+    expect(newTent.id).toBe(adoptedId(tent.id, me));
+    expect(newPegs.parentId).toBe(newTent.id);
+    expect(members(newPegs.blockedBy)).toEqual([newTent.id]);
+    expect(members(newTent.tags)).toEqual([adoptedId(tag.id, me)]);
+    const camping = merged.entities.lists.find((list) => list.name === 'Camping')!;
+    expect(newTent.listId).toBe(camping.id);
+    const template = templatesOf(merged).find((each) => each.name === 'Tent')!;
+    expect((template.body as { tags: string[] }).tags).toEqual([adoptedId(tag.id, me)]);
+    // Nothing keeps one of Ann's ids but the list Ben already had.
+    const annIds = new Set(
+      Object.values(theirs.entities).flatMap((list) => list.map((entity) => entity.id)),
+    );
+    const kept = Object.values(merged.entities)
+      .flatMap((list) => list.map((entity) => entity.id))
+      .filter((id) => annIds.has(id));
+    expect(kept).toEqual([sharedList.id]);
+    expect(/^[0-9A-HJKMNP-TV-Z]{26}$/.test(newTent.id)).toBe(true);
+  });
+
+  it("comes in as this account's own: made by it, its lists, assigned to it at most, no one else's people or words", () => {
+    const { here, theirs } = setup();
+    const merged = importWorkspace(here, theirs, { onServer: true });
+    const me = here.owner;
+    const newTent = merged.entities.tasks.find((task) => task.title === 'Tent')!;
+    expect(newTent.createdBy).toBe(me);
+    expect(members(newTent.assignees)).toEqual([`user:${me}`]);
+    const camping = merged.entities.lists.find((list) => list.name === 'Camping')!;
+    expect([camping.createdBy, camping.visibility]).toEqual([me, 'private']);
+    expect(merged.entities.comments.map((comment) => comment.body)).toEqual(['Bring the big one']);
+    expect(merged.entities.users.some((user) => user.id === ANN)).toBe(false);
+    // Ann's settings never replace Ben's.
+    expect(merged.entities.settings).toEqual(here.entities.settings);
+  });
+
+  it('leaves out what was purged, and links to it; a trashed task comes in trashed', () => {
+    const { here, theirs, tent } = setup();
+    const annCtx = testContext('dev2', T0, ANN);
+    const binnedAt = new Date(T0).toISOString();
+    const gone = createTask(annCtx, theirs, { title: 'Old stakes', listId: tent.listId });
+    const binned = createTask(annCtx, gone.workspace, { title: 'Old tarp', listId: tent.listId });
+    const file: WorkspaceFile = {
+      ...binned.workspace,
+      entities: {
+        ...binned.workspace.entities,
+        tasks: binned.workspace.entities.tasks.map((task): Task => {
+          if (task.id === gone.task.id) return { ...task, deletedAt: PURGED_AT };
+          if (task.id === binned.task.id) return { ...task, deletedAt: binnedAt };
+          if (task.id !== tent.id) return task;
+          return { ...task, blockedBy: setElement(annCtx, task.blockedBy, gone.task.id, true) };
+        }),
+      },
+    };
+    const merged = importWorkspace(here, file, { onServer: true });
+    const me = here.owner;
+    const ids = merged.entities.tasks.map((task) => task.id);
+    expect(ids).not.toContain(adoptedId(gone.task.id, me));
+    expect(ids).not.toContain(gone.task.id);
+    const newTent = merged.entities.tasks.find((task) => task.id === adoptedId(tent.id, me))!;
+    expect(Object.keys(newTent.blockedBy)).toEqual([]);
+    const tarp = merged.entities.tasks.find((task) => task.title === 'Old tarp')!;
+    expect([tarp.id, tarp.deletedAt]).toEqual([adoptedId(binned.task.id, me), binnedAt]);
+  });
+
+  it('imported again, gives the same ids: nothing new', () => {
+    const { here, theirs } = setup();
+    const once = importWorkspace(here, theirs, { onServer: true });
+    const twice = importWorkspace(once, theirs, { onServer: true });
+    expect(importCounts(once, twice)).toEqual({ tasks: 0, lists: 0, tags: 0, templates: 0 });
+  });
+
+  it('keeps the ids of a file from this same account, or with no server to refuse them', () => {
+    const { here, theirs, tent } = setup();
+    expect(importWorkspace(here, theirs).entities.tasks.map((task) => task.id)).toContain(tent.id);
+    const own = structuredClone(theirs);
+    own.owner = here.owner;
+    expect(
+      importWorkspace(here, own, { onServer: true }).entities.tasks.map((task) => task.id),
+    ).toContain(tent.id);
   });
 });
