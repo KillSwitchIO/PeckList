@@ -3,16 +3,12 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { store, type Document } from './storage';
 
 // Data from another version of PeckList, in a real browser with real IndexedDB (PL-024): the
 // consent and refuse pages guard every future schema change. StatusGate.test.tsx covers what they
 // say; these show the whole way through, from what a past or future version left in storage to
 // what is stored afterwards. XPath and CSS only, as in smoke.e2e.ts.
-
-interface Document {
-  schemaVersion: number;
-  entities: Record<string, { id: string }[]>;
-}
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), '../../schema/fixtures/migrations');
 const fixturePath = (version: number) => join(fixtures, `${version}-input.json`);
@@ -23,60 +19,6 @@ const current = Math.max(
   ...readdirSync(fixtures).map((name) => Number(/^(\d+)-input\.json$/.exec(name)?.[1] ?? 0)),
 );
 const oldest = 2;
-
-/**
- * Put a document where a past or future version would have saved it, over whatever is there:
- * `records` as the app saves today (one record per entity), `text` as older versions did (one JSON
- * text). `null` empties storage, as on a new device. The page is reloaded by what comes next.
- *
- * Each write waits for its transaction to commit, not just for its request: the next step leaves
- * the page, and leaving aborts a transaction still open. The old text copy was lost that way on a
- * busy runner (!525, !530), and the app then opened an empty workspace instead of the upgrade page.
- */
-async function store(document: Document | null, form: 'records' | 'text' = 'records') {
-  await browser.execute(
-    async (document, form) => {
-      const done = <T>(request: IDBRequest<T>) =>
-        new Promise<T>((resolve, reject) => {
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error ?? new Error('IndexedDB failed'));
-        });
-      const committed = (tx: IDBTransaction) =>
-        new Promise((resolve, reject) => {
-          tx.oncomplete = resolve;
-          tx.onerror = tx.onabort = () => reject(tx.error ?? new Error('IndexedDB failed'));
-        });
-      const records = await done(indexedDB.open('pecklist-records'));
-      const tx = records.transaction(['entities', 'doc'], 'readwrite');
-      tx.objectStore('entities').clear();
-      tx.objectStore('doc').clear();
-      if (document && form === 'records') {
-        const { entities, ...doc } = document;
-        const order: Record<string, string[]> = {};
-        for (const [collection, list] of Object.entries(entities)) {
-          order[collection] = list.map((entity) => entity.id);
-          for (const entity of list) {
-            tx.objectStore('entities').put(entity, `${collection}/${entity.id}`);
-          }
-        }
-        tx.objectStore('doc').put({ doc, order }, 'header');
-      }
-      await committed(tx);
-      records.close();
-      const first = await done(indexedDB.open('pecklist'));
-      const texts = first.transaction('workspace', 'readwrite');
-      texts.objectStore('workspace').clear();
-      if (document && form === 'text') {
-        texts.objectStore('workspace').put(JSON.stringify(document), 'current');
-      }
-      await committed(texts);
-      first.close();
-      localStorage.clear();
-    },
-    document,
-    form,
-  );
-}
 
 /** What storage holds now: the schema of each copy of the workspace, and the backups by name. */
 async function stored() {

@@ -53,6 +53,7 @@ export interface WorkspaceState {
   lastUndoable: UndoEntry | null;
   saving: boolean;
 
+  /** Open the stored workspace (or a new one). Runs once: later calls wait on the same opening. */
   init(): Promise<void>;
   /** Back up the stored data, then upgrade it to this app's schema (status needs-upgrade). */
   upgrade(): Promise<void>;
@@ -309,6 +310,49 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
       }, delay);
     };
 
+    /** Reads the stored workspace and opens it (init); runs once. */
+    let opening: Promise<void> | null = null;
+    const open = async () => {
+      try {
+        const raw = await deps.storage.load();
+        if (raw === null) {
+          const userId = deps.ids.next();
+          ctx = makeContext(userId);
+          const workspace = createWorkspace(
+            ctx,
+            deps.displayName ? { displayName: deps.displayName } : {},
+          );
+          set({ status: 'ready', workspace });
+          storedOwner = workspace.owner;
+          await persist();
+          return;
+        }
+        const opened = openDocument(raw, deps.validator);
+        if (opened.kind === 'ok') {
+          advanceClock(opened.workspace);
+          ctx = makeContext(opened.workspace.owner);
+          storedOwner = opened.workspace.owner;
+          saved = opened.workspace;
+          generation = await deps.storage.loadMeta(GENERATION);
+          // Changes the page could not save before it closed.
+          const recovered = withJournal(opened.workspace);
+          if (recovered !== opened.workspace) advanceClock(recovered);
+          // Broken text (half an emoji) would stop every sync: put it right first.
+          const ready = repairText(ctx, recovered);
+          set({ status: 'ready', workspace: ready });
+          if (ready !== opened.workspace) schedule();
+        } else if (opened.kind === 'needs-upgrade') {
+          set({ status: 'needs-upgrade', problem: opened });
+        } else if (opened.kind === 'needs-app-update') {
+          set({ status: 'needs-app-update', problem: opened });
+        } else {
+          set({ status: 'error', problem: opened });
+        }
+      } catch (error) {
+        failWith(error);
+      }
+    };
+
     return {
       status: 'loading',
       workspace: null,
@@ -317,45 +361,9 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
       lastUndoable: null,
       saving: false,
 
-      async init() {
-        try {
-          const raw = await deps.storage.load();
-          if (raw === null) {
-            const userId = deps.ids.next();
-            ctx = makeContext(userId);
-            const workspace = createWorkspace(
-              ctx,
-              deps.displayName ? { displayName: deps.displayName } : {},
-            );
-            set({ status: 'ready', workspace });
-            storedOwner = workspace.owner;
-            await persist();
-            return;
-          }
-          const opened = openDocument(raw, deps.validator);
-          if (opened.kind === 'ok') {
-            advanceClock(opened.workspace);
-            ctx = makeContext(opened.workspace.owner);
-            storedOwner = opened.workspace.owner;
-            saved = opened.workspace;
-            generation = await deps.storage.loadMeta(GENERATION);
-            // Changes the page could not save before it closed.
-            const recovered = withJournal(opened.workspace);
-            if (recovered !== opened.workspace) advanceClock(recovered);
-            // Broken text (half an emoji) would stop every sync: put it right first.
-            const ready = repairText(ctx, recovered);
-            set({ status: 'ready', workspace: ready });
-            if (ready !== opened.workspace) schedule();
-          } else if (opened.kind === 'needs-upgrade') {
-            set({ status: 'needs-upgrade', problem: opened });
-          } else if (opened.kind === 'needs-app-update') {
-            set({ status: 'needs-app-update', problem: opened });
-          } else {
-            set({ status: 'error', problem: opened });
-          }
-        } catch (error) {
-          failWith(error);
-        }
+      init() {
+        // Once: the start opens it before the first render (main.tsx), and StoreProvider asks again.
+        return (opening ??= open());
       },
 
       apply(operation, label) {

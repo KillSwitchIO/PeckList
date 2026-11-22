@@ -10,6 +10,7 @@ import { AppProviders } from '../providers.tsx';
 import { AppRoutes } from '../routes.tsx';
 import { createSyncEngine } from './syncEngine.ts';
 import { fakeWebAuthn, noWebAuthn } from '../../test/fakeWebAuthn.ts';
+import { SPINNER_AFTER_MS } from '../layout/LoadingScreen.tsx';
 
 const leaveFor = vi.hoisted(() => vi.fn());
 vi.mock('./signInWith.ts', async (importOriginal) => ({
@@ -453,7 +454,14 @@ describe('making an account', () => {
         </MemoryRouter>
       </AppProviders>,
     );
-    expect(await screen.findByRole('progressbar', { name: 'Loading' })).toBeInTheDocument();
+    // Past the page's first second, when a wait shows its spinner (LoadingScreen).
+    expect(
+      await screen.findByRole(
+        'progressbar',
+        { name: 'Loading' },
+        { timeout: SPINNER_AFTER_MS + 1_000 },
+      ),
+    ).toBeInTheDocument();
   });
 
   it('a mangled invite link says it has run out rather than leave a blank page', async () => {

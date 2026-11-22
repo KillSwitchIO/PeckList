@@ -23,6 +23,17 @@ const lock =
   <T>(work: () => Promise<T>): Promise<T> =>
     navigator.locks ? navigator.locks.request(name, work) : work();
 
+type BrowserApp = ReturnType<typeof createBrowserApp>;
+let made: BrowserApp | null = null;
+
+/**
+ * This page's store and sync engine, made once: the start makes them before the first render, to
+ * open the workspace while the page is still loading (main.tsx), and App takes the same ones.
+ */
+export function browserApp(): BrowserApp {
+  return (made ??= createBrowserApp());
+}
+
 export function createBrowserApp(): {
   store: WorkspaceStore;
   sync: SyncEngine;
