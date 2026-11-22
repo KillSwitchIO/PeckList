@@ -127,10 +127,19 @@ The `packages` job builds them all (`scripts/package.sh`): the deb and rpm packa
 [nFPM](https://nfpm.goreleaser.com/) from `packaging/linux/`, and the portable archives.
 `package-test` then installs, upgrades and removes the packages in clean Debian, Ubuntu, Fedora,
 AlmaLinux and openSUSE containers with systemd running (`scripts/ci/package-test.sh`); a release's
-downloads wait for it. `package-test-arm64` runs the arm64 ones under QEMU. It is allowed to fail:
+downloads wait for it. The upgrade starts from the latest release's own packages, the ones people
+have installed: `scripts/ci/package-previous.sh` downloads them from its release page, after
+checking its `SHA256SUMS` against the Sigstore signature ([verifying](../install/verifying.md)) and
+each package against `SHA256SUMS`. A latest release without a signature (made while Sigstore was
+down) or with this build's own version (the job run again after its release is out) is passed over
+for the newest earlier signed one, and the job log says which. A signature that does not verify
+always fails the job. Debian starts from a portable install instead, which the new
+package takes over. `package-test-arm64` runs the arm64 ones under QEMU. It is allowed to fail:
 on a runner without arm64 binfmt it stops at once and shows orange. Both wait for `e2e`, so they
 never load the runner at the same time. A merge request that changes the packaging runs them all
-for Linux. Locally, with Docker and the packages in `dist/`: `sh scripts/ci/package-test.sh dist debian`.
+for Linux. Locally, with Docker and the packages in `dist/`:
+`sh scripts/ci/package-previous.sh dist/test <version>`, then
+`sh scripts/ci/package-test.sh dist debian ubuntu`.
 
 ### Signatures
 

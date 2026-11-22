@@ -11,9 +11,8 @@
 #   scripts/package.sh <version> [rid ...]     default rids: linux-x64 linux-arm64 win-x64 win-arm64
 # Needs: the .NET 10 SDK, the web build in web/dist (pnpm build), zip for Windows archives, and nfpm
 # for the deb and rpm packages (skipped without it, unless LINUX_PACKAGES=1 makes it required).
-# Set REVISION to the commit to stamp it into `pecklist --version`. PACKAGE_TEST_PREVIOUS=1 also
-# builds linux-x64 packages at version 0.0.1 into dist/test, for the upgrade test
-# (scripts/ci/package-test.sh).
+# Set REVISION to the commit to stamp it into `pecklist --version`. The upgrade test starts from the
+# latest release's real packages (scripts/ci/package-previous.sh), not from anything built here.
 set -euo pipefail
 
 version=${1:?usage: scripts/package.sh <version> [rid ...]}
@@ -142,11 +141,6 @@ for rid in "${rids[@]}"; do
     echo "=== packages for $rid"
     PKG_ROOT="$work/program-$rid" linux_packages nfpm-server.yaml pecklist "$arch" "$version" "$out"
     PKG_CLI="$work/$cli-$exe" linux_packages nfpm-cli.yaml pecklist-cli "$arch" "$version" "$out"
-    if [ "${PACKAGE_TEST_PREVIOUS:-}" = 1 ] && [ "$rid" = linux-x64 ]; then
-      echo "=== packages for the upgrade test (0.0.1)"
-      PKG_ROOT="$work/program-$rid" linux_packages nfpm-server.yaml pecklist "$arch" 0.0.1 "$out/test"
-      PKG_CLI="$work/$cli-$exe" linux_packages nfpm-cli.yaml pecklist-cli "$arch" 0.0.1 "$out/test"
-    fi
   fi
 done
 

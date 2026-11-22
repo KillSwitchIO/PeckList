@@ -39,7 +39,8 @@ exit 0
 // way on every machine (a dead proxy is not enough: Node's fetch, used without curl or wget, ignores
 // https_proxy).
 // PATH_ONLY in env replaces the PATH after the stand-ins (to run without node).
-function run(args, { PATH_ONLY, ...env } = {}, { offline = false } = {}) {
+// withBundle puts a bundle beside SHA256SUMS first, as a release page has (for verify).
+function run(args, { PATH_ONLY, ...env } = {}, { offline = false, withBundle = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'sigstore-'));
   writeFileSync(join(dir, 'cosign'), fakeCosign);
   chmodSync(join(dir, 'cosign'), 0o755);
@@ -52,6 +53,7 @@ function run(args, { PATH_ONLY, ...env } = {}, { offline = false } = {}) {
   }
   const sums = join(dir, 'SHA256SUMS');
   writeFileSync(sums, 'aaa  pecklist-cli-linux-x64-portable.tar.gz\n');
+  if (withBundle) writeFileSync(`${sums}.sigstore.json`, '{"fake":true}\n');
   const log = join(dir, 'calls');
   const result = spawnSync('sh', [script, ...args.map((arg) => arg.replace('{sums}', sums))], {
     encoding: 'utf8',
@@ -227,6 +229,56 @@ test('without a mode or target it prints how to call it', () => {
   assert.equal(run([]).status, 2);
   assert.equal(run(['blob']).status, 2);
   assert.equal(run(['nonsense', 'x']).status, 2);
+  assert.equal(run(['verify']).status, 2);
+});
+
+// --- verify: a release's file, checked before anything trusts it (package-previous.sh) ---
+
+test("verify checks main's signature of this project, from any branch and with no token", () => {
+  const result = run(
+    ['verify', '{sums}'],
+    { SIGSTORE_ID_TOKEN: '', CI_COMMIT_BRANCH: 'feat/x', CI_PROJECT_PATH: 'someone/fork' },
+    { withBundle: true },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(
+    result.calls.map((call) => call.replace(/ \S+$/, '')),
+    [
+      `verify-blob --bundle ${result.bundle} ` +
+        '--certificate-identity=https://gitlab.com/killswitch10/pecklist//.gitlab-ci.yml@refs/heads/main ' +
+        '--certificate-oidc-issuer https://gitlab.com',
+    ],
+  );
+  assert.match(
+    result.stdout,
+    /Verified .*SHA256SUMS: signed by https:\/\/gitlab\.com\/killswitch10/,
+  );
+});
+
+test('verify fails on a signature that does not check, whatever SIGSTORE_REQUIRED says', () => {
+  const result = run(['verify', '{sums}'], { SIGSTORE_REQUIRED: '' }, { withBundle: true });
+  assert.equal(result.status, 0, result.stderr);
+  const bad = run(['verify', '{sums}'], { FAIL: 'verify-blob' }, { withBundle: true });
+  assert.equal(bad.status, 1);
+  assert.equal(bad.calls.filter((call) => call.startsWith('verify-blob')).length, 3);
+  assert.match(bad.stderr, /NOT VERIFIED: .*SHA256SUMS \(the signature is not/);
+  assert.doesNotMatch(bad.stderr, /NOT SIGNED/);
+});
+
+test('verify fails without a bundle, and without cosign', () => {
+  const noBundle = run(['verify', '{sums}']);
+  assert.equal(noBundle.status, 1);
+  assert.deepEqual(noBundle.calls, []);
+  assert.match(noBundle.stderr, /NOT VERIFIED: .*no bundle at/);
+
+  const noCosign = run(
+    ['verify', '{sums}'],
+    { FAKE_VERSION: '3.1.40', TMPDIR: mkdtempSync(join(tmpdir(), 'sigstore-dl-')) },
+    { offline: true, withBundle: true },
+  );
+  assert.equal(noCosign.status, 1);
+  assert.deepEqual(noCosign.calls, []);
+  assert.match(noCosign.stderr, /NOT VERIFIED: .*could not be downloaded/);
 });
 
 // --- The signature on the release page ---
