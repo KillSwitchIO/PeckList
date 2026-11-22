@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, localTimeZone, setTimeZone, todayIn } from '../../core/dates.ts';
 import { members } from '../../core/ops.ts';
 import { updateSettings } from '../../core/settings.ts';
+import { blankTask, createTemplate } from '../../core/templates.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
 beforeEach(() => {
@@ -95,5 +96,102 @@ describe('quick add', () => {
         schedule: null,
       }),
     );
+  });
+
+  // PL-149: the date button comes in once there is something to date, on the left of the
+  // template and expand buttons, which stay where they are.
+  it('keeps its buttons in order: date (once typed), template, expand', async () => {
+    const store = testStore();
+    await renderApp('/inbox', store);
+    act(() =>
+      store
+        .getState()
+        .apply(
+          (ctx, ws) =>
+            createTemplate(ctx, ws, { name: 'Trip', kind: 'task', body: blankTask() }).workspace,
+        ),
+    );
+    const field = screen.getByRole('textbox', { name: /Add task/ });
+    const bar = field.closest('div[class*="MuiBox"]')!.parentElement!;
+    const named = () =>
+      within(bar)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'));
+    await waitFor(() => expect(named()).toEqual(['From template', 'Expand into the task form']));
+    await userEvent.type(field, 'Water plants');
+    expect(named()).toEqual(['Start date', 'From template', 'Expand into the task form']);
+  });
+
+  it('sets a start date picked with the date button', async () => {
+    const store = testStore();
+    await renderApp('/inbox', store);
+    const field = screen.getByRole('textbox', { name: /Add task/ });
+    expect(screen.queryByRole('button', { name: 'Start date' })).toBeNull();
+    await userEvent.type(field, 'Water plants');
+    await userEvent.click(screen.getByRole('button', { name: 'Start date' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Tomorrow' }));
+    const chips = await screen.findByRole('list', { name: 'Recognised in the task' });
+    expect(
+      within(chips)
+        .getAllByRole('listitem')
+        .map((chip) => chip.textContent),
+    ).toEqual(['Tomorrow']);
+    expect(screen.getByRole('button', { name: 'Start date' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await userEvent.click(field);
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(store.getState().workspace!.entities.tasks).toHaveLength(1));
+    const tomorrow = addDays(todayIn(localTimeZone(), Date.now()), 1);
+    expect(store.getState().workspace!.entities.tasks[0]).toMatchObject({
+      title: 'Water plants',
+      schedule: { start: tomorrow, allDay: true },
+    });
+    // The next task starts with no date.
+    expect(screen.queryByRole('button', { name: 'Start date' })).toBeNull();
+  });
+
+  it('puts a picked date in place of one typed, and its x takes it off', async () => {
+    const store = testStore();
+    await renderApp('/inbox', store);
+    const field = screen.getByRole('textbox', { name: /Add task/ });
+    await userEvent.type(field, 'Call mom in 5 days #family');
+    await userEvent.click(screen.getByRole('button', { name: 'Start date' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Tomorrow' }));
+    const chips = await screen.findByRole('list', { name: 'Recognised in the task' });
+    const labels = () =>
+      within(chips)
+        .getAllByRole('listitem')
+        .map((chip) => chip.textContent);
+    expect(labels()).toEqual(['Tomorrow', '#family']);
+    await userEvent.click(field);
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(store.getState().workspace!.entities.tasks).toHaveLength(1));
+    const today = todayIn(localTimeZone(), Date.now());
+    expect(store.getState().workspace!.entities.tasks[0]).toMatchObject({
+      title: 'Call mom',
+      schedule: { start: addDays(today, 1) },
+    });
+
+    // Picked, then taken off: the typed date is back.
+    await userEvent.type(field, 'Rake in 5 days');
+    await userEvent.click(screen.getByRole('button', { name: 'Start date' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Tomorrow' }));
+    await userEvent.click(
+      within(await screen.findByRole('list', { name: 'Recognised in the task' })).getByLabelText(
+        'No date',
+      ),
+    );
+    expect(screen.getByRole('button', { name: 'Start date' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await userEvent.click(field);
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => expect(store.getState().workspace!.entities.tasks).toHaveLength(2));
+    expect(
+      store.getState().workspace!.entities.tasks.find((each) => each.title === 'Rake'),
+    ).toMatchObject({ schedule: { start: addDays(today, 5) } });
   });
 });
