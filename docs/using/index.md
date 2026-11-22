@@ -230,7 +230,7 @@ their start; the due date is the deadline.
   a list's owner may delete any on it.
 - **History**: under the comments, a timeline of who changed what and when, newest first (Sam
   set the date to Fri, Oct 30), each change marked by an icon for what changed, from when the task was made: its title, dates, priority, list, people, tags,
-  notes, repeat, reminders, progress and pin, and completing, deleting or restoring it. A
+  notes, repeat, reminders, progress, pin and what it waits on, and completing, deleting or restoring it. A
   person's quick changes to the same thing within ten minutes show as one. The server keeps it
   for a year, so it shows with a server (and while it can be reached).
 
@@ -271,6 +271,21 @@ timeline, bars and all; hold a bar still for a moment to pick it up, as on the c
 bottom; **Fit together** lets tasks that do not overlap share a row, to see more at once. The
 magnifiers make days wider or narrower, from months at a glance to roomy days. Tasks without a date wait under the timeline. Each list remembers whether it was last
 shown as a List or a Timeline, on this device.
+
+**Blocked by** says a task can't start until another is finished: "Paint the bedroom" is blocked by
+"Buy paint". Pick **Blocked by...** in a task's menu (right-click or long-press it, or the details'
+actions button) and search for the task it waits on; any task you can see will do, in any list. The
+details then show a **Blocked by** row, and the other task a **Blocks** row: each opens its tasks
+and takes a link off (with **Undo**), and **Blocked by** also adds more. In lists and in Today a
+waiting task carries a small chain mark, "Waiting on Buy paint", until every task it waits on is
+done or won't do. On the timeline an arrow runs from the end of the blocking task's bar to the start
+of the waiting one; to link two bars there with a mouse or pen, point at a bar and drag the small
+dot past its end onto the bar that waits on it (on a touch screen, use the task menu). When a task
+starts before a task it waits on ends, while both are still open, its arrow turns red and its mark
+and row turn orange, but nothing moves by itself. A task can't wait on itself or on a task that
+already waits on it. On a shared list, a task waiting on something in a list you can't see shows "A
+task you cannot see": you never see its name, and it doesn't keep the chain mark up, since you can't
+see when it is done. Links go to the trash with a task and come back with it.
 
 Folding a group (click its heading) folds it everywhere it shows: fold **Overdue** in Today and it
 is folded in Upcoming, All and your lists too, until you open it again. Each device remembers.
