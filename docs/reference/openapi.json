@@ -1190,7 +1190,7 @@
         "tags": [
           "Attachments"
         ],
-        "summary": "Upload a file under its SHA-256 (the raw bytes as the body): 201 stored, 204 already here",
+        "summary": "Upload a file under its SHA-256 (the raw bytes as the body): 201 stored, 204 already here and yours to download",
         "description": "An API key needs the files:write scope.",
         "parameters": [
           {

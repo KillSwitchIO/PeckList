@@ -44,6 +44,14 @@ after restoring it: make new ones under **Settings > Account > API keys**.
 After restoring to recover from a break-in, review **API keys** and **Passkeys** under
 **Settings > Account**.
 
+Backups also record who holds each attached file, and a restore gives that back. Someone can open a
+file only through an attachment made by a person who uploaded it, or who could already open it, so
+knowing a file's hash opens nothing. A backup from before 1.0 has no such record: restoring it
+counts every attachment's owner as holding its file. A restore trusts its file in this as in
+everything else, so only restore backups a PeckList server made. Restoring one person gives
+nobody new files to open: on the same server they keep the ones they had (even after being removed
+for good), and on another server a file opens again once they attach it from a device that has it.
+
 Downloading, exporting and restoring the whole server is for super admins: those files hold every
 password hash and the keys that sign sessions. Admins take backups, see the list, and export and
 restore people who are not admins; someone an admin restores always comes back as a plain user.

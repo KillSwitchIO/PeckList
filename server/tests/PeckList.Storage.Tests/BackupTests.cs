@@ -20,7 +20,8 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
 
     private static BackupService Backup(SqlDatabase database) =>
         new(database, new SqlEntityStore(database), new SqlAccountStore(database), new SqlServerGroupStore(database), new SqlIdentityStore(database), new SqlSecretStore(database), new Clock(),
-            new SqlPasskeyStore(database), new SqlApiKeyStore(database), new SqlCredentialRevocationStore(database));
+            new SqlPasskeyStore(database), new SqlApiKeyStore(database), new SqlCredentialRevocationStore(database),
+            new SqlFileHolderStore(database));
 
     private static ApiKey Key(string id, string user, int day) => new()
     {
@@ -302,6 +303,37 @@ public sealed class BackupTests(SqliteFiles files, PostgresServer postgres) : IC
         await ImportAsync(target, older, replace: true);
         Assert.Equal(leaked, (await new SqlApiKeyStore(target).FindAsync("K1", Token))!.RevokedAt);
         Assert.Equal(["P2"], (await new SqlPasskeyStore(target).AllAsync(Token)).Select(each => each.Id));
+    }
+
+    [Fact]
+    public async Task Who_holds_which_file_travels_in_the_backup_and_an_older_one_counts_attachment_owners()
+    {
+        // 1.0: a restore gives back exactly who may download what. Sam's attachment names a file he
+        // never uploaded, so he holds nothing; a backup from before the list counts every
+        // attachment's owner, as the migration did.
+        var source = await files.NewDatabaseAsync();
+        await FillAsync(source);
+        IncomingEntity File(string id, string sha256) => new("attachments", new JsonObject
+        {
+            ["id"] = id, ["taskId"] = "T1", ["name"] = "plan.txt", ["size"] = 3, ["mime"] = "text/plain", ["sha256"] = sha256,
+            ["deletedAt"] = null, ["_hlc"] = new JsonObject { ["name"] = "2026-10-21T10:00:00.000Z-0000-dev1" },
+        });
+        JsonObject Take(StoredEntity? _, IncomingEntity incoming) => (JsonObject)incoming.Doc.DeepClone();
+        var entities = new SqlEntityStore(source);
+        await entities.WriteAsync("01JBACCT000000000000000001", [File("F1", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")], Take, cancellation: Token);
+        await entities.WriteAsync("01JBACCT000000000000000002", [File("F2", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")], Take, cancellation: Token);
+        await new SqlFileHolderStore(source).AddAsync("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "01JBACCT000000000000000001", Token);
+        var backup = await ExportAsync(source);
+
+        var target = await files.NewDatabaseAsync();
+        await ImportAsync(target, backup);
+        Assert.Equal([("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "01JBACCT000000000000000001")], await new SqlFileHolderStore(target).AllAsync(Token));
+
+        var older = JsonNode.Parse(backup)!.AsObject();
+        older.Remove("fileHolders");
+        await ImportAsync(target, older.ToJsonString(), replace: true);
+        Assert.Equal([("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "01JBACCT000000000000000001"), ("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "01JBACCT000000000000000002")],
+            await new SqlFileHolderStore(target).AllAsync(Token));
     }
 
     [Fact]

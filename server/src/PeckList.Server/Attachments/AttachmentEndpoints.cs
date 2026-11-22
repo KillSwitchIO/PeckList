@@ -12,7 +12,9 @@ public sealed record AttachmentError(string Error, string? Message = null);
 /// <summary>
 /// <c>/api/attachments/{sha256}</c> (spec: Data Model, Attachments): devices upload a file under its
 /// SHA-256 before they sync the attachment that names it, and download it when someone opens it.
-/// Downloading needs an attachment with that hash the person may see.
+/// Downloading needs an attachment with that hash the person may see, whose owner holds the file
+/// (<see cref="FileHolders"/>): a hash on its own unlocks nothing, and no answer here says whether
+/// someone else on the server has a file.
 /// </summary>
 public static class AttachmentEndpoints
 {
@@ -27,14 +29,16 @@ public static class AttachmentEndpoints
         // Only for files the person can see: otherwise it would tell anyone whether someone on the
         // server has this file (audit S5). A device uploading its own new file hears 404 and sends
         // it; the store keeps one copy either way.
-        api.MapMethods("/attachments/{sha256}", ["HEAD"], async (string sha256, ClaimsPrincipal user, SharingState sharing, IAttachmentStore store, CancellationToken cancellation) =>
-            AttachmentHash.IsValid(sha256) && sharing.Index.SeesFile(user.UserId(), sha256) && await store.ExistsAsync(sha256, cancellation)
+        api.MapMethods("/attachments/{sha256}", ["HEAD"], async (
+            string sha256, ClaimsPrincipal user, SharingState sharing, FileHolders holders, IAttachmentStore store, CancellationToken cancellation) =>
+            AttachmentHash.IsValid(sha256) && sharing.Index.SeesFile(user.UserId(), sha256, holders.Holds) && await store.ExistsAsync(sha256, cancellation)
                 ? Results.Ok()
                 : Results.NotFound())
             .Doc("Whether the server has a file you can see (200) or not (404)", StatusCodes.Status200OK).Missing();
 
         api.MapPut("/attachments/{sha256}", async (
-            string sha256, HttpContext context, ClaimsPrincipal user, IAttachmentStore store, LiveSettings live, UploadAllowance allowance) =>
+            string sha256, HttpContext context, ClaimsPrincipal user, IAttachmentStore store, LiveSettings live, UploadAllowance allowance,
+            SharingState sharing, FileHolders holders) =>
         {
             if (!AttachmentHash.IsValid(sha256)) return Results.BadRequest(new AttachmentError("invalid_hash", "a lowercase hex SHA-256"));
             var max = live.Current.AttachmentMaxMb * 1024L * 1024L;
@@ -52,12 +56,22 @@ public static class AttachmentEndpoints
             {
                 limit.MaxRequestBodySize = max + 1;
             }
-            // A file the server has already costs nothing.
-            if (await store.ExistsAsync(sha256, context.RequestAborted)) return Results.NoContent();
+            // "Already here" only to someone who holds the file or may download it, who learns
+            // nothing from it. Anyone else sends the bytes, checked whether or not the server has
+            // them, and hears the same 201 either way: no answer says whether someone else has it.
+            if ((holders.Holds(sha256, person) || sharing.Index.SeesFile(person, sha256, holders.Holds))
+                && await store.ExistsAsync(sha256, context.RequestAborted))
+            {
+                return Results.NoContent();
+            }
             if (!allowance.Fits(person, context.Request.ContentLength ?? 0, daily)) return DailyLimit(live);
             var body = new CountingStream(context.Request.Body);
             var result = await store.PutAsync(sha256, body, max, context.RequestAborted);
-            if (result == PutResult.Stored) allowance.Add(person, body.Count);
+            if (result == PutResult.Stored)
+            {
+                allowance.Add(person, body.Count);
+                await holders.AddAsync(sha256, person, context.RequestAborted);
+            }
             return result switch
             {
                 PutResult.Stored => Results.Created($"/api/attachments/{sha256}", null),
@@ -65,16 +79,16 @@ public static class AttachmentEndpoints
                 _ => Results.BadRequest(new AttachmentError("hash_mismatch", "the bytes do not match their SHA-256")),
             };
         })
-            .WithSummary("Upload a file under its SHA-256 (the raw bytes as the body): 201 stored, 204 already here")
+            .WithSummary("Upload a file under its SHA-256 (the raw bytes as the body): 201 stored, 204 already here and yours to download")
             .Takes<Stream>(contentType: "application/octet-stream").Produces(StatusCodes.Status201Created).Produces(StatusCodes.Status204NoContent)
             .Produces<AttachmentError>(StatusCodes.Status400BadRequest).Produces<AttachmentError>(StatusCodes.Status413PayloadTooLarge)
             .Produces<AttachmentError>(StatusCodes.Status429TooManyRequests);
 
         api.MapGet("/attachments/{sha256}", async (
-            string sha256, string? name, string? type, ClaimsPrincipal user, SharingState sharing, IAttachmentStore store,
+            string sha256, string? name, string? type, ClaimsPrincipal user, SharingState sharing, FileHolders holders, IAttachmentStore store,
             HttpContext context) =>
         {
-            if (!AttachmentHash.IsValid(sha256) || !sharing.Index.SeesFile(user.UserId(), sha256)) return Results.NotFound();
+            if (!AttachmentHash.IsValid(sha256) || !sharing.Index.SeesFile(user.UserId(), sha256, holders.Holds)) return Results.NotFound();
             if (await store.OpenAsync(sha256, context.RequestAborted) is not { } file) return Results.NotFound();
             var mime = type is { Length: > 0 and <= 255 } && MediaTypeHeaderValue.TryParse(type, out _) ? type : "application/octet-stream";
             var inline = Inline.Contains(mime);
@@ -104,7 +118,7 @@ public static class AttachmentEndpoints
 /// days, nor one on a task the Trash can still give back, up to its longest period), daily. Files
 /// younger than a day stay: a device uploads a file just before it syncs the attachment naming it.
 /// </summary>
-public sealed class AttachmentCleanup(IAttachmentStore store, SharingState sharing, TimeProvider time, ILogger<AttachmentCleanup> logger)
+public sealed class AttachmentCleanup(IAttachmentStore store, SharingState sharing, FileHolders holders, TimeProvider time, ILogger<AttachmentCleanup> logger)
     : PeriodicService("Cleaning attachment files", TimeSpan.FromMinutes(5), TimeSpan.FromDays(1), time, logger)
 {
     public static readonly TimeSpan KeepDeleted = TimeSpan.FromDays(30);
@@ -128,6 +142,10 @@ public sealed class AttachmentCleanup(IAttachmentStore store, SharingState shari
         await foreach (var (sha256, written) in store.ListAsync(cancellation))
         {
             if (wanted.Contains(sha256) || now - written < TimeSpan.FromDays(1)) continue;
+            // Nobody holds bytes that are gone: a later upload proves it again. Forgotten first, so an
+            // upload landing in between keeps its hold (at worst a hold outlives bytes, which opens
+            // nothing until they are sent again).
+            await holders.ForgetFileAsync(sha256, cancellation);
             await store.DeleteAsync(sha256, cancellation);
             removed++;
         }

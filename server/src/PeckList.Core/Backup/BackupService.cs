@@ -28,7 +28,7 @@ public sealed record BackupSummary(int Accounts, int Entities, long Cursor);
 public sealed class BackupService(
     IDatabase database, IEntityStore entities, IAccountStore accounts, IServerGroupStore groups, IIdentityStore identities,
     ISecretStore secrets, TimeProvider time, IPasskeyStore? passkeys = null, IApiKeyStore? apiKeys = null,
-    ICredentialRevocationStore? revocations = null)
+    ICredentialRevocationStore? revocations = null, Attachments.IFileHolderStore? fileHolders = null)
 {
     public const string Format = "pecklist-server-backup";
     /// <summary>What server backups were called before the rename (PL-127); still read.</summary>
@@ -218,6 +218,20 @@ public sealed class BackupService(
             }
             json.WriteEndArray();
         }
+        // Who holds which file (1.0): a restore gives back exactly who may download what. Older
+        // backups have no list; restoring one counts every attachment's owner as holding its file.
+        if (fileHolders is not null)
+        {
+            json.WriteStartArray("fileHolders");
+            foreach (var (sha256, accountId) in await fileHolders.AllAsync(cancellation))
+            {
+                json.WriteStartObject();
+                json.WriteString("sha256", sha256);
+                json.WriteString("accountId", accountId);
+                json.WriteEndObject();
+            }
+            json.WriteEndArray();
+        }
 
         json.WriteStartArray("secrets");
         foreach (var (kind, name, value) in await secrets.AllAsync(cancellation))
@@ -304,6 +318,10 @@ public sealed class BackupService(
         }).ToList();
         var cursor = (long?)root["cursor"] ?? stored.Select(entity => entity.Seq).DefaultIfEmpty(0).Max();
         await entities.RestoreAsync(stored, visibility, cursor, cancellation);
+        if (fileHolders is not null)
+        {
+            foreach (var (sha256, accountId) in FileHoldersOf(root, stored)) await fileHolders.AddAsync(sha256, accountId, cancellation);
+        }
 
         foreach (var node in OptionalArray(root, "serverGroups"))
         {
@@ -395,6 +413,27 @@ public sealed class BackupService(
             await Sync.ServerEpoch.RenewAsync(secrets, cancellation);
         }
         return new BackupSummary(accountList.Count, stored.Count, cursor);
+    }
+
+    /// <summary>
+    /// Who holds which file, from a server backup: its list (1.0), else, for an older backup, every
+    /// attachment's owner, as the migration counted them. A restore trusts its file: only restore
+    /// backups a PeckList server made.
+    /// </summary>
+    internal static IEnumerable<(string Sha256, string AccountId)> FileHoldersOf(JsonObject root, IEnumerable<StoredEntity> stored)
+    {
+        if (root["fileHolders"] is JsonArray list)
+        {
+            return list.OfType<JsonObject>()
+                .Select(item => ((string?)item["sha256"], (string?)item["accountId"]))
+                .Where(pair => Attachments.AttachmentHash.IsValid(pair.Item1) && pair.Item2 is not null)
+                .Select(pair => (pair.Item1!, pair.Item2!))
+                .Distinct();
+        }
+        return stored
+            .Where(entity => entity.Collection == "attachments" && Attachments.AttachmentHash.IsValid((string?)entity.Doc["sha256"]))
+            .Select(entity => ((string)entity.Doc["sha256"]!, entity.OwnerId))
+            .Distinct();
     }
 
     /// <summary>Whether a file is a server backup this server can restore, without restoring it.</summary>

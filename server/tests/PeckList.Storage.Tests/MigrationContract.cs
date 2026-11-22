@@ -165,6 +165,38 @@ public abstract class MigrationContract
     }
 
     [Fact]
+    public async Task A_database_from_before_0025_counts_every_attachments_owner_as_holding_its_file()
+    {
+        // 1.0: only attachments whose owner holds the file unlock its bytes. Everyone with an
+        // attachment before then held its file when they added it, deleted ones too, so nobody who
+        // reads a file today loses it; other kinds of rows count for nothing.
+        var token = TestContext.Current.CancellationToken;
+        var database = await CreateEmptyAsync();
+        await using (var connection = await database.OpenAsync(token))
+        {
+            await connection.ExecuteAsync("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
+            foreach (var (version, sql) in SqlMigrations.Load(database.GetType().Assembly).Where(each => each.Version <= 24))
+            {
+                await connection.ExecuteAsync(sql);
+                await connection.ExecuteAsync("INSERT INTO schema_migrations (version, applied_at) VALUES (@version, '0.14.0')", new { version });
+            }
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO entities (id, collection, owner_id, seq, hlc, deleted, doc) VALUES
+                    ('a1', 'attachments', 'u1', 1, 'h', FALSE, '{"id":"a1","taskId":"t1","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'),
+                    ('a2', 'attachments', 'u1', 2, 'h', FALSE, '{"id":"a2","taskId":"t2","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'),
+                    ('a3', 'attachments', 'u2', 3, 'h', TRUE, '{"id":"a3","taskId":"t3","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","deletedAt":"2026-11-01T00:00:00.000Z"}'),
+                    ('a4', 'attachments', 'u2', 4, 'h', FALSE, '{"id":"a4","taskId":"t3","sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}'),
+                    ('t1', 'tasks', 'u3', 5, 'h', FALSE, '{"id":"t1","title":"not a file","sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}')
+                """);
+        }
+
+        await database.MigrateAsync(token);
+
+        Assert.Equal([("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "u1"), ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "u2"), ("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "u2")], await new SqlFileHolderStore(database).AllAsync(token));
+    }
+
+    [Fact]
     public async Task Migrating_twice_changes_nothing()
     {
         var database = await CreateAsync();

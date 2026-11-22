@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PeckList.Core;
 using PeckList.Core.Accounts;
 using PeckList.Core.Attachments;
+using PeckList.Core.Backup;
 using PeckList.Core.Sharing;
 using PeckList.Server.Attachments;
 
@@ -132,7 +133,8 @@ public sealed class AttachmentTests(ServerFixture fixture) : IClassFixture<Serve
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge,
             (await ben.PutAsync($"/api/attachments/{Sha(new byte[2_000_000])}", new ByteArrayContent(new byte[2_000_000]), Token)).StatusCode);
         Assert.Equal(HttpStatusCode.Created, (await ben.PutAsync($"/api/attachments/{sha}", new ByteArrayContent(bytes), Token)).StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, (await sam.PutAsync($"/api/attachments/{sha}", new ByteArrayContent(bytes), Token)).StatusCode);
+        // Someone else sends the bytes too, and hears 201 as if new: nothing says Ben has it (1.0).
+        Assert.Equal(HttpStatusCode.Created, (await sam.PutAsync($"/api/attachments/{sha}", new ByteArrayContent(bytes), Token)).StatusCode);
         // Whether the server holds a file is nobody's business until they see it (audit S5).
         Task<HttpStatusCode> Head(HttpClient client) =>
             client.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"/api/attachments/{sha}"), Token).ContinueWith(sent => sent.Result.StatusCode, Token);
@@ -488,5 +490,155 @@ public sealed class AttachmentTests(ServerFixture fixture) : IClassFixture<Serve
         // (a viewer's upload the sync then refused): at least this one goes, whatever the order.
         Assert.True(await cleanup.CleanAsync(Token) >= 1);
         Assert.False(await store.ExistsAsync(Sha(orphan), Token));
+    }
+
+    private Task<HttpStatusCode> Head(HttpClient client, string sha256) =>
+        client.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"/api/attachments/{sha256}"), Token).ContinueWith(sent => sent.Result.StatusCode, Token);
+
+    private static (string, JsonObject) OwnList(string id) => ("lists", Entity(id, new JsonObject { ["name"] = "Mine", ["visibility"] = "private" }));
+
+    private static (string, JsonObject) OwnTask(string id, string list) =>
+        ("tasks", Entity(id, new JsonObject { ["listId"] = list, ["title"] = "Mine", ["parentId"] = null }));
+
+    [Fact]
+    public async Task A_files_hash_alone_unlocks_nothing_and_no_answer_says_whether_someone_else_has_it()
+    {
+        // Security, 1.0: naming a hash on one's own task once unlocked the bytes of anyone's file.
+        var holders = factory.Services.GetRequiredService<FileHolders>();
+        var (bea, _) = await SignIn("bea");
+        var (kit, kitId) = await SignIn("kit");
+        var plan = Encoding.UTF8.GetBytes("bea's private plan");
+        var nobodys = Encoding.UTF8.GetBytes("a file nobody here has");
+        Assert.Equal(HttpStatusCode.Created, (await bea.PutAsync($"/api/attachments/{Sha(plan)}", new ByteArrayContent(plan), Token)).StatusCode);
+        Assert.Empty((await Sync(bea, OwnList("HL1"), OwnTask("HT1", "HL1"), Attachment("HA1", "HT1", "plan.txt", plan)))["rejected"]!.AsArray());
+
+        // Kit names Bea's file, and one nobody has, on a task of her own: the rows are hers, the
+        // bytes are not, and her own push never vouches for itself.
+        var synced = await Sync(kit, OwnList("KL1"), OwnTask("KT1", "KL1"),
+            Attachment("KA1", "KT1", "plan.txt", plan), Attachment("KA2", "KT1", "other.txt", nobodys));
+        Assert.Empty(synced["rejected"]!.AsArray());
+        Assert.False(holders.Holds(Sha(plan), kitId));
+        foreach (var sha in new[] { Sha(plan), Sha(nobodys) })
+        {
+            Assert.Equal(HttpStatusCode.NotFound, await Head(kit, sha));
+            Assert.Equal(HttpStatusCode.NotFound, (await kit.GetAsync($"/api/attachments/{sha}", Token)).StatusCode);
+            // Wrong bytes: the same refusal whether or not the server has the file.
+            Assert.Equal(HttpStatusCode.BadRequest, (await kit.PutAsync($"/api/attachments/{sha}", new ByteArrayContent([1, 2, 3]), Token)).StatusCode);
+        }
+
+        // The right bytes: stored or not, the same 201, and from then on hers to download.
+        Assert.Equal(HttpStatusCode.Created, (await kit.PutAsync($"/api/attachments/{Sha(plan)}", new ByteArrayContent(plan), Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await kit.PutAsync($"/api/attachments/{Sha(nobodys)}", new ByteArrayContent(nobodys), Token)).StatusCode);
+        Assert.True(holders.Holds(Sha(plan), kitId));
+        var download = await kit.GetAsync($"/api/attachments/{Sha(plan)}", Token);
+        Assert.Equal(plan, await download.Content.ReadAsByteArrayAsync(Token));
+    }
+
+    [Fact]
+    public async Task A_file_attached_again_by_someone_who_could_download_it_stays_theirs_after_the_first_goes()
+    {
+        // A Duplicate, or a shared file copied to one's own task: the device sees the file is there
+        // and sends no bytes. Seeing it before the push is proof enough.
+        var holders = factory.Services.GetRequiredService<FileHolders>();
+        var (ben, benId) = await SignIn("ben");
+        var (sam, samId) = await SignIn("sam");
+        var bytes = Encoding.UTF8.GetBytes("the shed plan, shared");
+        var sha = Sha(bytes);
+        Assert.Equal(HttpStatusCode.Created, (await ben.PutAsync($"/api/attachments/{sha}", new ByteArrayContent(bytes), Token)).StatusCode);
+        await factory.BefriendAsync(benId, samId);
+        Assert.Empty((await Sync(ben,
+            ("lists", Entity("DL1", new JsonObject { ["name"] = "Shed", ["visibility"] = "shared" })),
+            ("listMembers", Entity("DM1", new JsonObject { ["listId"] = "DL1", ["principal"] = $"user:{samId}", ["role"] = "viewer" })),
+            ("tasks", Entity("DT1", new JsonObject { ["listId"] = "DL1", ["title"] = "Build it", ["parentId"] = null })),
+            Attachment("DA1", "DT1", "plan.txt", bytes)))["rejected"]!.AsArray());
+
+        // She may download it, so "already here" tells her nothing new.
+        Assert.Equal(HttpStatusCode.OK, await Head(sam, sha));
+        Assert.Equal(HttpStatusCode.NoContent, (await sam.PutAsync($"/api/attachments/{sha}", new ByteArrayContent(bytes), Token)).StatusCode);
+        Assert.False(holders.Holds(sha, samId));
+        Assert.Empty((await Sync(sam, OwnList("SL1"), OwnTask("ST1", "SL1"), Attachment("SA1", "ST1", "copy.txt", bytes)))["rejected"]!.AsArray());
+        Assert.True(holders.Holds(sha, samId));
+
+        // Ben takes his away: her copy still opens.
+        var gone = Attachment("DA1", "DT1", "plan.txt", bytes);
+        gone.Item2["deletedAt"] = "2026-11-22T12:00:00.000Z";
+        Assert.Empty((await Sync(ben, gone))["rejected"]!.AsArray());
+        Assert.Equal(HttpStatusCode.OK, (await sam.GetAsync($"/api/attachments/{sha}", Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Files_someone_added_to_a_list_others_keep_still_open_after_they_are_removed_for_good()
+    {
+        // Their attachments on a list someone else has stay, with them as owner: so do their holds.
+        using var server = fixture.Factory(("ADMIN_PASSWORD", "correct horse battery"), ("DB_PATH", fixture.NewDbPath()),
+            ("ACCOUNT_DELETE_GRACE_DAYS", "0"));
+        async Task<(HttpClient, string)> Person(string username, string password = "a long enough password")
+        {
+            var id = username == "admin"
+                ? null
+                : (await server.Services.GetRequiredService<AccountService>()
+                    .CreateUserAsync(username, password, mustChangePassword: false, cancellation: Token)).Id;
+            var client = server.CreateClient();
+            (await client.PostAsJsonAsync("/auth/login", new { username, password }, Token)).EnsureSuccessStatusCode();
+            return (client, id ?? "");
+        }
+        var (ben, benId) = await Person("ben");
+        var (sam, samId) = await Person("sam");
+        var (admin, _) = await Person("admin", "correct horse battery");
+        await server.BefriendAsync(benId, samId);
+        var bytes = Encoding.UTF8.GetBytes("sam's measurements");
+        Assert.Empty((await Sync(ben,
+            ("lists", Entity("RL1", new JsonObject { ["name"] = "Shed", ["visibility"] = "shared" })),
+            ("listMembers", Entity("RM1", new JsonObject { ["listId"] = "RL1", ["principal"] = $"user:{samId}", ["role"] = "editor" })),
+            ("tasks", Entity("RT1", new JsonObject { ["listId"] = "RL1", ["title"] = "Build it", ["parentId"] = null }))))["rejected"]!.AsArray());
+        Assert.Equal(HttpStatusCode.Created, (await sam.PutAsync($"/api/attachments/{Sha(bytes)}", new ByteArrayContent(bytes), Token)).StatusCode);
+        Assert.Empty((await Sync(sam, Attachment("RA1", "RT1", "sizes.txt", bytes)))["rejected"]!.AsArray());
+
+        (await admin.DeleteAsync($"/api/admin/users/{samId}", Token)).EnsureSuccessStatusCode();
+        await server.Services.GetRequiredService<AccountRemoval>().RemoveDueAsync(Token);
+
+        Assert.Null(await server.Services.GetRequiredService<IAccountStore>().FindByIdAsync(samId, Token));
+        Assert.Equal(HttpStatusCode.OK, (await ben.GetAsync($"/api/attachments/{Sha(bytes)}", Token)).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_persons_restore_makes_no_file_theirs_and_keeps_the_ones_they_had()
+    {
+        // An admin may restore people (1.0): a backup made by hand claims Ann's file, and a file
+        // nobody has uploaded yet, on an attachment of Kit's. Neither opens for Kit, not even once
+        // someone uploads the second; Kit's own file stays hers.
+        var (ann, _) = await SignIn("ann");
+        var (kit, kitId) = await SignIn("kit");
+        var (lee, _) = await SignIn("lee");
+        var anns = Encoding.UTF8.GetBytes("ann's file");
+        var kits = Encoding.UTF8.GetBytes("kit's own file");
+        var later = Encoding.UTF8.GetBytes("a file someone attaches later");
+        Assert.Equal(HttpStatusCode.Created, (await ann.PutAsync($"/api/attachments/{Sha(anns)}", new ByteArrayContent(anns), Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await kit.PutAsync($"/api/attachments/{Sha(kits)}", new ByteArrayContent(kits), Token)).StatusCode);
+        Assert.Empty((await Sync(kit, OwnList("BL1"), OwnTask("BT1", "BL1"), Attachment("BA2", "BT1", "mine.txt", kits)))["rejected"]!.AsArray());
+        using var backup = new MemoryStream();
+        await factory.Services.GetRequiredService<UserBackups>().ExportAsync(kitId, backup, "test", Token);
+
+        var crafted = System.Text.Json.Nodes.JsonNode.Parse(backup.ToArray())!.AsObject();
+        var task = crafted["entities"]!.AsArray().OfType<JsonObject>().Single(each => (string?)each["entity"]!["id"] == "BA2");
+        foreach (var (id, bytes) in new[] { ("BA1", anns), ("BA3", later) })
+        {
+            var copy = task.DeepClone().AsObject();
+            copy["entity"]!["id"] = id;
+            copy["entity"]!["sha256"] = Sha(bytes);
+            crafted["entities"]!.AsArray().Add(copy);
+        }
+        crafted["fileHolders"] = new JsonArray(Sha(kits), Sha(anns), Sha(later));
+        await factory.Services.GetRequiredService<UserBackups>().RestoreAsync(
+            new MemoryStream(Encoding.UTF8.GetBytes(crafted.ToJsonString())), null, mayRestoreAdmins: false, Token);
+        Assert.Equal(HttpStatusCode.Created, (await lee.PutAsync($"/api/attachments/{Sha(later)}", new ByteArrayContent(later), Token)).StatusCode);
+
+        var holders = factory.Services.GetRequiredService<FileHolders>();
+        Assert.False(holders.Holds(Sha(anns), kitId));
+        Assert.False(holders.Holds(Sha(later), kitId));
+        Assert.True(holders.Holds(Sha(kits), kitId));
+        Assert.Equal(HttpStatusCode.NotFound, (await kit.GetAsync($"/api/attachments/{Sha(anns)}", Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await kit.GetAsync($"/api/attachments/{Sha(later)}", Token)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await kit.GetAsync($"/api/attachments/{Sha(kits)}", Token)).StatusCode);
     }
 }
