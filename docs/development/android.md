@@ -37,7 +37,10 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
   formats those times in the app's language. On the phone, Automatic is the phone's own 12/24-hour
   setting, not the language's convention: the shell's `info()` reports it (`clock24`), the web app
   shows it, and `setClock(null)` has the shell read it live. A clock picked in the app wins. Until
-  the app has said, the phone's setting holds too.
+  the app has said, the phone's setting holds too. The background check-in sends the phone's
+  setting (`clock24`), so the reminders it hands over read the same clock, and its answer says the
+  clock picked in Settings (`clock`: `12h`, `24h` or `auto`), so a pick made on another device
+  reaches snooze and the widgets without the app being opened.
 - **Language**: the app's own text (notification actions, channel names, widgets, dialogs) is in
   `res/values/strings.xml`, with a `res/values-<language>/strings.xml` per translation. The web app
   hands the language picked in Settings to the shell with `setLanguage` (shell api 15,

@@ -589,10 +589,14 @@ export interface RemindersApi {
 export interface PushApi {
   /** The server's VAPID public key (base64url). */
   key(): Promise<string>;
-  /** Save this browser's subscription (`PushSubscription.toJSON()`). */
+  /**
+   * Save this browser's subscription (`PushSubscription.toJSON()`), with the clock the app shows here
+   * on Automatic (schema 22; a server from before ignores it).
+   */
   subscribe(subscription: {
     endpoint: string;
     keys: { p256dh: string; auth: string };
+    clock24?: boolean;
   }): Promise<void>;
   unsubscribe(endpoint: string): Promise<void>;
 }

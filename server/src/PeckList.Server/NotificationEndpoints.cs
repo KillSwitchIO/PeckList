@@ -90,7 +90,7 @@ public sealed class NotificationRecorder(
         // And to their devices, with names: the push is encrypted for each browser. The words are
         // settled now; sending waits for no one's sync (audit B2), so a slow push service slows nobody.
         var actor = (await accounts.FindByIdAsync(userId, cancellation))?.Username;
-        var pushes = new List<(string UserId, Func<string?, Push.PushPayload> Payload)>();
+        var pushes = new List<(string UserId, Func<Push.PushDevice, Push.PushPayload> Payload)>();
         foreach (var each in found)
         {
             // Switched off in their settings: recorded in the feed, but not pushed (PL-115).
@@ -99,9 +99,9 @@ public sealed class NotificationRecorder(
             // The task's and list's names as they are now, not when the job runs (a rename or a
             // delete in between would show); the wording waits for each device's language (PL-148).
             var names = NotificationText.NamesOf(each, sharing.Index);
-            pushes.Add((each.UserId, languages =>
+            pushes.Add((each.UserId, device =>
             {
-                var said = TextLanguage.For(words.Catalog, settings, AcceptLanguage.Split(languages));
+                var said = Push.ReminderSender.WordsFor(words.Catalog, settings, device);
                 var (body, url) = NotificationText.Of(each, actor, names, said);
                 return new Push.PushPayload("PeckList", body, each.Id, url, Actions: NotificationText.ActionsOf(each, url, said));
             }));

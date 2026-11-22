@@ -18,8 +18,13 @@ public sealed record AppCheckNotification(string Id, string Kind, string Title, 
 /// </summary>
 public sealed record AppCheckReminder(string Tag, string Title, string Body, long At, string Url, bool Constant = false, bool Repeats = false);
 
-/// <summary><paramref name="Cursor"/>: what to send as <c>after</c> next time.</summary>
-public sealed record AppCheck(string? Cursor, IReadOnlyList<AppCheckNotification> Notifications, IReadOnlyList<AppCheckReminder> Reminders);
+/// <summary>
+/// <paramref name="Cursor"/>: what to send as <c>after</c> next time. <paramref name="Clock"/>: the
+/// clock the person picked in Settings &gt; Dates, "12h", "24h" or "auto" (schema 22), so the app's own
+/// screens (snooze, widgets) follow a pick made on another device without the app being opened.
+/// </summary>
+public sealed record AppCheck(
+    string? Cursor, IReadOnlyList<AppCheckNotification> Notifications, IReadOnlyList<AppCheckReminder> Reminders, string Clock = "auto");
 
 /// <summary>
 /// The Android app's background check-in (ADR-0017): a WebView has no Web Push, so with the app
@@ -45,6 +50,8 @@ public static class AppCheckEndpoints
             await DeviceZones.ReportAsync(push, user, zone, cancellation);
             var index = sharing.Index;
             var mine = ReminderSender.SettingsOf(index, me);
+            var picked = (string?)mine?["clockFormat"];
+            var clock = picked is "12h" or "24h" ? picked : "auto";
             // Their language, else the phone's (its Accept-Language), else English (PL-148).
             var words = TextLanguage.For(serverWords.Catalog, mine, AcceptLanguage.Tags(request.Headers.AcceptLanguage)) with
             {
@@ -83,7 +90,7 @@ public static class AppCheckEndpoints
             // working them out walks every task (P7).
             if (reminders is "0" || string.Equals(reminders, "false", StringComparison.OrdinalIgnoreCase))
             {
-                return new AppCheck(cursor, notifications, []);
+                return new AppCheck(cursor, notifications, [], clock);
             }
             var now = time.GetUtcNow();
             // This check's own zone is the freshest word from the device.
@@ -94,7 +101,7 @@ public static class AppCheckEndpoints
                 .Take(AheadMax)
                 .Select(each => new AppCheckReminder(each.Key, each.Title, each.Body, each.At.ToUnixTimeMilliseconds(), each.Url, each.Constant, each.Repeats))
                 .ToList();
-            return new AppCheck(cursor, notifications, upcoming);
+            return new AppCheck(cursor, notifications, upcoming, clock);
         }).WithSummary("The Android app's background check-in: notifications since after, and the reminders ahead");
 
         return api;

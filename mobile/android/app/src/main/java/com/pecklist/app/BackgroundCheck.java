@@ -408,6 +408,10 @@ final class BackgroundCheck {
         }
         JSONArray fresh = answer.getJSONArray("notifications");
         if (!showingNow) Reminders.showNew(context, fresh);
+        // The clock picked in Settings, maybe on another device: snooze and the widgets follow it
+        // without the app being opened (QA, rc.2). With the app on screen, the web app hands it over.
+        String clock = answer.isNull("clock") ? null : answer.optString("clock", null);
+        if (!showingNow && Clock.said(clock)) Clock.set(context, Clock.picked(clock));
         String cursor = answer.isNull("cursor") ? null : answer.getString("cursor");
         keepCursor(context, cursor);
         Logger.info("PeckList", describe(after, fresh.length(), showingNow, cursor));

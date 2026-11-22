@@ -163,9 +163,9 @@ public sealed class ReminderSender(
         // Complete on every reminder (Ben, 2026-11-20): the service worker hands the press to the
         // app under a one-time name, and the app completes the task; a constant one adds Snooze and
         // Dismiss after it (sw-notifications.js). Worded for each device (PL-148).
-        PushPayload PayloadFor(string? languages)
+        PushPayload PayloadFor(PushDevice device)
         {
-            var said = TextLanguage.For(words.Catalog, mine, AcceptLanguage.Split(languages));
+            var said = WordsFor(words.Catalog, mine, device);
             return new PushPayload(TitleOf(task, said), BodyOf(task, at, zone, mine, said), tag, $"/today?task={taskId}", constant,
                 [new PushAction("complete", said["reminder.complete"], "/today", taskId)]);
         }
@@ -332,6 +332,18 @@ public sealed class ReminderSender(
         "12h" => false,
         _ => words.TwentyFourHour,
     };
+
+    /// <summary>
+    /// The words for one device's push (PL-148): in the person's language, else the device's. On an
+    /// automatic language an automatic clock is the one the device's browser reads (schema 22), which
+    /// can differ from the languages it asks for (an en-GB browser asking for en-US); a picked
+    /// language reads its own, as the app there does, from the table (Dev 1).
+    /// </summary>
+    internal static Words WordsFor(ITextCatalog catalog, JsonObject? settings, PushDevice device) =>
+        TextLanguage.For(catalog, settings, AcceptLanguage.Split(device.Languages)) with
+        {
+            Clock24 = TextLanguage.Picked(settings) is null ? device.Clock24 : null,
+        };
 
     /// <summary>A time of day: 15:00 on a 24-hour clock, else "3:00 PM" in the language's words.</summary>
     private static string Clock(TimeOnly at, bool twentyFour, Words words) => twentyFour

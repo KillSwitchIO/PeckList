@@ -36,6 +36,19 @@ final class Clock {
         return true;
     }
 
+    /**
+     * The clock picked in Settings &gt; Dates as a check-in says it ("12h", "24h", "auto"): what
+     * {@link #set} takes, null for Automatic, which on a phone is the phone's own setting.
+     */
+    static Boolean picked(String clock) {
+        return "24h".equals(clock) ? Boolean.TRUE : "12h".equals(clock) ? Boolean.FALSE : null;
+    }
+
+    /** Whether a check-in said the clock (an older server doesn't), in a way this app knows. */
+    static boolean said(String clock) {
+        return "12h".equals(clock) || "24h".equals(clock) || "auto".equals(clock);
+    }
+
     /** Whether times read on a 24-hour clock: the app's when it has said (`stored`), else the phone's. */
     static boolean decide(Boolean stored, boolean phone) {
         return stored != null ? stored : phone;

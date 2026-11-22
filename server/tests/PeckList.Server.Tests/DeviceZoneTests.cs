@@ -313,6 +313,10 @@ public sealed class DeviceZoneTests(ServerFixture fixture) : IClassFixture<Serve
         Assert.EndsWith("15:00", await Body("&clock24=1"));
         Assert.EndsWith("3:00 PM", await Body("&clock24=0"));
         Assert.EndsWith("3:00 PM", await Body(""));
+        // The check-in also says the clock picked, so snooze and the widgets follow a pick made on
+        // another device without the app being opened (QA, rc.2): none picked yet.
+        async Task<string> Clock(string query) => (await ben.GetFromJsonAsync<AppCheck>($"/api/app/check?zone=UTC{query}", Token))!.Clock;
+        Assert.Equal("auto", await Clock(""));
 
         // A clock picked in the app wins over the phone's.
         await SyncAsync(ben, "UTC", ("settings", Entity("ZS1", benId, new JsonObject
@@ -326,5 +330,8 @@ public sealed class DeviceZoneTests(ServerFixture fixture) : IClassFixture<Serve
             ["sidebar"] = new JsonObject { ["order"] = new JsonArray(), ["hidden"] = new JsonArray(), ["groupOpen"] = false },
         })));
         Assert.EndsWith("3:00 PM", await Body("&clock24=1"));
+        // Said with the app on screen too (reminders=0), where the answer stops early.
+        Assert.Equal("12h", await Clock(""));
+        Assert.Equal("12h", await Clock("&reminders=0"));
     }
 }

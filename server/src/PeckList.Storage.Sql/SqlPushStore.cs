@@ -15,14 +15,15 @@ public sealed class SqlPushStore(SqlDatabase database, TimeProvider time) : IPus
         await using var transaction = await database.BeginWriteAsync(connection, cancellation);
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO push_subscriptions (endpoint, user_id, p256dh, auth, languages, created_at)
-            VALUES (@Endpoint, @UserId, @P256dh, @Auth, @Languages, @At)
+            INSERT INTO push_subscriptions (endpoint, user_id, p256dh, auth, languages, clock24, created_at)
+            VALUES (@Endpoint, @UserId, @P256dh, @Auth, @Languages, @Clock24, @At)
             ON CONFLICT (endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth,
-                languages = excluded.languages
+                languages = excluded.languages, clock24 = excluded.clock24
             """,
             new
             {
                 subscription.Endpoint, subscription.UserId, subscription.P256dh, subscription.Auth, subscription.Languages,
+                Clock24 = subscription.Clock24 is { } twentyFour ? (twentyFour ? 1L : 0L) : (long?)null,
                 At = time.GetUtcNow().ToUnixTimeMilliseconds(),
             },
             transaction, cancellationToken: cancellation));
@@ -33,9 +34,9 @@ public sealed class SqlPushStore(SqlDatabase database, TimeProvider time) : IPus
     {
         await using var connection = await database.OpenAsync(cancellation);
         var rows = await connection.QueryAsync<Row>(new CommandDefinition(
-            "SELECT user_id AS userId, endpoint, p256dh, auth, languages FROM push_subscriptions WHERE user_id = @userId ORDER BY created_at",
+            "SELECT user_id AS userId, endpoint, p256dh, auth, languages, clock24 FROM push_subscriptions WHERE user_id = @userId ORDER BY created_at",
             new { userId }, cancellationToken: cancellation));
-        return [.. rows.Select(row => new PushSubscription(row.UserId, row.Endpoint, row.P256dh, row.Auth, row.Languages))];
+        return [.. rows.Select(row => new PushSubscription(row.UserId, row.Endpoint, row.P256dh, row.Auth, row.Languages, row.Clock24 is { } clock ? clock != 0 : null))];
     }
 
     public Task RemoveAsync(string endpoint, CancellationToken cancellation = default) =>
@@ -144,5 +145,6 @@ public sealed class SqlPushStore(SqlDatabase database, TimeProvider time) : IPus
         public string P256dh { get; init; } = "";
         public string Auth { get; init; } = "";
         public string? Languages { get; init; }
+        public long? Clock24 { get; init; }
     }
 }
