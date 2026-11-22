@@ -4,6 +4,47 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.15.0-rc.3] - 2026-11-22
+
+### Added
+
+- **android:** French 1er on the phone's own screens
+- Each device's pushes read its own clock; Android follows a clock picked elsewhere
+- Read and use templates from the Task API and the CLI (PL-140)
+- Blocked-by links in core: blockers, loops and date conflicts (PL-055)
+- Blocked-by links in task details, the task menu and rows (PL-055)
+- Blocked-by arrows and drag to link on the timeline (PL-055)
+- Kubernetes manifests with Kustomize (PL-120)
+- MCP connector at /mcp, signed in with API keys (PL-113)
+- Saved filters get an icon and color, and a row menu like lists (PL-149)
+- Bottom bar order popup with a preview, from a numbered tab (PL-149)
+
+### Fixed
+
+- **i18n:** Dates on the Gregorian calendar wherever the months would differ
+- Templates pinned in exports and backups, counted on import; a Templates docs page (PL-140)
+- Another account's export imports on the same server, nothing undone
+- A file opens only through an attachment whose owner holds it
+- A picture nowhere to be had says so instead of opening empty
+- Duplicate speaks German, Spanish and French
+- A language tag Intl rejects no longer breaks every date
+- Timeline arrows go round the bars and titles in their way (PL-055)
+- An imported subtask whose parent was purged comes in with no parent
+- The file clean-up keeps bytes sent or named again while it runs
+- Drag notes items across headings and onto items to nest (PL-149)
+- Backspace deletes an empty notes list item, leaving no blank line (PL-149)
+- The app opens to its lists without a spinner first
+- A template's notes have the full editor, as a task's do
+- The Android app reads its whole store in one go at the start
+- A timeline bar's move ends with the timeline, not on the next page
+- Quick add's date button, and its template button before expand
+- The Trash lists its tasks the way the other views do
+- The unfriend e2e restores from the Trash by the button's label
+
+### Documentation
+
+- Blocked-by links in Using PeckList (PL-055)
+
 ## [0.15.0-rc.2] - 2026-11-22
 
 ### Added
