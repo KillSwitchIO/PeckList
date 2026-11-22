@@ -11,6 +11,10 @@ import { dateTimeFormat } from '../../core/intl.ts';
  * another year name it short ("Jan 18 - 29 ’27"; Ben, 2026-11-21); days across two months leave
  * the year off ("Dec 28 - Jan 3"), as even the short year would cut the end date at 360 px. One day
  * is "Wed, Oct 22", or "Oct 22, 2027" in another year. The date picker's label keeps them whole.
+ * Runs of days are put together by Intl in the language's own order ("19.-25. Okt.", "31 oct. -
+ * 2 nov."; PL-148), with the same rules for the year. `compact`: the months as numbers ("28.11. -
+ * 11.12."), for a phone whose row the short months don't fit (CalendarPage measures; German's
+ * "28. Nov. - 11. Dez." at 360 px).
  */
 export function calendarTitle(
   mode: 'month' | 'days' | 'year',
@@ -19,6 +23,7 @@ export function calendarTitle(
   today: string,
   locale?: string,
   narrow = false,
+  compact = false,
 ): string {
   const at = (day: string) => new Date(`${day}T12:00:00Z`);
   const format = (day: string, options: Intl.DateTimeFormatOptions) =>
@@ -43,12 +48,73 @@ export function calendarTitle(
   }
   const first = date;
   const last = addDays(first, count - 1);
-  const start = format(first, { month: 'short', day: 'numeric' });
-  const year = last.slice(0, 4);
   const sameMonth = first.slice(5, 7) === last.slice(5, 7);
-  const end = sameMonth
-    ? String(Number(last.slice(8, 10)))
-    : format(last, { month: 'short', day: 'numeric' });
-  if (year === thisYear || (narrow && !sameMonth)) return `${start} - ${end}`;
-  return narrow ? `${start} - ${end} ’${year.slice(2)}` : `${start} - ${end}, ${year}`;
+  const year =
+    last.slice(0, 4) === thisYear || (narrow && !sameMonth) ? 'none' : narrow ? 'short' : 'end';
+  // The language's own range (PL-148): "Oct 19 - 25", "19.-25. Okt.", "31 oct. - 2 nov.". Asked
+  // without a year when none shows, as some languages shape a date with one differently; across a
+  // new year Intl names both anyway, and rangeText takes them out.
+  const parts = dateTimeFormat(locale, {
+    month: compact ? 'numeric' : 'short',
+    day: 'numeric',
+    ...(year === 'none' ? {} : { year: 'numeric' }),
+    timeZone: 'UTC',
+  }).formatRangeToParts(at(first), at(last));
+  return rangeText(parts, year);
+}
+
+type RangePart = Intl.DateTimeRangeFormatPart;
+
+/** The range's own separator: the shared literal between its start and its end ("–"). */
+function separatorAt(parts: RangePart[]): number {
+  const end = parts.findIndex((part) => part.source === 'endRange');
+  for (let i = end - 1; i >= 0; i--) {
+    if (parts[i]!.type === 'literal' && parts[i]!.source === 'shared') return i;
+  }
+  return -1;
+}
+
+/**
+ * A run of days from Intl's parts, with the year as the calendar wants it: `none` leaves it off,
+ * `end` names it once, at the end (Intl names both ends across a new year), and `short` writes
+ * the phone's "’27" (Ben, 2026-11-21). Intl's en dash between thin spaces becomes the app's own
+ * " - ", as the rest of PeckList writes ranges.
+ */
+function rangeText(parts: RangePart[], year: 'none' | 'end' | 'short'): string {
+  const kept = parts.map((part) => ({ ...part }));
+  const separator = separatorAt(kept);
+  const drop = new Set<number>();
+  kept.forEach((part, i) => {
+    if (part.type !== 'year') return;
+    if (year === 'end' && part.source !== 'startRange') return;
+    // Its joining literal goes with it: the one before ("Oct 19, 2026", "19. Okt. 2026"), or,
+    // with the year first or after the separator, the one after ("2026年").
+    const joinBefore = i > 0 && kept[i - 1]!.type === 'literal' && i - 1 !== separator;
+    const joinAfter = kept[i + 1]?.type === 'literal' && i + 1 !== separator;
+    if (year === 'short') {
+      part.value = `’${part.value.slice(-2)}`;
+      if (joinBefore) kept[i - 1]!.value = kept[i - 1]!.value.replace(/^[,\s]+$/, ' ');
+      return;
+    }
+    drop.add(i);
+    if (joinBefore) {
+      drop.add(i - 1);
+      // A year's own word goes too, at the start of the literal after it, which may be the
+      // separator itself: Russian's "2026 г. – " leaves " – " (Dev 1).
+      const next = kept[i + 1];
+      if (next?.type === 'literal') next.value = next.value.replace(/^\s*\p{L}+\.?/u, '');
+    } else if (joinAfter) drop.add(i + 1);
+  });
+  if (separator >= 0) {
+    // An unspaced dash stays Intl's own where the dates have hyphens of their own (Swedish
+    // "2027-01-18–29"), or the two would read as one date (Dev 1).
+    const hyphenated = kept.some((part, i) => i !== separator && part.value.includes('-'));
+    kept[separator]!.value = kept[separator]!.value.replace(/\s*–\s*/, (dash) =>
+      dash.trim() !== dash ? ' - ' : hyphenated ? dash : '-',
+    );
+  }
+  return kept
+    .filter((_, i) => !drop.has(i))
+    .map((part) => part.value)
+    .join('');
 }
