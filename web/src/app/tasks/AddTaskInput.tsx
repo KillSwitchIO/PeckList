@@ -31,6 +31,9 @@ import {
 } from '../icons/icons.tsx';
 import { listName } from '../lists/listName.ts';
 import { TemplatePicker } from '../templates/TemplatePicker.tsx';
+import { DatePickerPanel } from '../dates/DatePickerPanel.tsx';
+import { fromDateValue, type DateValue } from '../dates/dateValue.ts';
+import { PropertySheet } from './PropertyRow.tsx';
 import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { newTaskAssignees } from './newTaskAssignees.ts';
 import { useTaskSelection } from './selection.ts';
@@ -134,6 +137,9 @@ export function AddTaskInput({
   const parser = reader?.language === language ? reader.parser : null;
   const [ignore, setIgnore] = useState<ReadonlySet<string>>(new Set());
   const [picking, setPicking] = useState<HTMLElement | null>(null);
+  // A start date (or span) picked with the date button: it takes the place of one typed.
+  const [picked, setPicked] = useState<DateValue | null>(null);
+  const [dating, setDating] = useState<HTMLElement | null>(null);
   const field = useRef<HTMLTextAreaElement | null>(null);
   // A title from outside the app (shared, selected or spoken: fillAddTask), one line, to check and add.
   useEffect(() => {
@@ -169,7 +175,23 @@ export function AddTaskInput({
           language,
         })
       : null;
-  const quick = parsed !== null && parsed.tokens.length > 0 && parsed.title !== '';
+  const read: QuickAdd | null =
+    parsed && picked
+      ? {
+          ...parsed,
+          schedule: {
+            start: { date: picked.date, time: picked.time },
+            end: picked.end ?? null,
+          },
+          // The picked date has its own chip; typed words for a date are not read as one too.
+          tokens: parsed.tokens.filter((token) => token.kind !== 'date'),
+        }
+      : parsed;
+  const quick = read !== null && (read.tokens.length > 0 || picked !== null) && read.title !== '';
+  /** The date the picker opens on: the one picked, else the one typed. */
+  const typedDate: DateValue | null = parsed?.schedule
+    ? { ...parsed.schedule.start, end: parsed.schedule.end }
+    : null;
 
   // Settings > New tasks fill what the place says nothing about; quick add's words win over both.
   const placed = (ws: WorkspaceFile) =>
@@ -191,8 +213,8 @@ export function AddTaskInput({
         const made = createFromQuickAdd(
           ctx,
           ws,
-          parsed,
-          withAssignee(ws, base, parsed.listId ?? base.listId),
+          read,
+          withAssignee(ws, base, read.listId ?? base.listId),
           localTimeZone(),
         );
         id = made.id;
@@ -204,6 +226,17 @@ export function AddTaskInput({
         const made = createTask(ctx, ws, {
           ...withAssignee(ws, base, base.listId),
           title: trimmed,
+          // The words are not read yet (quick add's reader is still loading): the picked date.
+          ...(picked
+            ? {
+                schedule: {
+                  start: fromDateValue(picked),
+                  end: picked.end ? fromDateValue(picked.end) : null,
+                  allDay: picked.time === null,
+                  timeZone: localTimeZone(),
+                },
+              }
+            : {}),
         });
         id = made.task.id;
         return made.workspace;
@@ -211,12 +244,13 @@ export function AddTaskInput({
     }
     setTitle('');
     setIgnore(new Set());
+    setPicked(null);
     countUse('task.added');
-    if (quick && parsed) {
-      if (parsed.schedule || parsed.due) countUse('quickAdd.date');
-      if (parsed.tags.length > 0) countUse('quickAdd.tag');
-      if (parsed.listId) countUse('quickAdd.list');
-      if (parsed.priority !== null) countUse('quickAdd.priority');
+    if (quick) {
+      if (read.schedule || read.due) countUse('quickAdd.date');
+      if (read.tags.length > 0) countUse('quickAdd.tag');
+      if (read.listId) countUse('quickAdd.list');
+      if (read.priority !== null) countUse('quickAdd.priority');
     }
     return id;
   };
@@ -248,7 +282,7 @@ export function AddTaskInput({
           parentId: base.parentId ?? null,
           // The words typed, less what quick add read from them ("tomorrow 9am"): the template
           // has its own dates.
-          title: quick ? parsed.title : title.trim(),
+          title: quick ? read.title : title.trim(),
           schedule: base.schedule ?? null,
           assignees: base.assignees ?? newTaskAssignees(ws, base.listId, me, accounts),
         },
@@ -262,6 +296,7 @@ export function AddTaskInput({
     }, t('undo.templateUsed'));
     setTitle('');
     setIgnore(new Set());
+    setPicked(null);
     if (id) {
       openingMade(id);
       open(id, { full: true });
@@ -322,18 +357,22 @@ export function AddTaskInput({
             inputRef={field}
             sx={{ color: 'text.primary', p: 0 }}
           />
-          <Tooltip title={t('quickAdd.expand')}>
-            <IconButton
-              size="small"
-              aria-label={t('quickAdd.expand')}
-              onClick={expand}
-              // The + button opens this (R-FB-74).
-              data-add-task-expand=""
-              sx={{ color: 'text.secondary', flexShrink: 0, my: -0.25 }}
-            >
-              <OpenInFullRounded sx={{ fontSize: 16 }} />
-            </IconButton>
-          </Tooltip>
+          {/* Once there is something to date. It comes in on the left of the buttons, so the
+              template and expand buttons stay where they are. */}
+          {(title.trim() !== '' || picked) && (
+            <Tooltip title={t('task.date')}>
+              <IconButton
+                size="small"
+                aria-label={t('task.date')}
+                aria-haspopup="dialog"
+                aria-pressed={picked !== null}
+                onClick={(event) => setDating(event.currentTarget)}
+                sx={{ color: picked ? 'primary.main' : 'text.secondary', flexShrink: 0, my: -0.25 }}
+              >
+                <CalendarIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Tooltip>
+          )}
           {hasTemplates && (
             <Tooltip title={t('templates.fromTemplate')}>
               <IconButton
@@ -347,7 +386,40 @@ export function AddTaskInput({
               </IconButton>
             </Tooltip>
           )}
+          <Tooltip title={t('quickAdd.expand')}>
+            <IconButton
+              size="small"
+              aria-label={t('quickAdd.expand')}
+              onClick={expand}
+              // The + button opens this (R-FB-74).
+              data-add-task-expand=""
+              sx={{ color: 'text.secondary', flexShrink: 0, my: -0.25, ml: -0.75 }}
+            >
+              <OpenInFullRounded sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
         </Box>
+        <PropertySheet label={t('task.date')} anchor={dating} onClose={() => setDating(null)}>
+          {dating && (
+            <DatePickerPanel
+              value={picked ?? typedDate}
+              today={today}
+              allowRange
+              onApply={(next) => {
+                setDating(null);
+                setPicked(next);
+                // No date: a date typed in the words goes too, and they stay as text.
+                if (!next) {
+                  const typed = parsed?.tokens.filter((token) => token.kind === 'date') ?? [];
+                  if (typed.length)
+                    setIgnore(new Set([...ignore, ...typed.map((token) => token.text)]));
+                }
+                field.current?.focus();
+              }}
+              onCancel={() => setDating(null)}
+            />
+          )}
+        </PropertySheet>
         {picking && (
           <TemplatePicker
             kind="task"
@@ -363,8 +435,25 @@ export function AddTaskInput({
             // On their own line under the text, wrapping as needed, each easy to take off.
             sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75, pl: 3.5 }}
           >
-            {parsed.tokens.map((token) => {
-              const chip = chipFor(token, parsed, today, names);
+            {picked && (
+              <Chip
+                role="listitem"
+                size="small"
+                variant="outlined"
+                color="primary"
+                label={
+                  picked.end
+                    ? formatSpan(asValue(picked), asValue(picked.end), today)
+                    : formatWhen(asValue(picked), today)
+                }
+                icon={<CalendarIcon />}
+                onDelete={() => setPicked(null)}
+                deleteIcon={<CloseIcon aria-label={t('date.clear')} />}
+                sx={{ maxWidth: '100%' }}
+              />
+            )}
+            {read.tokens.map((token) => {
+              const chip = chipFor(token, read, today, names);
               return (
                 <Chip
                   key={`${token.kind}:${token.start}`}
