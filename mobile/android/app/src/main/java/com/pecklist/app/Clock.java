@@ -3,7 +3,9 @@ package com.pecklist.app;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.text.format.DateFormat;
+import java.text.FieldPosition;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Objects;
@@ -55,8 +57,39 @@ final class Clock {
      * "Thu, Nov 26, 17:30"), ordered and joined as the app's language does.
      */
     static String format(Context context, Date at, String dateSkeleton) {
-        Locale locale = context.getResources().getConfiguration().getLocales().get(0);
+        Locale locale = locale(context);
         String pattern = DateFormat.getBestDateTimePattern(locale, dateSkeleton + (is24(context) ? "Hm" : "hm"));
-        return new SimpleDateFormat(pattern, locale).format(at);
+        return formatDate(pattern, locale, at);
+    }
+
+    /** The phone's language, which these screens speak. */
+    static Locale locale(Context context) {
+        return context.getResources().getConfiguration().getLocales().get(0);
+    }
+
+    /**
+     * A date in a pattern (SimpleDateFormat's), with French's "1er" for the first of a month beside
+     * the month's name ("mar. 1er déc."), as the web app writes it (PL-148). Not in numbers
+     * ("01/12"), and not a day with no month named beside it.
+     */
+    static String formatDate(String pattern, Locale locale, Date at) {
+        SimpleDateFormat format = new SimpleDateFormat(pattern, locale);
+        if (!"fr".equals(locale.getLanguage()) || !namesTheMonth(pattern)) return format.format(at);
+        Calendar calendar = format.getCalendar();
+        calendar.setTime(at);
+        if (calendar.get(Calendar.DAY_OF_MONTH) != 1) return format.format(at);
+        StringBuffer text = new StringBuffer();
+        FieldPosition day = new FieldPosition(java.text.DateFormat.Field.DAY_OF_MONTH);
+        format.format(at, text, day);
+        if (day.getEndIndex() > day.getBeginIndex() && "1".equals(text.substring(day.getBeginIndex(), day.getEndIndex()))) {
+            text.insert(day.getEndIndex(), "er");
+        }
+        return text.toString();
+    }
+
+    /** Whether a pattern writes the month as a word (MMM, MMMM, LLL...), quoted text aside. */
+    static boolean namesTheMonth(String pattern) {
+        String unquoted = pattern.replaceAll("'[^']*'", "");
+        return unquoted.contains("MMM") || unquoted.contains("LLL");
     }
 }
