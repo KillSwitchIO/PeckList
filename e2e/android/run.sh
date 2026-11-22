@@ -2,13 +2,13 @@
 # The Android end-to-end run, the same on a laptop (pnpm e2e:android) and in CI (android-e2e):
 # build the emulator and specs images, bring up the stack (compose.yml; the emulator installs the
 # Android SDK into its volume on the first start), install the APK, run the specs, and always take
-# everything down again: the stack's containers, its volumes (the SDK's is about 8 GB) and the two
+# everything down again: the stack's containers, its volumes (the SDK's is about 6 GB) and the two
 # images.
 #
 #   E2E_APK          the debug APK to test (required): mobile/android/app/build/outputs/apk/foss/debug/app-foss-debug.apk
 #   PECKLIST_IMAGE   the server image to test against (default pecklist:local, `docker build .`)
 #   PECKLIST_OWNER   a name for this run's containers, images, volumes and labels (default e2e)
-#   E2E_MIN_FREE_GB  skip, with exit code 77, when Docker has less free space than this (default 12)
+#   E2E_MIN_FREE_GB  skip, with exit code 77, when Docker has less free space than this (default 18: SDK, images, emulator disk)
 #   E2E_KEEP         1 keeps the two images and the SDK volume for the next run (a laptop; never CI)
 #
 # Needs Docker with /dev/kvm (Linux, or WSL 2 with nested virtualization). Failed tests leave a
@@ -29,7 +29,7 @@ compose() { docker compose -p "$PROJECT" -f e2e/android/compose.yml --profile sp
 
 # First: room for the SDK, the images and the emulator's disk. Too little skips the run (77, which
 # CI shows as a warning) instead of failing it halfway with a full disk.
-min_gb="${E2E_MIN_FREE_GB:-12}"
+min_gb="${E2E_MIN_FREE_GB:-18}"
 root="$(docker info -f '{{.DockerRootDir}}')"
 free_kb="$(docker run --rm --label "pecklist.owner=$OWNER" -v "$root:/docker:ro" busybox:1.37 \
   df -Pk /docker 2>/dev/null | awk 'NR == 2 { print $4 }')" || free_kb=""

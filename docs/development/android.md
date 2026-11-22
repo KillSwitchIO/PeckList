@@ -485,14 +485,14 @@ E2E_APK=mobile/android/app/build/outputs/apk/foss/debug/app-foss-debug.apk pnpm 
 Appium) and the specs' runner, brings up `e2e/android/compose.yml` (the emulator with Appium, the
 server, and a mock OpenID Connect provider whose sign-in form takes any name), runs the specs
 inside that network, and always takes it all down again. The emulator installs the Android SDK and
-system image (about 8 GB) into a volume on its first start, so removing the volume frees all of
+system image (about 6 GB) into a volume on its first start, so removing the volume frees all of
 it; in the image, those layers stayed behind in Docker's build cache. `E2E_KEEP=1` keeps the
 images and the SDK's volume for the next run; the phone itself is wiped at every start either way.
-It needs Docker with `/dev/kvm`: Linux, or WSL 2 with nested virtualization. With less than 12 GB
+It needs Docker with `/dev/kvm`: Linux, or WSL 2 with nested virtualization. With less than 18 GB
 free (`E2E_MIN_FREE_GB`) or no `/dev/kvm` it skips with exit code 77. A failed test leaves a
 screenshot and the screen's element tree in `e2e/screenshots/`.
 
-Each run without `E2E_KEEP` downloads those 8 GB again from Google (`dl.google.com`), CI's
+Each run without `E2E_KEEP` downloads all of it again from Google (`dl.google.com`), CI's
 included. When a run fails, the script prints the emulator's log before it cleans up: a slow or
 failing download shows there, before the emulator's boot.
 

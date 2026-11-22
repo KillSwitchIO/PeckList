@@ -2,7 +2,7 @@
 # UiAutomator2 driver. It needs /dev/kvm: `docker run --device /dev/kvm`.
 #
 # The Android SDK, the emulator and the Android 16 system image (with Chrome, for the sign-in
-# hand-off's Custom Tab), about 8 GB, are not in the image: boot-emulator installs them on the first
+# hand-off's Custom Tab), about 6 GB, are not in the image: boot-emulator installs them on the first
 # start into the volume at $ANDROID_HOME (compose.yml), with the one AVD. Removing that volume takes
 # all of it away. Baked into the image, they stayed behind in BuildKit's build cache after the image
 # itself was removed, and no prune filter could reach them.
