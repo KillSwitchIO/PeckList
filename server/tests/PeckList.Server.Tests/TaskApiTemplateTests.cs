@@ -122,7 +122,11 @@ public sealed class TaskApiTemplateTests(ServerFixture fixture) : IClassFixture<
         var sam = await world.PersonAsync("sam");
         Assert.Empty((await sam.Session.GetFromJsonAsync<JsonObject>("/api/v1/templates", Token))!["items"]!.AsArray());
         await Expect(sam.Session, HttpMethod.Get, $"/api/v1/templates/{Camping}", null, HttpStatusCode.NotFound);
+        var samsLists = (await sam.Session.GetFromJsonAsync<JsonObject>("/api/v1/lists", Token))!["items"]!.AsArray().Count;
         await Expect(sam.Session, HttpMethod.Post, $"/api/v1/templates/{Camping}/use", new { }, HttpStatusCode.NotFound);
+        // And nothing was used: the template still counts no uses, and sam has no new list.
+        Assert.Equal(0, (int)(await Expect(api, HttpMethod.Get, $"/api/v1/templates/{Camping}", null, HttpStatusCode.OK))["uses"]!);
+        Assert.Equal(samsLists, (await sam.Session.GetFromJsonAsync<JsonObject>("/api/v1/lists", Token))!["items"]!.AsArray().Count);
     }
 
     [Theory]
