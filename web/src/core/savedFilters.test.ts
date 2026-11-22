@@ -17,6 +17,7 @@ import {
 } from './savedFilters.ts';
 import { createTask, setTaskStatus } from './tasks.ts';
 import { filterClosedTasks } from './filters.ts';
+import type { WorkspaceFile } from './types.ts';
 import { createWorkspace } from './workspace.ts';
 
 const TODAY = '2026-10-21';
@@ -125,5 +126,94 @@ describe('saved filters', () => {
     };
     expect(viewOf(odd)).toEqual({ sort: 'title', sortReversed: true });
     expect(viewOf({ ...made.filter, query: { view: 'priority' } })).toEqual({});
+  });
+
+  it('carries a later version’s view fields through every edit, so an older device never strips them', () => {
+    const ctx = testContext();
+    const made = createSavedFilter(ctx, createWorkspace(ctx), 'Board', { priorities: [3] });
+    const later = { group: 'priority', layout: 'board', columns: { wip: 3 } };
+    let ws: WorkspaceFile = {
+      ...made.workspace,
+      entities: {
+        ...made.workspace.entities,
+        savedFilters: [{ ...made.filter, query: { ...made.filter.query, view: later } }],
+      },
+    };
+    const saved = () => ws.entities.savedFilters[0]!;
+
+    // A rename or a change of conditions keeps the view exactly as stored.
+    ws = updateSavedFilter(ctx, ws, made.filter.id, 'Board 2', { priorities: [2, 3] });
+    expect(saved().query).toEqual({ priorities: [2, 3], view: later });
+
+    // A new grouping or sort replaces the known fields and keeps the later ones.
+    ws = setSavedFilterView(ctx, ws, made.filter.id, { group: 'date', sortReversed: true });
+    expect(saved().query.view).toEqual({
+      layout: 'board',
+      columns: { wip: 3 },
+      group: 'date',
+      sortReversed: true,
+    });
+    expect(viewOf(saved())).toEqual({ group: 'date', sortReversed: true });
+
+    // Back to the defaults keeps them too, and only an empty view goes.
+    ws = setSavedFilterView(ctx, ws, made.filter.id, {});
+    expect(saved().query).toEqual({
+      priorities: [2, 3],
+      view: { layout: 'board', columns: { wip: 3 } },
+    });
+  });
+
+  it('keeps a stored grouping this version can’t read through a rename, but not through a new choice', () => {
+    const ctx = testContext();
+    const made = createSavedFilter(ctx, createWorkspace(ctx), 'Mine', {});
+    let ws: WorkspaceFile = {
+      ...made.workspace,
+      entities: {
+        ...made.workspace.entities,
+        savedFilters: [{ ...made.filter, query: { view: { group: 'assignee', sort: 'title' } } }],
+      },
+    };
+    const saved = () => ws.entities.savedFilters[0]!;
+    ws = updateSavedFilter(ctx, ws, made.filter.id, 'Mine too', {});
+    expect(saved().query).toEqual({ view: { group: 'assignee', sort: 'title' } });
+    // Picking a grouping here replaces it: the choice is the person's.
+    ws = setSavedFilterView(ctx, ws, made.filter.id, { group: 'priority', sort: 'title' });
+    expect(saved().query).toEqual({ view: { group: 'priority', sort: 'title' } });
+  });
+
+  it('keeps a grouping it can’t read when only the sort is picked, and clears it on Restore defaults', () => {
+    const ctx = testContext();
+    const made = createSavedFilter(ctx, createWorkspace(ctx), 'Mine', {});
+    let ws: WorkspaceFile = {
+      ...made.workspace,
+      entities: {
+        ...made.workspace.entities,
+        savedFilters: [{ ...made.filter, query: { view: { group: 'assignee', layout: 'board' } } }],
+      },
+    };
+    const saved = () => ws.entities.savedFilters[0]!;
+    // What the sort menu sends: the readable choice (nothing here) plus the sort.
+    ws = setSavedFilterView(ctx, ws, made.filter.id, { ...viewOf(saved()), sort: 'title' });
+    expect(saved().query.view).toEqual({ group: 'assignee', layout: 'board', sort: 'title' });
+    // Restore defaults clears what it knows, readable or not, and keeps the later fields.
+    ws = setSavedFilterView(ctx, ws, made.filter.id, {});
+    expect(saved().query.view).toEqual({ layout: 'board' });
+    // The same again writes nothing.
+    expect(setSavedFilterView(ctx, ws, made.filter.id, {})).toBe(ws);
+  });
+
+  it('writes Restore defaults when only an unreadable grouping is stored', () => {
+    const ctx = testContext();
+    const made = createSavedFilter(ctx, createWorkspace(ctx), 'Mine', {});
+    const ws: WorkspaceFile = {
+      ...made.workspace,
+      entities: {
+        ...made.workspace.entities,
+        savedFilters: [{ ...made.filter, query: { view: { group: 'assignee' } } }],
+      },
+    };
+    const reset = setSavedFilterView(ctx, ws, made.filter.id, {});
+    expect(reset).not.toBe(ws);
+    expect(reset.entities.savedFilters[0]!.query).toEqual({});
   });
 });

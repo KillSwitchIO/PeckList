@@ -2,7 +2,7 @@
 
 import { isLive, putEntity, requireEntity } from './collections.ts';
 import type { TaskFilter } from './filters.ts';
-import { cleanViewChoice, type ViewChoice } from './listView.ts';
+import { cleanViewChoice, VIEW_CHOICE_KEYS, type ViewChoice } from './listView.ts';
 import { createEntity, softDelete, updateEntity, type OpContext } from './ops.ts';
 import { compareOrderKeys, keyBetween } from './ordering.ts';
 import type { Id, SavedFilter, WorkspaceFile } from './types.ts';
@@ -16,7 +16,9 @@ export function savedFiltersOf(workspace: WorkspaceFile): SavedFilter[] {
 
 /**
  * A saved filter's conditions. `query` also holds `view`, the filter's grouping and sort (PL-015):
- * kept there so it syncs without a schema change, and an older app just doesn't read it.
+ * kept there so it syncs without a schema change, and an older app just doesn't read it. Fields of
+ * `view` this version doesn't know (a later version's, such as a layout) are carried through every
+ * edit here, so an older device never strips them.
  */
 export function filterOf(saved: SavedFilter): TaskFilter {
   return withoutView(saved.query) as TaskFilter;
@@ -31,13 +33,57 @@ function withoutView(query: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(query).filter(([key]) => key !== 'view'));
 }
 
-/** The query with this view choice, or with none when it is the defaults. */
-function withView(query: Record<string, unknown>, view: ViewChoice): Record<string, unknown> {
-  const rest = withoutView(query);
-  return Object.keys(view).length === 0 ? rest : { ...rest, view };
+/** The stored view as it is, when it is an object at all. */
+function storedView(saved: SavedFilter): Record<string, unknown> | null {
+  const view = saved.query.view;
+  return typeof view === 'object' && view !== null && !Array.isArray(view)
+    ? (view as Record<string, unknown>)
+    : null;
 }
 
-/** Stores a saved filter's grouping and sort; the same choice again changes nothing. */
+/** The stored view's fields this version doesn't know: a later version's, kept as they are. */
+function laterViewFields(saved: SavedFilter): Record<string, unknown> {
+  const known: readonly string[] = VIEW_CHOICE_KEYS;
+  return Object.fromEntries(
+    Object.entries(storedView(saved) ?? {}).filter(([key]) => !known.includes(key)),
+  );
+}
+
+/**
+ * The stored view's known fields with a value this version can't read (a later version's grouping,
+ * say), which `next` leaves alone: picking only a sort keeps a grouping it can't show.
+ */
+function unreadViewFields(saved: SavedFilter, next: ViewChoice): Record<string, unknown> {
+  const stored = storedView(saved) ?? {};
+  const readable = cleanViewChoice(stored) as Record<string, unknown>;
+  return Object.fromEntries(
+    VIEW_CHOICE_KEYS.filter((key) => key in stored && !(key in readable) && !(key in next)).map(
+      (key) => [key, stored[key]],
+    ),
+  );
+}
+
+/** Two views with the same fields and values, in any key order. */
+function sameView(a: Record<string, unknown> | null, b: Record<string, unknown> | null): boolean {
+  const text = (view: Record<string, unknown> | null) =>
+    JSON.stringify(Object.entries(view ?? {}).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)));
+  return text(a) === text(b);
+}
+
+/** The query with this view, or with none when it is empty (the defaults, nothing later). */
+function withView(
+  query: Record<string, unknown>,
+  view: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const rest = withoutView(query);
+  return view === null || Object.keys(view).length === 0 ? rest : { ...rest, view };
+}
+
+/**
+ * Stores a saved filter's grouping and sort; the same choice again changes nothing. The view's
+ * fields this version doesn't know stay as they were, and so does a grouping or sort it can't read
+ * that the choice doesn't set. Restore defaults (`{}`) clears every known field.
+ */
 export function setSavedFilterView(
   ctx: OpContext,
   workspace: WorkspaceFile,
@@ -46,11 +92,13 @@ export function setSavedFilterView(
 ): WorkspaceFile {
   const saved = requireEntity(workspace, 'savedFilters', id);
   const next = cleanViewChoice(view);
-  if (JSON.stringify(next) === JSON.stringify(viewOf(saved))) return workspace;
+  const kept = Object.keys(next).length === 0 ? {} : unreadViewFields(saved, next);
+  const written = { ...laterViewFields(saved), ...kept, ...next };
+  if (sameView(written, storedView(saved))) return workspace;
   return putEntity(
     workspace,
     'savedFilters',
-    updateEntity(ctx, saved, { query: withView(saved.query, next) }),
+    updateEntity(ctx, saved, { query: withView(saved.query, written) }),
   );
 }
 
@@ -80,8 +128,11 @@ export function updateSavedFilter(
   return putEntity(
     workspace,
     'savedFilters',
-    // Editing the conditions keeps the grouping and sort.
-    updateEntity(ctx, saved, { name: name.trim(), query: withView({ ...filter }, viewOf(saved)) }),
+    // Editing the name or conditions keeps the view exactly as stored, a later version's fields too.
+    updateEntity(ctx, saved, {
+      name: name.trim(),
+      query: withView({ ...filter }, storedView(saved)),
+    }),
   );
 }
 
