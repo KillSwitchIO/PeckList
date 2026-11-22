@@ -322,7 +322,8 @@ public static class Cli
         // passkeys and API keys, export, import and migrate-db would leave them behind.
         var backup = new BackupService(database, new SqlEntityStore(database), new SqlAccountStore(database),
             new SqlServerGroupStore(database), new SqlIdentityStore(database), new SqlSecretStore(database), TimeProvider.System,
-            new SqlPasskeyStore(database), new SqlApiKeyStore(database), new SqlCredentialRevocationStore(database));
+            new SqlPasskeyStore(database), new SqlApiKeyStore(database), new SqlCredentialRevocationStore(database),
+            new SqlFileHolderStore(database));
         return (database, backup);
     }
 

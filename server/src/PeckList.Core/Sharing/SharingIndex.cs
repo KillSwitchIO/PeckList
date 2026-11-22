@@ -731,9 +731,14 @@ public sealed class SharingIndex
         return false;
     }
 
-    /// <summary>Whether the user sees a live attachment with these bytes (so may download them).</summary>
-    public bool SeesFile(string userId, string sha256) =>
-        EachLive(By.Sha, sha256).Any(each => each.Collection == "attachments" && Viewers(each.Id).Contains(userId));
+    /// <summary>
+    /// Whether the user sees a live attachment with these bytes whose owner holds them (so may
+    /// download them). <paramref name="holds"/> says who has shown they hold a file
+    /// (<c>FileHolders</c>): an attachment naming a hash its owner never had unlocks nothing.
+    /// </summary>
+    public bool SeesFile(string userId, string sha256, Func<string, string, bool> holds) =>
+        EachLive(By.Sha, sha256).Any(each =>
+            each.Collection == "attachments" && holds(sha256, each.Owner) && Viewers(each.Id).Contains(userId));
 
     /// <summary>
     /// File hashes still wanted: live attachments, and deleted ones newer than <paramref name="keepDeletedSince"/>

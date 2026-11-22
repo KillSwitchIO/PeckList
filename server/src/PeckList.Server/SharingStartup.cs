@@ -15,7 +15,7 @@ namespace PeckList.Server;
 /// </summary>
 public sealed class SharingStartup(
     SharingState sharing, Groups groups, Invites invites, ServerGroupProjection serverGroups, Friends friends, IEntityStore store, IAccountStore accounts,
-    IHostApplicationLifetime lifetime, ILogger<SharingStartup> logger)
+    Core.Attachments.FileHolders holders, IHostApplicationLifetime lifetime, ILogger<SharingStartup> logger)
     : IHostedService
 {
     private Task? loading;
@@ -31,6 +31,8 @@ public sealed class SharingStartup(
         try
         {
             var watch = Stopwatch.StartNew();
+            // Who holds which file, before the index says it is loaded: downloads wait for that.
+            await holders.LoadAsync(stopping);
             var users = (await accounts.ListAsync(stopping)).Select(account => account.Id);
             var changed = await sharing.LoadAsync(store, users, stopping);
             if (sharing.LastLoad is { } times)

@@ -41,6 +41,21 @@ public sealed class FileAttachmentStore(string folder) : IAttachmentStore
                 }
             }
             if (Convert.ToHexStringLower(hash.GetHashAndReset()) != sha256) return PutResult.Mismatch;
+            if (File.Exists(target))
+            {
+                // The same bytes are here already (uploads always send them now): keep that copy,
+                // which a reader may have open, and only mark it written now, so the clean-up keeps
+                // it for the attachment about to name it, as it would a new file.
+                try
+                {
+                    File.SetLastWriteTimeUtc(target, DateTime.UtcNow);
+                }
+                catch (IOException)
+                {
+                    // Busy this moment: the copy is there either way.
+                }
+                return PutResult.Stored;
+            }
             // The same file may have arrived meanwhile: either copy is the same bytes.
             File.Move(temporary, target, overwrite: true);
             return PutResult.Stored;

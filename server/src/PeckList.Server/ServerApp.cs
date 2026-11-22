@@ -131,6 +131,7 @@ public static partial class ServerApp
         builder.Services.AddHostedService<CliSignInSweeper>();
         builder.Services.AddSingleton<PeckList.Core.Attachments.IAttachmentStore>(new Attachments.FileAttachmentStore(settings.AttachmentDir));
         builder.Services.AddSingleton<Attachments.UploadAllowance>();
+        builder.Services.AddSingleton<PeckList.Core.Attachments.FileHolders>();
         builder.Services.AddHostedService<Attachments.AttachmentCleanup>();
         builder.Services.AddSingleton<PeckList.Core.Sharing.Groups>();
         builder.Services.AddSingleton<PeckList.Core.Sharing.Invites>();

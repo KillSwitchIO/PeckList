@@ -71,7 +71,8 @@ public sealed partial class SyncService(
     INotificationSink? notifications = null,
     ServerClock? clock = null,
     History.ITaskHistorySink? history = null,
-    IEntityValidator? entities = null)
+    IEntityValidator? entities = null,
+    Attachments.FileHolders? holders = null)
 {
     public const int MaxChanges = 5000;
     // About 3.8 MB of JSON at a real workspace's ~2 KB a task, ~0.4 MB compressed: a first sync of
@@ -124,6 +125,10 @@ public sealed partial class SyncService(
         var corrections = new List<SyncEntity>();
         var shared = new List<SharingChange>();
         var notable = new List<NotableChange>();
+        // Files this person attached again (a Duplicate, a copy to their own task) that they could
+        // already download before this push: they have shown they hold them. Judged on the index as
+        // it was, so the push's own attachments never vouch for themselves.
+        var proven = new HashSet<string>(StringComparer.Ordinal);
         // All or nothing: one invalid change, and nothing is written.
         if (incoming.Count > 0 && !(allOrNothing && invalid.Count > 0))
         {
@@ -151,6 +156,12 @@ public sealed partial class SyncService(
                         {
                             notable.Add(new NotableChange(arrived.Collection, arrived.Id, stored?.Doc, merged));
                         }
+                        if (holders is not null && merged is not null && stored is null && arrived.Collection == "attachments"
+                            && (string?)merged["sha256"] is { } sha256 && !holders.Holds(sha256, userId)
+                            && before.SeesFile(userId, sha256, holders.Holds))
+                        {
+                            proven.Add(sha256);
+                        }
                         return merged;
                     },
                     plan: entities => SharingState.Plan(before, after, entities),
@@ -161,6 +172,7 @@ public sealed partial class SyncService(
                     // Nothing was written, and the index stays as it was.
                     shared.Clear();
                     notable.Clear();
+                    proven.Clear();
                     return new SyncResponse(request.Cursor ?? 0, [], false, [], rejected.Distinct().ToList(), [], Invalid: invalid);
                 }
                 sharing.Index = after;
@@ -184,6 +196,7 @@ public sealed partial class SyncService(
             {
                 sharing.Gate.Release();
             }
+            foreach (var sha256 in proven) await holders!.AddAsync(sha256, userId, cancellation);
             if (shared.Count > 0 && sharingChanges is not null) await sharingChanges.ChangedAsync(userId, shared, cancellation);
             if (notable.Count > 0 && notifications is not null) await notifications.ChangedAsync(userId, notable, cancellation);
             // Each task's history (R-FB-105).

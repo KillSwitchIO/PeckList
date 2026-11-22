@@ -227,6 +227,10 @@ public sealed class UserBackups(
             removed++;
         }
         if (writes.Count > 0) await sync.WriteAsServerAsync(userId, writes, cancellation);
+        // No file becomes theirs to download here (1.0): an admin may restore people, and a backup
+        // made by hand could otherwise claim anyone's file, even one uploaded later. On this server
+        // their holds outlive a removal, so a re-restore keeps them; elsewhere a file opens again
+        // once it is attached from a device that has it.
         return new UserRestoreResult(name, created, restoredIds.Count, removed, dropped);
     }
 
