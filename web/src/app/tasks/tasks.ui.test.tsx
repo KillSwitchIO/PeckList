@@ -641,42 +641,53 @@ describe('lists and sections', () => {
     expect(within(nav).getByRole('button', { name: /Home\s*1/ })).toBeInTheDocument();
   });
 
-  // The emoji picker renders hundreds of buttons: about 8 s alone with coverage, so twice that under a full parallel run.
-  it('gives a list an icon, shown where its color dot was', async () => {
+  // The icon picker shows its whole catalog (about 650 choices) once that loads: rendering it
+  // costs about half a second with coverage, and a role query over it as much again, several
+  // times that on a busy CI runner. So these tests find a choice by its label, not its role,
+  // never clear the search (back to every choice) in between, and split the walk in two.
+  it('gives a list an icon, shown where its color dot was, and takes it off again', async () => {
     await renderApp('/today');
     await userEvent.click(screen.getByRole('button', { name: 'New list' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(within(dialog).getByLabelText('Name'), 'Groceries');
-    await userEvent.click(within(dialog).getByRole('radio', { name: '🛒' }));
+    const cart = within(dialog).getByLabelText('🛒');
+    expect(cart).toHaveAttribute('role', 'radio');
+    await userEvent.click(cart);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
     const nav = screen.getAllByRole('navigation')[0]!;
     // The icon is decoration: the button is still named by the list.
     expect(await within(nav).findByRole('button', { name: /^Groceries/ })).toHaveTextContent('🛒');
 
-    // Search finds emoji (and icons) by name (R-FB-117).
     await userEvent.click(screen.getByRole('button', { name: 'View options' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit list' }));
     const edit = await screen.findByRole('dialog');
-    const search = within(edit).getByRole('searchbox', { name: 'Search icons and emoji' });
-    await userEvent.type(search, 'carrot');
-    await userEvent.click(await within(edit).findByRole('radio', { name: '🥕' }));
-    // An emoji the catalog lacks can be typed in and used.
-    await userEvent.clear(search);
-    await userEvent.type(search, '🫎');
-    expect(within(edit).getByRole('radio', { name: 'Use 🫎' })).toBeInTheDocument();
+    const none = within(edit).getByLabelText('No icon');
+    expect(none).toHaveAttribute('role', 'radio');
+    await userEvent.click(none);
     await userEvent.click(within(edit).getByRole('button', { name: 'Save' }));
     await waitFor(() =>
-      expect(within(nav).getByRole('button', { name: /^Groceries/ })).toHaveTextContent('🥕'),
+      expect(within(nav).getByRole('button', { name: /^Groceries/ })).not.toHaveTextContent('🛒'),
     );
+  }, 30_000);
 
-    await userEvent.click(screen.getByRole('button', { name: 'View options' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit list' }));
-    const again = await screen.findByRole('dialog');
-    await userEvent.click(within(again).getByRole('radio', { name: 'No icon' }));
-    await userEvent.click(within(again).getByRole('button', { name: 'Save' }));
-    await waitFor(() =>
-      expect(within(nav).getByRole('button', { name: /^Groceries/ })).not.toHaveTextContent('🥕'),
-    );
+  it('finds icons and emoji by name, and takes an emoji the catalog lacks', async () => {
+    await renderApp('/today');
+    await userEvent.click(screen.getByRole('button', { name: 'New list' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'Groceries');
+    // Search finds emoji (and icons) by name (R-FB-117).
+    const search = within(dialog).getByRole('searchbox', { name: 'Search icons and emoji' });
+    await userEvent.type(search, 'carrot');
+    await userEvent.click(await within(dialog).findByRole('radio', { name: '🥕' }));
+    // An emoji the catalog lacks can be typed in and used (typed over the search, not cleared
+    // first: the empty search would show every choice again).
+    await userEvent.type(search, '{Control>}a{/Control}🫎');
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Use 🫎' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    const nav = screen.getAllByRole('navigation')[0]!;
+    const row = await within(nav).findByRole('button', { name: /^Groceries/ });
+    expect(row).toHaveTextContent('🫎');
+    expect(row).not.toHaveTextContent('🥕');
   }, 30_000);
 
   it('gives a list a line icon in its color instead of an emoji', async () => {
@@ -684,8 +695,11 @@ describe('lists and sections', () => {
     await userEvent.click(screen.getByRole('button', { name: 'New list' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(within(dialog).getByLabelText('Name'), 'Work');
-    await userEvent.click(within(dialog).getByRole('radio', { name: 'work icon' }));
-    expect(within(dialog).getByRole('radio', { name: 'work icon' })).toBeChecked();
+    // By label: the whole catalog may be on show by now (see above).
+    const work = within(dialog).getByLabelText('work icon');
+    expect(work).toHaveAttribute('role', 'radio');
+    await userEvent.click(work);
+    expect(within(dialog).getByLabelText('work icon')).toBeChecked();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
     const nav = screen.getAllByRole('navigation')[0]!;
     const row = await within(nav).findByRole('button', { name: /^Work/ });
