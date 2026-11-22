@@ -28,6 +28,14 @@ export interface ViewChoice {
   sortReversed?: boolean;
 }
 
+/** The fields of a {@link ViewChoice}: anything else in a stored one is a later version's. */
+export const VIEW_CHOICE_KEYS = [
+  'group',
+  'sort',
+  'groupReversed',
+  'sortReversed',
+] as const satisfies readonly (keyof ViewChoice)[];
+
 /**
  * Only the known parts of a stored choice (it may come from another device or an older app), with
  * the flags that are off left out. A grouping or sort picked on purpose is kept even when it is the
