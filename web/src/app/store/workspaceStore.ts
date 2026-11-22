@@ -97,9 +97,10 @@ export interface WorkspaceState {
   forget(): Promise<void>;
   /**
    * Bring in an exported file (parsed JSON): checked against the schema, upgraded when older, and
-   * merged into this device's data as one undoable change.
+   * merged into this device's data as one undoable change, or with no `label`, one that cannot be
+   * undone (its source goes once it is in: an older copy in the Android app, PL-070).
    */
-  importDocument(document: unknown, label: string): ImportOutcome;
+  importDocument(document: unknown, label?: string): ImportOutcome;
   context(): OpContext;
 }
 

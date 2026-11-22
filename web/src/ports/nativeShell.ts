@@ -130,8 +130,53 @@ export interface ShellCrash {
   stack: string;
 }
 
+/**
+ * One save, or one chunk of a save too big for one call (api 16). Values are JSON text. `replace`:
+ * every entity not put goes. Chunks share a `stage`; only the one with `commit` writes, all of
+ * them together, and it says how many rows (`staged`) the earlier chunks sent.
+ */
+export interface StoreSave {
+  puts: [key: string, json: string][];
+  deletes: string[];
+  header?: string;
+  replace?: boolean;
+  stage?: string;
+  commit?: boolean;
+  staged?: number;
+}
+
+/** A page of a load (api 16): the header on the first page (null when nothing is saved), and where the next starts. */
+export interface StorePage {
+  header: string | null;
+  rows: [key: string, json: string][];
+  next: string | null;
+}
+
+/**
+ * Android's own SQLite for this page's origin (api 16, PL-070), where `native-storage.ts` keeps the
+ * workspace instead of the WebView's IndexedDB. Each origin has its own, as in the WebView. A call
+ * the shell refuses (the page is no longer on the origin it was on) rejects.
+ */
+export interface NativeStoreCalls {
+  /** The entities after `after` (the first page, with the header, when null); `budget` 0 reads the header alone. */
+  load(after: string | null, budget?: number): Promise<StorePage>;
+  save(change: StoreSave): Promise<void>;
+  /** The workspace gone; backups and metadata stay. */
+  clear(): Promise<void>;
+  /** A `backup:` or `meta:` value as JSON text, or null. */
+  get(key: string): Promise<string | null>;
+  /** Sets each key (null removes it), all in one transaction. */
+  put(entries: [key: string, json: string | null][]): Promise<void>;
+  /** The `backup:` and `meta:` keys that start with `prefix`. */
+  keys(prefix: string): Promise<string[]>;
+  /** Everything kept for this origin. */
+  wipe(): Promise<void>;
+}
+
 export interface NativeShell {
   info(): Promise<ShellInfo>;
+  /** Api 16: Android's own storage for this page's origin (check info().api first). */
+  store?: NativeStoreCalls;
   /** The shell's counts since the last ask (asking starts them afresh); older shells have none. */
   usage?(): Promise<ShellUsage | null>;
   /** The crash since the last start, used up by asking; older shells have none. */

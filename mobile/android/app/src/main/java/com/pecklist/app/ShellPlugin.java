@@ -40,13 +40,23 @@ public class ShellPlugin extends Plugin {
      * Bumped when a method is added; the web app checks it before calling a newer one. Since 0.13.0:
      * 10 brought both notification channels and scheduleReminders' keep (they shipped together in
      * 0.14.0, so a shell at 10 has both), 11 setShortcuts and showKeyboard, 12 setWidgetTasks, 13
-     * takeAddText, 14 saveSignIn, 15 setLanguage. The next method is 16.
+     * takeAddText, 14 saveSignIn, 15 setLanguage, 16 the native store (storeLoad and the rest). The
+     * next method is 17.
      */
-    private static final int API = 15;
+    private static final int API = 16;
 
     static final String NOTIFICATIONS = "notifications";
 
     private final ExecutorService network = Executors.newSingleThreadExecutor();
+
+    /**
+     * Every native store call, one at a time and in the order the page made them: saves keep their
+     * order, and a load after a save sees it. Capacitor hands calls over one at a time too, but
+     * this does not lean on that.
+     */
+    private final ExecutorService storeCalls = Executors.newSingleThreadExecutor();
+
+    private NativeStore nativeStore;
 
     /** A provider page an older server must show in the WebView itself: let it through once. */
     private volatile String passThrough;
@@ -509,6 +519,158 @@ public class ShellPlugin extends Plugin {
                 .show(androidx.core.view.WindowInsetsCompat.Type.ime());
         }
         web.postDelayed(() -> raiseKeyboard(activity, web, attempt + 1), KEYBOARD_RETRY_MS);
+    }
+
+    /** One native store call's work, given the namespace it may use. */
+    private interface StoreWork {
+        void run(NativeStore store, String ns, PluginCall call) throws Exception;
+    }
+
+    /**
+     * Runs a native store call (api 16, PL-070) on {@link #storeCalls}, in the namespace of the
+     * origin the page sent, once {@link NativeStore#namespace} allows it; refused ("refused")
+     * otherwise.
+     */
+    private void store(PluginCall call, StoreWork work) {
+        storeCalls.execute(() -> {
+            try {
+                String ns = NativeStore.namespace(call.getString("origin"), currentUrl(), getBridge().getLocalUrl(),
+                    ServerChoice.get(getContext()));
+                if (ns == null) {
+                    call.reject("not this page's storage", "refused");
+                    return;
+                }
+                if (nativeStore == null) nativeStore = new NativeStore(getContext());
+                work.run(nativeStore, ns, call);
+            } catch (Exception failed) {
+                call.reject("storage failed: " + failed.getMessage(), "failed", failed);
+            }
+        });
+    }
+
+    /**
+     * The WebView's address now, read on the UI thread (WebView is not safe to use off it). A UI
+     * thread too busy to answer in time fails the call ("failed"), unlike a refusal.
+     */
+    private String currentUrl() throws InterruptedException, java.util.concurrent.TimeoutException {
+        android.webkit.WebView web = getBridge().getWebView();
+        java.util.concurrent.atomic.AtomicReference<String> url = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.CountDownLatch read = new java.util.concurrent.CountDownLatch(1);
+        web.post(() -> {
+            url.set(web.getUrl());
+            read.countDown();
+        });
+        if (!read.await(5, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw new java.util.concurrent.TimeoutException("the WebView did not say where it is");
+        }
+        return url.get();
+    }
+
+    /** Pairs of strings ([key, value]) from the page; a null value stays null. */
+    private static java.util.List<String[]> pairs(com.getcapacitor.JSArray array) throws JSONException {
+        java.util.List<String[]> pairs = new java.util.ArrayList<>();
+        if (array == null) return pairs;
+        for (int index = 0; index < array.length(); index++) {
+            org.json.JSONArray pair = array.getJSONArray(index);
+            pairs.add(new String[] { pair.getString(0), pair.isNull(1) ? null : pair.getString(1) });
+        }
+        return pairs;
+    }
+
+    /**
+     * Api 16: a page of the workspace ({origin, after?, budget?}): {header, rows: [[key, json]],
+     * next}. The header comes on the first page (no {@code after}), null when nothing is saved.
+     */
+    @PluginMethod
+    public void storeLoad(PluginCall call) {
+        store(call, (store, ns, c) -> {
+            Integer budget = c.getInt("budget");
+            NativeStore.Page page = store.load(ns, c.getString("after"),
+                budget == null ? NativeStore.PAGE_BYTES : Math.min(budget, NativeStore.PAGE_BYTES * 2));
+            com.getcapacitor.JSArray rows = new com.getcapacitor.JSArray();
+            for (String[] row : page.rows) rows.put(new org.json.JSONArray().put(row[0]).put(row[1]));
+            JSObject result = new JSObject();
+            result.put("header", page.header == null ? JSONObject.NULL : page.header);
+            result.put("rows", rows);
+            result.put("next", page.next == null ? JSONObject.NULL : page.next);
+            c.resolve(result);
+        });
+    }
+
+    /**
+     * Api 16: a save, or a chunk of one ({origin, puts: [[key, json]], deletes: [key], header?,
+     * replace?, stage?, commit?, staged?}), in one transaction (NativeStore.save).
+     */
+    @PluginMethod
+    public void storeSave(PluginCall call) {
+        store(call, (store, ns, c) -> {
+            NativeStore.Save save = new NativeStore.Save();
+            save.stage = c.getString("stage");
+            save.commit = save.stage == null || Boolean.TRUE.equals(c.getBoolean("commit", false));
+            save.replace = Boolean.TRUE.equals(c.getBoolean("replace", false));
+            save.staged = c.getInt("staged", 0);
+            save.header = c.getString("header");
+            for (String[] put : pairs(c.getArray("puts"))) {
+                if (put[1] == null) throw new JSONException("an entity without a value");
+                save.puts.add(put);
+            }
+            com.getcapacitor.JSArray deletes = c.getArray("deletes");
+            if (deletes != null) for (int index = 0; index < deletes.length(); index++) save.deletes.add(deletes.getString(index));
+            store.save(ns, save);
+            c.resolve();
+        });
+    }
+
+    /** Api 16: the workspace gone ({origin}); backups and metadata stay. */
+    @PluginMethod
+    public void storeClear(PluginCall call) {
+        store(call, (store, ns, c) -> {
+            store.clear(ns);
+            c.resolve();
+        });
+    }
+
+    /** Api 16: a backup or metadata value ({origin, key}): {json}, null when none. */
+    @PluginMethod
+    public void storeGet(PluginCall call) {
+        store(call, (store, ns, c) -> {
+            String key = c.getString("key");
+            if (key == null) throw new JSONException("no key");
+            String json = store.get(ns, key);
+            JSObject result = new JSObject();
+            result.put("json", json == null ? JSONObject.NULL : json);
+            c.resolve(result);
+        });
+    }
+
+    /** Api 16: sets each backup or metadata key ({origin, entries: [[key, json or null]]}), together. */
+    @PluginMethod
+    public void storePut(PluginCall call) {
+        store(call, (store, ns, c) -> {
+            store.put(ns, pairs(c.getArray("entries")));
+            c.resolve();
+        });
+    }
+
+    /** Api 16: the backup and metadata keys that start with a prefix ({origin, prefix}): {keys}. */
+    @PluginMethod
+    public void storeKeys(PluginCall call) {
+        store(call, (store, ns, c) -> {
+            com.getcapacitor.JSArray keys = new com.getcapacitor.JSArray();
+            for (String key : store.keys(ns, c.getString("prefix", ""))) keys.put(key);
+            JSObject result = new JSObject();
+            result.put("keys", keys);
+            c.resolve(result);
+        });
+    }
+
+    /** Api 16: everything kept for this origin ({origin}): signing out. */
+    @PluginMethod
+    public void storeWipe(PluginCall call) {
+        store(call, (store, ns, c) -> {
+            store.wipe(ns);
+            c.resolve();
+        });
     }
 
     /** How long showKeyboard waits for the window's focus. */

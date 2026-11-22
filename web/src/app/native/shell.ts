@@ -22,6 +22,9 @@ export const CONFIRM_API = 8;
  */
 export const PLAY_API = 9;
 
+/** The shell api with the app's own storage (PL-070): the workspace leaves the WebView's IndexedDB. */
+export const NATIVE_STORE_API = 16;
+
 /** Whether this is the Google Play build of the app. Browsers, the PWA and older shells: no. */
 export function isPlayBuild(info: ShellInfo | null): boolean {
   return info?.distribution === 'play';

@@ -102,6 +102,12 @@ android {
             dimension = 'distribution'
         }
     }
+    // The native store's cases (NativeStoreCases) run twice: in the JVM through Robolectric
+    // (testFossDebugUnitTest) and on a phone or emulator (connectedFossDebugAndroidTest).
+    sourceSets {
+        test.java.srcDirs += 'src/sharedTest/java'
+        androidTest.java.srcDirs += 'src/sharedTest/java'
+    }
     // A block of dependency metadata encrypted for Google Play: F-Droid refuses it, and nobody else
     // can read it.
     dependenciesInfo {
@@ -124,6 +130,10 @@ dependencies {
     implementation project(':capacitor-android')
     implementation "androidx.browser:browser:$androidxBrowserVersion"
     testImplementation "junit:junit:$junitVersion"
+    // Test-only, never in the APK: Android's own SQLite in the JVM for NativeStoreTest.
+    testImplementation "org.robolectric:robolectric:$robolectricVersion"
+    testImplementation "androidx.test:core:$androidxTestCoreVersion"
+    androidTestImplementation "androidx.test:core:$androidxTestCoreVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

@@ -14,6 +14,19 @@ app (ADR-0017 in the project notes). There is no second copy of the UI.
 - **`PeckListShell` plugin** (`ShellPlugin.java`, used through `web/src/adapters/capacitor-shell.ts`):
   `info`, `checkServer`, `connect`, `disconnect`. The web build a server ships can be older or
   newer than the shell, so methods are only ever added and `info().api` says which exist.
+- **Storage**: the workspace, its backups and the sync state live in the app's own SQLite
+  (`NativeStore.java`, `pecklist.db`), not the WebView's IndexedDB, through the store calls of
+  shell api 16 (`storeLoad`, `storeSave` and the rest) and `web/src/adapters/native-storage.ts`.
+  Each origin has its own, as in the WebView: the bundled build at `https://localhost`, and each
+  server the app connects to. Every call carries the page's origin, and the shell answers only when
+  it is the WebView's current origin and the app's own or the connected server's, so a save a page
+  made just before a navigation never lands in the next origin's data. A load comes in pages and a
+  big save in chunks that the last one commits, so a 9 MB workspace never crosses the bridge as one
+  message. On the first start with api 16, `web/src/app/store/nativeMigration.ts` copies what the
+  WebView kept into it, reads the copy back, and only then marks it moved and deletes the WebView's
+  databases (attached files stay in IndexedDB). Web browsers, the PWA and an older APK keep
+  IndexedDB. `NativeStoreCases` runs on real SQLite twice: in the JVM through Robolectric
+  (`testFossDebugUnitTest`) and on an emulator (`connectedFossDebugAndroidTest`).
 - **Keeping a sign-in**: Android writes the WebView's cookies to disk on its own schedule, so a
   session only seconds old could be lost when the app was stopped. The shell writes them when the
   app leaves the screen and after each page load, and the web app asks with `saveSignIn` (shell
@@ -227,12 +240,12 @@ The app is built two ways from the same code, as Gradle product flavors (`produc
 `mobile/android/app/build.gradle`), with the same app ID (`com.pecklist.app`) and the same signing
 key, so either installs over the other and keeps its data:
 
-| | `foss` (the default) | `play` |
-| --- | --- | --- |
-| What | The APK on the GitLab releases, Obtainium, F-Droid and IzzyOnDroid | The bundle (AAB) uploaded to Google Play |
-| Exact reminders | `USE_EXACT_ALARM`, granted at install | `SCHEDULE_EXACT_ALARM` only: on Android 14 and later, off until the person allows it |
+|                      | `foss` (the default)                                                     | `play`                                                                                 |
+| -------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| What                 | The APK on the GitLab releases, Obtainium, F-Droid and IzzyOnDroid       | The bundle (AAB) uploaded to Google Play                                               |
+| Exact reminders      | `USE_EXACT_ALARM`, granted at install                                    | `SCHEDULE_EXACT_ALARM` only: on Android 14 and later, off until the person allows it   |
 | Battery optimization | Asks once with Android's dialog (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) | No permission: **Allow** opens Android's list of apps, where the person picks PeckList |
-| Payment links | Opened in the browser | Never opened (`PaymentLinks`) |
+| Payment links        | Opened in the browser                                                    | Never opened (`PaymentLinks`)                                                          |
 
 Google Play allows `USE_EXACT_ALARM` and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` only for some kinds
 of app, and lets an app take money only through Play. So the foss build's extra permissions are in
@@ -297,12 +310,12 @@ Android only installs an update signed with the same key as the installed app, s
 must never change or be lost. Debug and release builds have different keys: a phone with the debug
 build needs it uninstalled before the release one goes on.
 
-| Where | What |
-| --- | --- |
+| Where                           | What                                                                                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GitLab, project CI/CD variables | `ANDROID_KEYSTORE_BASE64` (the PKCS12 keystore, base64; protected, masked), `ANDROID_KEYSTORE_PASSWORD` (protected, masked), `ANDROID_KEY_ALIAS` (`punchlist`, protected) |
-| GitLab, protected tags | `v*`, so tag pipelines get the protected variables (only `main` and `v*` tags can sign) |
-| Google Play Console | The same key, as the app's signing key (Play App Signing) |
-| A password manager | The keystore file and its password: the copy to restore from |
+| GitLab, protected tags          | `v*`, so tag pipelines get the protected variables (only `main` and `v*` tags can sign)                                                                                   |
+| Google Play Console             | The same key, as the app's signing key (Play App Signing)                                                                                                                 |
+| A password manager              | The keystore file and its password: the copy to restore from                                                                                                              |
 
 The key: RSA 4096, alias `punchlist`, `CN=Punchlist, O=killswitch10` (made before the rename, as
 are its alias and the keystore's file name, `punchlist-release.p12`; the name in a certificate
@@ -338,6 +351,7 @@ Once, when the app is set up in Play Console:
    ```
 
    It asks for the keystore password and writes the key, encrypted for Google only, to the zip.
+
 3. Upload the zip on that page, then delete it.
 4. Use the same key as the upload key: register no separate one. A separate upload key would sit in
    the same CI variables as this one, so it would protect nothing, and the release bundle is
@@ -356,11 +370,11 @@ the other version files, and `PECKLIST_VERSION` overrides it: CI sets it from
 (`0.8.0-rc.1.edge.818317a7`). A debug build by hand adds `-dev`. The version code follows from the
 version name, so every release has a higher one and an rc sorts before its release:
 
-| Version         | Version code                                      |
-| --------------- | ------------------------------------------------- |
+| Version         | Version code                                                        |
+| --------------- | ------------------------------------------------------------------- |
 | `0.12.0-rc.2`   | `1200002`: MAJOR × 10,000,000 + MINOR × 100,000 + PATCH × 1,000 + N |
-| `0.12.0`        | `1200999`: the release itself is 999              |
-| `0.12.1-edge.…` | `1201000`: a build between releases is 0          |
+| `0.12.0`        | `1200999`: the release itself is 999                                |
+| `0.12.1-edge.…` | `1201000`: a build between releases is 0                            |
 
 Both builds of a version have the same code. There is no `rc.999` (the build fails): it would be the
 release's own code, and Google Play refuses a code it has had. `version.properties` holds the code
