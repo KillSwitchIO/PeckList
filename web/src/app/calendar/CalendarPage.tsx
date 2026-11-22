@@ -64,6 +64,7 @@ import { useBulkSelect } from '../tasks/bulkSelect.ts';
 import { markDraft } from '../tasks/drafts.ts';
 import { useTaskSelection } from '../tasks/selection.ts';
 import { calendarTitle } from './calendarTitle.ts';
+import { useCompactWhenCut } from './useCompactWhenCut.ts';
 import {
   askedFor,
   loadPrefs,
@@ -477,7 +478,24 @@ export function CalendarPage() {
   const arrowSx = { p: { xs: '3px', sm: '5px' } } as const;
   const todaySx = { p: { xs: '6px', sm: '5px' } } as const;
   const titleDate = mode === 'month' ? `${view?.month ?? today.slice(0, 7)}-01` : date;
-  const title = calendarTitle(mode, titleDate, prefs.days, today, undefined, narrow);
+  // A phone's days whose short months don't fit its row (German's "28. Nov. - 11. Dez." at 360
+  // px) read with numbers instead, measured before they paint (PL-148).
+  const {
+    ref: titleTextRef,
+    roomRef: titleRoomRef,
+    compact: titleCompact,
+  } = useCompactWhenCut<HTMLSpanElement, HTMLHeadingElement>(
+    `${mode}|${titleDate}|${prefs.days}|${narrow}`,
+  );
+  const title = calendarTitle(
+    mode,
+    titleDate,
+    prefs.days,
+    today,
+    undefined,
+    narrow,
+    narrow && titleCompact,
+  );
   // A phone's short title can leave the year off days; their label keeps it.
   const labelTitle = mode === 'days' ? calendarTitle(mode, titleDate, prefs.days, today) : title;
   const panel = (
@@ -528,6 +546,7 @@ export function CalendarPage() {
             little tighter, always, so the longest Days title ("Apr 29 - May 10") fits at 360 px. */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.125, sm: 0.5 }, mb: 1 }}>
           <Typography
+            ref={titleRoomRef}
             component="h2"
             aria-live="polite"
             noWrap
@@ -551,7 +570,11 @@ export function CalendarPage() {
                 [theme.breakpoints.down('sm')]: { '& .MuiButton-endIcon svg': { fontSize: 16 } },
               }}
             >
-              <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <Box
+                ref={titleTextRef}
+                component="span"
+                sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
+              >
                 {title}
               </Box>
             </Button>
