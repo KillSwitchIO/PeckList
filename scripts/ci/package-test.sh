@@ -2,14 +2,24 @@
 # Installs, upgrades and removes the deb and rpm packages in clean containers, one per distro, with
 # systemd running (PL-132). POSIX sh: the CI job runs it in the Docker image, which has no bash.
 #   scripts/ci/package-test.sh [dist] [distro ...]
-# dist holds the packages from scripts/package.sh, with PACKAGE_TEST_PREVIOUS=1 (dist/test: the same
-# program at version 0.0.1, to upgrade from). Distros: debian ubuntu fedora alma opensuse arm64.
-# Needs a Docker that runs privileged containers (systemd as PID 1); arm64 needs QEMU binfmt.
+# dist holds the packages from scripts/package.sh. dist/test holds the latest release's packages,
+# the ones people have installed today, to upgrade from: scripts/ci/package-previous.sh dist/test
+# <version> downloads and checks them. Distros: debian ubuntu fedora alma opensuse arm64. Debian
+# starts from an archive install instead, which this build takes over; the others upgrade from the
+# release. Needs a Docker that runs privileged containers (systemd as PID 1); arm64 needs QEMU binfmt.
 set -eu
 
 dist=$(cd "${1:-dist}" && pwd)
 [ $# -gt 0 ] && shift
 distros=${*:-debian ubuntu fedora alma opensuse arm64}
+case " $distros " in
+  *" ubuntu "* | *" fedora "* | *" alma "* | *" opensuse "*)
+    [ -f "$dist/test/VERSION" ] || {
+      echo "No release to upgrade from in $dist/test: run scripts/ci/package-previous.sh $dist/test <version> first" >&2
+      exit 1
+    }
+    ;;
+esac
 failed=
 
 say() { printf '\n=== %s\n' "$*"; }
@@ -55,6 +65,13 @@ healthy() {
 
 snapshots() { inside 'ls /var/lib/pecklist/snapshots 2>/dev/null | wc -l'; }
 
+installed_version() {
+  case "$family" in
+    deb) inside "dpkg-query -W -f '\${Version}' pecklist" ;;
+    *) inside "rpm -q --qf '%{VERSION}-%{RELEASE}' pecklist" ;;
+  esac
+}
+
 test_distro() {
   distro=$1
   case "$distro" in
@@ -78,44 +95,51 @@ test_distro() {
   [ "$family" = deb ] && inside 'apt-get update -qq'
 
   if [ "$distro" = debian ]; then
-    say "$distro: an archive install first, which the package takes over"
+    say "$distro: an archive install first, which this build takes over"
     inside 'tar -xzf /packages/pecklist-server-linux-x64-portable.tar.gz -C /root && /root/pecklist-server-linux-x64/examples/install.sh > /dev/null'
     inside 'systemctl is-active --quiet pecklist' || fail "the archive install is not running"
     healthy
     inside 'setpriv --reuid=pecklist --regid=pecklist --init-groups env DB_PATH=/var/lib/pecklist/pecklist.db CONFIG_FILE=/etc/pecklist/pecklist.conf /opt/pecklist/pecklist admin add-user from-archive > /dev/null'
     say "$distro: no takeover while a database lives in /opt/pecklist"
     inside 'mkdir -p /opt/pecklist/data && touch /opt/pecklist/data/moved.db'
-    install_pkg "/packages/test/$server" 2> /dev/null && fail "the takeover would have deleted a database"
+    install_pkg "/packages/$server" 2> /dev/null && fail "the takeover would have deleted a database"
     inside '[ -f /opt/pecklist/data/moved.db ] && systemctl is-active --quiet pecklist' || fail "the refused takeover changed something"
     # The refused package is left not installed (preinst stops it before any file), so there is
     # nothing to purge; a purge would take the archive install's settings file.
     inside 'dpkg-query -W -f "\${db:Status-Status}" pecklist 2> /dev/null' | grep -qx installed &&
       fail "the refused package shows as installed"
     inside 'rm -r /opt/pecklist/data'
-  fi
 
-  say "$distro: install the previous version (0.0.1)"
-  install_pkg "/packages/test/$server /packages/test/$cli"
-  if [ "$distro" = debian ]; then
+    # The takeover is this build's own package scripts at work, so it is this build that takes over.
+    say "$distro: this build takes the archive install over"
+    install_pkg "/packages/$server /packages/$cli"
     inside '[ ! -e /opt/pecklist ] && [ ! -e /etc/systemd/system/pecklist.service ]' || fail "the archive install was not taken over"
     inside 'systemctl is-active --quiet pecklist' || fail "the taken-over server is not running"
-  elif [ "$family" = deb ]; then
-    inside 'systemctl is-active --quiet pecklist' || fail "Debian and Ubuntu start the service on install"
   else
-    inside 'systemctl is-active --quiet pecklist' && fail "Fedora, RHEL and openSUSE leave the service off on install"
-    inside 'systemctl enable --now pecklist'
+    say "$distro: install the latest release ($(cat "$dist/test/VERSION"))"
+    install_pkg "/packages/test/$server /packages/test/$cli"
+    if [ "$family" = deb ]; then
+      inside 'systemctl is-active --quiet pecklist' || fail "Debian and Ubuntu start the service on install"
+    else
+      inside 'systemctl is-active --quiet pecklist' && fail "Fedora, RHEL and openSUSE leave the service off on install"
+      inside 'systemctl enable --now pecklist'
+    fi
   fi
   healthy
   inside 'stat -c "%U:%G %a" /var/lib/pecklist' | grep -qx 'pecklist:pecklist 750' || fail "the data folder's owner or mode"
   inside 'stat -c "%G %a" /etc/pecklist/pecklist.conf' | grep -qx 'pecklist 640' || fail "the settings file's group or mode"
   inside 'pecklist-server admin add-user kept-across > /dev/null'
-  before=$(snapshots)
 
-  say "$distro: upgrade to this build"
-  install_pkg "/packages/$server /packages/$cli"
-  [ "$(snapshots)" -gt "$before" ] || fail "no snapshot before the upgrade"
-  inside 'systemctl is-active --quiet pecklist' || fail "the service is not running after the upgrade"
-  healthy
+  if [ "$distro" != debian ]; then
+    before=$(snapshots)
+    released=$(installed_version)
+    say "$distro: upgrade from $released to this build"
+    install_pkg "/packages/$server /packages/$cli"
+    [ "$(installed_version)" != "$released" ] || fail "the upgrade left $released installed"
+    [ "$(snapshots)" -gt "$before" ] || fail "no snapshot before the upgrade"
+    inside 'systemctl is-active --quiet pecklist' || fail "the service is not running after the upgrade"
+    healthy
+  fi
   inside 'pecklist-server export' | grep -q '"kept-across"' || fail "an account made before the upgrade is gone"
   if [ "$distro" = debian ]; then
     inside 'pecklist-server export' | grep -q '"from-archive"' || fail "the archive install's data is gone"

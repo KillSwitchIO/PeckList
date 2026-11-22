@@ -637,6 +637,8 @@ web-build:
         - packaging/**/*
         - scripts/package.sh
         - scripts/ci/package-test.sh
+        - scripts/ci/package-previous.sh
+        - scripts/ci/sigstore.sh
         - scripts/ci/appimage-*.sh
         - scripts/ci/aur-*.sh
     # For the Windows installer a merge request builds and tests (windows-installer, windows-test).
@@ -867,7 +869,6 @@ packages:
     NFPM_VERSION: 2.48.0
     NFPM_SHA256: 6d7f9a28b2f397934403950fcbba83f598b08d02edbe79a0815b3b4897341750
     LINUX_PACKAGES: '1'
-    PACKAGE_TEST_PREVIOUS: '1'
   script:
     # squashfs-tools for the AppImages (scripts/ci/appimage-build.sh).
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends zip squashfs-tools > /dev/null
@@ -917,6 +918,8 @@ package-test:
   timeout: 40m
   resource_group: heavy-build
   script:
+    # The latest release's packages, checked against its signed SHA256SUMS, to upgrade from.
+    - sh scripts/ci/package-previous.sh dist/test "$(sh scripts/build-version.sh)"
     - sh scripts/ci/package-test.sh dist debian ubuntu fedora alma opensuse
     - sh scripts/ci/appimage-test.sh dist
     - sh scripts/ci/aur-test.sh dist

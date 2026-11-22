@@ -5,7 +5,11 @@
 # (docs/install/verifying.md). Every job that signs uses this script:
 #   sh scripts/ci/sigstore.sh blob <file> [bundle]         the bundle defaults to <file>.sigstore.json
 #   sh scripts/ci/sigstore.sh image <name>@sha256:<digest>  signed in the image's own registry
-# The job needs
+#   sh scripts/ci/sigstore.sh verify <file> [bundle]       checks a release's file the way people do
+# verify needs no token and never lets anything through: no bundle, no cosign, or a signature that
+# is not main's pipeline (exactly the identity docs/install/verifying.md gives) fails it, whatever
+# SIGSTORE_REQUIRED says. scripts/ci/package-previous.sh uses it before anything is installed.
+# Signing jobs need
 #   id_tokens:
 #     SIGSTORE_ID_TOKEN:
 #       aud: sigstore
@@ -25,11 +29,11 @@ COSIGN_SHA256_ARM64=ade83b7aac62e131cacfe96d958948b2150cc9efec46a570a2649b8e27de
 mode=${1:-}
 target=${2:-}
 case "$mode" in
-  blob | image) [ -n "$target" ] || mode= ;;
+  blob | image | verify) [ -n "$target" ] || mode= ;;
   *) mode= ;;
 esac
 if [ -z "$mode" ]; then
-  echo "usage: sigstore.sh blob <file> [bundle] | sigstore.sh image <name>@sha256:<digest>" >&2
+  echo "usage: sigstore.sh blob <file> [bundle] | sigstore.sh image <name>@sha256:<digest> | sigstore.sh verify <file> [bundle]" >&2
   exit 2
 fi
 
@@ -39,6 +43,10 @@ issuer=${CI_SERVER_URL:-https://gitlab.com}
 project=$issuer/${CI_PROJECT_PATH:-killswitch10/pecklist}//${CI_CONFIG_PATH:-.gitlab-ci.yml}
 if [ -n "${SIGSTORE_IDENTITY:-}" ]; then
   who="--certificate-identity=$SIGSTORE_IDENTITY"
+elif [ "$mode" = verify ]; then
+  # A release's files, from any pipeline (a merge request, a fork): only main's signature counts.
+  issuer=https://gitlab.com
+  who="--certificate-identity=https://gitlab.com/killswitch10/pecklist//.gitlab-ci.yml@refs/heads/main"
 elif [ "${CI_COMMIT_BRANCH:-}" = "${CI_DEFAULT_BRANCH:-main}" ]; then
   who="--certificate-identity=$project@refs/heads/${CI_DEFAULT_BRANCH:-main}"
 else
@@ -46,12 +54,16 @@ else
 fi
 
 not_signed() {
+  if [ "$mode" = verify ]; then
+    echo "NOT VERIFIED: $1" >&2
+    exit 1
+  fi
   echo "NOT SIGNED: $1" >&2
   if [ "${SIGSTORE_REQUIRED:-}" = 1 ]; then exit 1; fi
   exit 0
 }
 
-[ -n "${SIGSTORE_ID_TOKEN:-}" ] || not_signed "$target (the job has no SIGSTORE_ID_TOKEN; add id_tokens with aud: sigstore)"
+[ "$mode" = verify ] || [ -n "${SIGSTORE_ID_TOKEN:-}" ] || not_signed "$target (the job has no SIGSTORE_ID_TOKEN; add id_tokens with aud: sigstore)"
 
 fetch() { # url file
   if command -v curl > /dev/null; then
@@ -134,6 +146,15 @@ case "$mode" in
       "$who" --certificate-oidc-issuer "$issuer" "$target" > /dev/null \
       || { rm -f "$bundle"; not_signed "$target (the signature did not verify as ${who#*=})"; }
     echo "Signed $target: $bundle, as ${who#*=}"
+    ;;
+  verify)
+    bundle=${3:-$target.sigstore.json}
+    [ -f "$target" ] || not_signed "$target (no such file)"
+    [ -f "$bundle" ] || not_signed "$target (no bundle at $bundle)"
+    attempt "Checking $target" "$cosign" verify-blob --bundle "$bundle" \
+      "$who" --certificate-oidc-issuer "$issuer" "$target" > /dev/null \
+      || not_signed "$target (the signature is not ${who#*=}'s, or Sigstore did not answer: see above)"
+    echo "Verified $target: signed by ${who#*=}"
     ;;
   image)
     case "$target" in
