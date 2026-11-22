@@ -132,7 +132,7 @@ test('finds keys used as literals and prefixes of keys built at run time', () =>
 const root = mkdtempSync(join(tmpdir(), 'check-i18n-'));
 after(() => rmSync(root, { recursive: true, force: true }));
 
-function fixture(name, { english, translations = {}, source }) {
+function fixture(name, { english, translations = {}, source, complete = [] }) {
   const folder = join(root, name);
   mkdirSync(join(folder, 'locales'), { recursive: true });
   mkdirSync(join(folder, 'src'), { recursive: true });
@@ -143,7 +143,7 @@ function fixture(name, { english, translations = {}, source }) {
   writeFileSync(join(folder, 'src/view.tsx'), source);
   // A test file's keys don't count as used.
   writeFileSync(join(folder, 'src/view.test.tsx'), "t('only.inTests')");
-  return { name, folder: `${name}/locales`, sources: [`${name}/src`] };
+  return { name, folder: `${name}/locales`, sources: [`${name}/src`], complete };
 }
 
 test('passes good catalogs and reports how much of each language is done', async () => {
@@ -157,6 +157,25 @@ test('passes good catalogs and reports how much of each language is done', async
   assert.equal(failures, 0);
   assert.ok(lines.includes('  de: 1 of 2 translated (50%)'), lines.join('\n'));
   assert.equal(lines.at(-1), 'Catalogs OK.');
+});
+
+test('fails a key a complete language has in English alone, not one in part', async () => {
+  const lines = [];
+  const catalog = fixture('complete', {
+    english: { 'nav.today': 'Today', 'task.duplicate': 'Duplicate' },
+    translations: {
+      de: { 'nav.today': 'Heute' },
+      fr: { 'nav.today': 'Aujourd’hui', 'task.duplicate': 'Dupliquer' },
+    },
+    source: "t('nav.today'); t('task.duplicate');",
+    complete: ['de', 'fr'],
+  });
+  const failures = await check({ root, catalogs: [catalog], log: (line) => lines.push(line) });
+  assert.equal(failures, 1);
+  assert.ok(
+    lines.includes('  de task.duplicate: not translated (shows English)'),
+    lines.join('\n'),
+  );
 });
 
 test('reads a catalog used from other files, such as the server C#', async () => {

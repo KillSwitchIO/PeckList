@@ -108,7 +108,9 @@ When translating:
   plural categories your language has (`one`, `few`, `many`, `other`), and keep any `=0` or `=1`.
 - A plain `'` before `{` starts quoting in ICU and breaks the message: use the typographic `’`.
 - Sentence case, no em dashes, short labels on buttons and in the sidebar, product names as they are.
-- A key may be left out: it shows in English until it is translated.
+- In a new language a key may be left out: it shows in English until it is translated. German,
+  Spanish and French ship whole, so a new English string comes with those three too (a draft is
+  fine; say so in the merge request).
 
 To add a language:
 
@@ -118,8 +120,8 @@ To add a language:
    (`web/src/app/i18n/language.ts`), so the picker says so. Remove it once someone has.
 
 The checks run in CI. `pnpm check:i18n` fails on invalid ICU, on a translation whose parameters
-differ from English, on a translated key English no longer has, and on English keys nothing uses;
-it also reports each language's coverage. A count may change shape between languages (a plain
+differ from English, on a translated key English no longer has, on English keys nothing uses, and
+on a key German, Spanish or French lacks; it also reports each language's coverage. A count may change shape between languages (a plain
 number in English, a plural in yours) only for parameters named like counts (`count`, `days`,
 `hours` and so on, in `COUNT_NAMES` in `scripts/check-i18n.mjs`); add a name there when a new one
 needs it. The lint rule `pecklist/no-literal-ui-text` flags text left in JSX, and Android lint
