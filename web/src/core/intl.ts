@@ -70,6 +70,59 @@ export function localeUses24h(locale?: string): boolean {
 
 const formats = new Map<string, Intl.DateTimeFormat>();
 
+/**
+ * French writes the first of a month "1er" beside the month's name ("1er déc.", "lun. 1er
+ * décembre"), which Intl doesn't (PL-148). Not in numbers ("01/12/2026"), and not a day number
+ * with no month beside it (a calendar's grid).
+ */
+export function withFirstOfMonth<Part extends Intl.DateTimeFormatPart>(parts: Part[]): Part[] {
+  const named = parts.some((part) => part.type === 'month' && /\p{L}/u.test(part.value));
+  if (!named) return parts;
+  return parts.map((part) =>
+    part.type === 'day' && part.value === '1' ? { ...part, value: '1er' } : part,
+  );
+}
+
+type DateTimeFormatClass = new (
+  locale: string | undefined,
+  options: Intl.DateTimeFormatOptions,
+) => Intl.DateTimeFormat;
+
+let french: DateTimeFormatClass | undefined;
+
+/**
+ * Intl's dates, with French's "1er" (withFirstOfMonth) in all four ways of formatting. Made on
+ * first use, not at load: the server's quick add runs this module where Intl may be missing.
+ */
+function frenchDateTimeFormat(): DateTimeFormatClass {
+  french ??= class FrenchDateTimeFormat extends Intl.DateTimeFormat {
+    override formatToParts(date?: Date | number): Intl.DateTimeFormatPart[] {
+      return withFirstOfMonth(super.formatToParts(date));
+    }
+    // A method, not Intl's bound getter: call it on the format, never detached (`fmt.format`).
+    override format(date?: Date | number): string {
+      const text = super.format(date);
+      // Most dates have no lone 1 to change: those skip the parts (Dev 1, about twice as fast).
+      if (!/(^|\D)1(\D|$)/.test(text)) return text;
+      return this.formatToParts(date)
+        .map((part) => part.value)
+        .join('');
+    }
+    override formatRangeToParts(
+      start: Date | number | bigint,
+      end: Date | number | bigint,
+    ): Intl.DateTimeRangeFormatPart[] {
+      return withFirstOfMonth(super.formatRangeToParts(start, end));
+    }
+    override formatRange(start: Date | number | bigint, end: Date | number | bigint): string {
+      return this.formatRangeToParts(start, end)
+        .map((part) => part.value)
+        .join('');
+    }
+  };
+  return french;
+}
+
 /** `new Intl.DateTimeFormat(locale, options)`, made once; no locale means the one set above. */
 export function dateTimeFormat(
   locale: string | undefined,
@@ -80,9 +133,20 @@ export function dateTimeFormat(
   let format = formats.get(key);
   if (!format) {
     format = new Intl.DateTimeFormat(used, options);
+    if (format.resolvedOptions().locale.split('-')[0] === 'fr') {
+      format = new (frenchDateTimeFormat())(used, options);
+    }
     formats.set(key, format);
   }
   return format;
+}
+
+/** A date in the language set above (`toLocaleDateString`, with French's "1er" too). */
+export function formatDateIn(
+  date: Date | number,
+  options: Intl.DateTimeFormatOptions = {},
+): string {
+  return dateTimeFormat(undefined, options).format(date);
 }
 
 /**

@@ -35,6 +35,11 @@ public static partial class DatePattern
     public static string Format(DateOnly date, string pattern, Words? words = null)
     {
         words ??= Words.English;
+        // French writes the first of a month "1er" beside the month's name ("1er déc.", "1er décembre
+        // 2026"), not in numbers ("01/12/2026"), as the app does (web/src/core/intl.ts, PL-148).
+        var firstOfMonth = date.Day == 1
+            && words.Language.Split('-', '_')[0].Equals("fr", StringComparison.OrdinalIgnoreCase)
+            && Tokens().Matches(pattern).Any(match => match.Value is "MMM" or "MMMM");
         return Tokens().Replace(pattern, match => match.Value switch
         {
             "YYYY" or "yyyy" => date.Year.ToString(CultureInfo.InvariantCulture),
@@ -46,7 +51,7 @@ public static partial class DatePattern
             "dddd" or "EEEE" => words[$"date.weekday.{(int)date.DayOfWeek}"],
             "ddd" or "EEE" => words[$"date.weekdayShort.{(int)date.DayOfWeek}"],
             "DD" or "dd" => date.Day.ToString("00", CultureInfo.InvariantCulture),
-            "D" or "d" => date.Day.ToString(CultureInfo.InvariantCulture),
+            "D" or "d" => firstOfMonth ? "1er" : date.Day.ToString(CultureInfo.InvariantCulture),
             // [literal text]
             var literal => literal[1..^1],
         });

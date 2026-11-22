@@ -21,13 +21,13 @@ import { lockedProblem } from '../sync/passwordChange.ts';
 import { useSyncState } from '../sync/syncContext.ts';
 import { cancelled, createPasskey, passkeysWork } from '../sync/webauthn.ts';
 import { Section, SettingRow } from './settingsLayout.tsx';
-import { intlLocale } from '../../core/intl.ts';
+import { formatDateIn } from '../../core/intl.ts';
 
 function day(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime())
     ? iso
-    : date.toLocaleDateString(intlLocale(), { month: 'short', day: 'numeric', year: 'numeric' });
+    : formatDateIn(date, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function hintOf(passkey: PasskeyInfo): string {
