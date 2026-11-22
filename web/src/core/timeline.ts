@@ -120,16 +120,68 @@ export function barBox(bar: Bar, rowIndex: number, geometry: TimelineGeometry): 
   return { left, right: left + width, y: header + inset + rowIndex * row + (row - inset * 2) / 2 };
 }
 
+/** How many of `obstacles` a straight arrow turning down at `x` would run across. */
+function crossings(from: BarBox, to: BarBox, x: number, obstacles: readonly BarBox[]): number {
+  const [top, bottom] = from.y <= to.y ? [from.y, to.y] : [to.y, from.y];
+  return obstacles.filter(
+    (box) =>
+      // Out along the blocker's row, down past the rows between, in along the waiting one's row.
+      (box.y === from.y && box.left < x && box.right > from.right) ||
+      (box.y > top && box.y < bottom && box.left <= x && x <= box.right) ||
+      (box.y === to.y && box.left < to.left && box.right > x),
+  ).length;
+}
+
+/**
+ * Room an arrow turning down keeps from the edge of a bar it passes (QA: flush, it looked like
+ * the bar's border).
+ */
+const CLEAR = 3;
+
+/** Whether an arrow turning down at `x` runs beside a bar between the rows, nearer than CLEAR. */
+function alongside(from: BarBox, to: BarBox, x: number, obstacles: readonly BarBox[]): boolean {
+  const [top, bottom] = from.y <= to.y ? [from.y, to.y] : [to.y, from.y];
+  return obstacles.some(
+    (box) =>
+      box.y > top &&
+      box.y < bottom &&
+      ((x > box.left - CLEAR && x < box.left) || (x > box.right && x < box.right + CLEAR)),
+  );
+}
+
 /**
  * The arrow for a blocked-by link (PL-055): out of the end of the blocker's bar, into the start of
- * the bar waiting on it. Room to go straight: out, down to the row, in. No room (the waiting task
- * starts before the blocker ends, or just after): out, down half a row, back left past the start,
- * then down and in, so the arrow never runs across the bars it joins.
+ * the bar waiting on it. Room to go straight: out, down to the row, in, turning down where it runs
+ * across the fewest `obstacles` (other bars and titles beside bars, the blocker's own title among
+ * them; QA: arrows crossed a neighbouring bar), and then where it keeps clear of their edges. With
+ * none in the way it turns just before the waiting bar. It never turns sooner than `gap` out, so a
+ * title beside the blocker needs more room than that (the timeline leaves it). No room (the
+ * waiting task starts before the blocker ends, or just after): out, down half a row, back left past
+ * the start, then down and in, so the arrow never runs across the bars it joins.
  */
-export function linkPath(from: BarBox, to: BarBox, row: number, gap = 8): string {
+export function linkPath(
+  from: BarBox,
+  to: BarBox,
+  row: number,
+  obstacles: readonly BarBox[] = [],
+  gap = 8,
+): string {
   const out = from.right + gap;
   if (to.left - gap >= out) {
-    const turn = Math.max(out, to.left - gap);
+    // Just before the waiting bar first, then just after the blocker, then beside each obstacle.
+    // Fewest crossings wins; among those, one that keeps clear of the edges it passes.
+    const candidates = [to.left - gap, out];
+    for (const box of obstacles) candidates.push(box.left - gap / 2, box.right + gap / 2);
+    const cost = (x: number) =>
+      crossings(from, to, x, obstacles) * 2 + (alongside(from, to, x, obstacles) ? 1 : 0);
+    let turn = to.left - gap;
+    let best = cost(turn);
+    for (const x of candidates) {
+      if (best === 0) break;
+      if (x < out || x > to.left - gap) continue;
+      const count = cost(x);
+      if (count < best) [turn, best] = [x, count];
+    }
     return `M ${from.right} ${from.y} H ${turn} V ${to.y} H ${to.left}`;
   }
   const between = from.y + (to.y >= from.y ? row / 2 : -row / 2);

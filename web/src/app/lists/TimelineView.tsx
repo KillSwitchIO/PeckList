@@ -39,6 +39,10 @@ const HEADER = 44;
 /** Room between a bar and its row's edges, and its days' edges */
 const INSET = 4;
 const SIDE = 2;
+/** A title beside its bar starts this far past the bar's end */
+const TITLE_GAP = 6;
+/** ...or this far when an arrow leaves that end, so the arrow turns down clear of it (QA, PL-055) */
+const LINKED_TITLE_GAP = 14;
 /** The blocked-by handle past a bar's end: drawn small, pressed easily (PL-055) */
 const LINK_HIT = 24;
 /** The grip at each end of a bar, for stretching it. */
@@ -229,6 +233,33 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
         late: warns(current(waiting), current(blocker), zone),
       })),
   );
+  /** A title too long for its bar (and not cut short in a fitted view) goes beside it. */
+  const besideBar = (title: string, width: number) =>
+    !prefs.fit && title.length * 7.5 + 16 > width - 4;
+  const blocking = new Set(links.map(({ blocker }) => blocker.id));
+  const titleGap = (id: Id) => (blocking.has(id) ? LINKED_TITLE_GAP : TITLE_GAP);
+  // What an arrow should go round: every bar, and every title beside one (7.5 px a character, as
+  // above, out from the bar's end).
+  const obstacles = bars.flatMap((original) => {
+    const bar = shown(original);
+    const box = boxOf(bar.id);
+    const title = byId.get(bar.id)!.title || t('task.untitled');
+    const beside = besideBar(title, (daysBetween(bar.from, bar.to) + 1) * day)
+      ? [
+          {
+            id: bar.id,
+            bar: false,
+            left: box.right + titleGap(bar.id),
+            right: box.right + titleGap(bar.id) + title.length * 7.5,
+            y: box.y,
+          },
+        ]
+      : [];
+    return [{ id: bar.id, bar: true, ...box }, ...beside];
+  });
+  /** The obstacles for one arrow: not the two bars it joins, though the blocker's own title is one. */
+  const inTheWay = (blocker: Id, waiting: Id) =>
+    obstacles.filter((box) => !box.bar || (box.id !== blocker && box.id !== waiting));
   const grey = theme.palette.text.disabled;
   const red = theme.palette.error.main;
 
@@ -493,7 +524,12 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
                 key={`${blocker.id}-${waiting.id}`}
                 data-timeline-link={`${blocker.id} ${waiting.id}`}
                 data-late={late ? 'true' : undefined}
-                d={linkPath(boxOf(blocker.id), boxOf(waiting.id), ROW)}
+                d={linkPath(
+                  boxOf(blocker.id),
+                  boxOf(waiting.id),
+                  ROW,
+                  inTheWay(blocker.id, waiting.id),
+                )}
                 fill="none"
                 stroke={late ? red : grey}
                 strokeWidth={late ? 2 : 1.5}
@@ -583,7 +619,7 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
                 }}
               >
                 {/* A title too long for its bar: inside when fitted (cut short), else beside it. */}
-                {prefs.fit || title.length * 7.5 + 16 <= width - 4 ? (
+                {!besideBar(title, width) ? (
                   <Box
                     component="span"
                     sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
@@ -596,7 +632,7 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
                     sx={{
                       position: 'absolute',
                       left: '100%',
-                      ml: 0.75,
+                      ml: `${titleGap(bar.id)}px`,
                       color: 'text.primary',
                       fontWeight: 500,
                       pointerEvents: 'none',
