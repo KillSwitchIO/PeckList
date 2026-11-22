@@ -65,6 +65,19 @@ describe('workspace store', () => {
     expect(saved.owner).toBe(store.getState().workspace?.owner);
   });
 
+  it('opens the stored workspace once, however often it is asked (the start, then StoreProvider)', async () => {
+    const storage = createMemoryStorage();
+    await makeStore(storage).getState().init();
+    const load = vi.spyOn(storage, 'load');
+    const store = makeStore(storage);
+    const first = store.getState().init();
+    const second = store.getState().init();
+    expect(second).toBe(first);
+    await Promise.all([first, second, store.getState().init()]);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(store.getState().status).toBe('ready');
+  });
+
   it('applies operations in memory immediately and saves after the debounce', async () => {
     const storage = createMemoryStorage();
     const store = makeStore(storage);
