@@ -327,6 +327,29 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
     private static (string, JsonObject) Task(string id, string list, string title) =>
         ("tasks", Entity(id, new JsonObject { ["listId"] = list, ["title"] = title, ["parentId"] = null, ["assignees"] = new JsonObject() }));
 
+    /// <summary>A list template body (PL-140): Tent due the day after use at 9:00, with a Pegs subtask due on the day.</summary>
+    private static JsonObject CampingBody(string tent = "Tent")
+    {
+        static JsonObject Task(string title, JsonObject? due, params JsonObject[] subtasks) => new()
+        {
+            ["title"] = title, ["notes"] = "", ["priority"] = 0, ["tags"] = new JsonArray(),
+            ["start"] = null, ["end"] = null, ["due"] = due, ["reminders"] = new JsonArray(),
+            ["recurrence"] = null, ["constantReminder"] = false, ["subtasks"] = new JsonArray(subtasks),
+        };
+        return new JsonObject
+        {
+            ["name"] = "Camping", ["color"] = "#2e7d32", ["icon"] = "tent",
+            ["tasks"] = new JsonArray(Task(tent, new JsonObject { ["inDays"] = 1, ["time"] = "09:00" },
+                Task("Pegs", new JsonObject { ["inDays"] = 0, ["time"] = null }))),
+        };
+    }
+
+    private static (string, JsonObject) Template(string id, JsonObject body, string? deletedAt = null) =>
+        ("templates", Entity(id, new JsonObject
+        {
+            ["name"] = "Camping", ["kind"] = "list", ["order"] = "V", ["body"] = body, ["uses"] = 0, ["deletedAt"] = deletedAt,
+        }));
+
     private static async Task<UserRestoreResult> Restore(HttpClient admin, byte[] file, string? username = null)
     {
         using var form = new MultipartFormDataContent { { new ByteArrayContent(file), "file", "backup.json" } };
@@ -384,6 +407,62 @@ public sealed class BackupCenterTests(ServerFixture fixture) : IClassFixture<Ser
         Assert.NotNull(after["T2"]["deletedAt"]);
         // A safety backup was taken first.
         Assert.NotEmpty((await admin.GetFromJsonAsync<BackupFile[]>("/api/admin/backups", Token))!);
+    }
+
+    [Fact]
+    public async Task Restoring_someone_brings_back_their_templates_as_they_were()
+    {
+        using var server = Server();
+        var admin = await LogIn(server, "admin", AdminPassword);
+        var (sam, samId) = await NewUser(server, "sam");
+        await Sync(sam, Template("TP1", CampingBody()));
+        var backup = await (await admin.GetAsync($"/api/admin/users/{samId}/export", Token)).Content.ReadAsByteArrayAsync(Token);
+        var saved = JsonNode.Parse(backup)!["entities"]!.AsArray().Single(each => (string)each!["collection"]! == "templates")!;
+        Assert.True(JsonNode.DeepEquals(CampingBody(), saved["entity"]!["body"]));
+
+        // Later: Sam's phone edits the template, then deletes it.
+        var phone = await LogIn(server, "sam", Password);
+        await Sync(phone, Template("TP1", CampingBody("Big tent"), "2026-10-23T08:00:00.000Z"));
+
+        var result = await Restore(admin, backup);
+        Assert.Equal(("sam", false), (result.Username, result.Created));
+        var after = await Sync(phone);
+        Assert.Null((string?)after["TP1"]["deletedAt"]);
+        Assert.True(JsonNode.DeepEquals(CampingBody(), after["TP1"]["body"]));
+    }
+
+    [Fact]
+    public async Task A_whole_server_backup_carries_templates_to_a_new_server()
+    {
+        byte[] whole;
+        using (var old = Server())
+        {
+            var admin = await LogIn(old, "admin", AdminPassword);
+            var (sam, _) = await NewUser(old, "sam");
+            await Sync(sam, Template("TP1", CampingBody()));
+            whole = await (await admin.GetAsync("/api/admin/export", Token)).Content.ReadAsByteArrayAsync(Token);
+        }
+
+        // The whole server restored at a restart: Sam signs in and has the template.
+        var db = fixture.NewDbPath();
+        using (var fresh = Server(db))
+        {
+            var admin = await LogIn(fresh, "admin", AdminPassword);
+            using var form = new MultipartFormDataContent { { new ByteArrayContent(whole), "file", "backup.json" } };
+            Assert.Equal(HttpStatusCode.Accepted, (await admin.PostAsync("/api/admin/restore", form, Token)).StatusCode);
+        }
+        using (var restarted = Server(db))
+        {
+            var held = await Sync(await LogIn(restarted, "sam", Password));
+            Assert.True(JsonNode.DeepEquals(CampingBody(), held["TP1"]["body"]));
+        }
+
+        // Or just Sam, moved to another server from the same file.
+        using var other = Server();
+        var otherAdmin = await LogIn(other, "admin", AdminPassword);
+        Assert.True((await Restore(otherAdmin, whole, "sam")).Created);
+        var moved = await Sync(await LogIn(other, "sam", Password));
+        Assert.True(JsonNode.DeepEquals(CampingBody(), moved["TP1"]["body"]));
     }
 
     [Fact]

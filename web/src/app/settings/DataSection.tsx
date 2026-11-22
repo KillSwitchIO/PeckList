@@ -64,6 +64,7 @@ export function DataSection() {
           tasks: outcome.tasks,
           lists: outcome.lists,
           tags: outcome.tags,
+          templates: outcome.templates,
         }),
       });
     }
