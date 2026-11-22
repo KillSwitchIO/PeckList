@@ -740,8 +740,10 @@ android-apk:
 # The Android app's end-to-end tests (e2e/android/run.sh, PL-070): android-apk's debug APK on an
 # emulator with Appium, against main's server image (:edge), weekly and by hand on merge requests
 # that touch the app or the tests. It runs the stack on the runner's own Docker (the emulator needs
-# /dev/kvm), one at a time, and always removes its containers, volumes and images. With less than
-# 12 GB free it skips (exit 77), shown as a warning, not a failure.
+# /dev/kvm), one at a time, and always removes its containers, volumes and images: run.sh when it
+# ends, and e2e/android/ci-clean.sh in after_script for a job canceled or timed out before that (and
+# before a run, for any earlier job's). With less than 18 GB free it skips (exit 77), shown as a
+# warning, not a failure.
 android-e2e:
   image: $DOCKER_IMAGE
   stage: build
@@ -754,13 +756,24 @@ android-e2e:
   variables:
     PECKLIST_OWNER: ci-$CI_JOB_ID
     PECKLIST_IMAGE: $IMAGE:edge
+    # The script stops at 52 minutes, under the job's 60, so a run that hangs still leaves time
+    # for after_script, which GitLab skips for a job that hits its own timeout.
+    RUNNER_SCRIPT_TIMEOUT: 52m
+    RUNNER_AFTER_SCRIPT_TIMEOUT: 5m
   allow_failure:
     exit_codes: [77]
   before_script:
+    - sh e2e/android/ci-clean.sh stale
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
   script:
     - export E2E_APK="$(ls pecklist-android-*-debug.apk | head -n 1)"
     - sh e2e/android/run.sh
+  # after_script runs for a failed or canceled job and, with RUNNER_SCRIPT_TIMEOUT above, one that
+  # runs too long: run.sh's own cleanup never runs then. It does not run when the runner itself
+  # stops or fails (runner_system_failure); the stale sweep in before_script catches those at the
+  # next android-e2e on that runner.
+  after_script:
+    - sh e2e/android/ci-clean.sh "$CI_JOB_ID"
   artifacts:
     when: on_failure
     paths: [e2e/screenshots]
