@@ -100,7 +100,15 @@ export interface WorkspaceState {
    * merged into this device's data as one undoable change, or with no `label`, one that cannot be
    * undone (its source goes once it is in: an older copy in the Android app, PL-070).
    */
-  importDocument(document: unknown, label?: string): ImportOutcome;
+  /**
+   * Bring in an exported file. `onServer`: this device is signed in to an account, so another
+   * account's file takes fresh ids (the server refuses another account's).
+   */
+  importDocument(
+    document: unknown,
+    label?: string,
+    options?: { onServer?: boolean },
+  ): ImportOutcome;
   context(): OpContext;
 }
 
@@ -532,7 +540,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
         deps.notify?.();
       },
 
-      importDocument(document, label) {
+      importDocument(document, label, options) {
         let opened = openDocument(document, deps.validator);
         if (opened.kind === 'needs-upgrade')
           opened = upgradeDocument(opened.document, deps.validator);
@@ -543,7 +551,7 @@ export function createWorkspaceStore(deps: StoreDependencies): WorkspaceStore {
         }
         const before = get().workspace;
         if (!before) throw new Error('workspace is not ready');
-        const after = importWorkspace(before, opened.workspace);
+        const after = importWorkspace(before, opened.workspace, options);
         // The file's clocks may be ahead of this device's: later edits here must still win.
         advanceClock(after);
         get().apply(() => after, label);
