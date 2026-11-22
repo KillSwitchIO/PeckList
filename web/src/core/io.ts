@@ -142,7 +142,8 @@ export function adoptedId(id: string, owner: string): string {
  * It comes in as this account's own, as the server requires of anything new: made by it, in lists
  * it owns, assigned to it at most. People and sharing (profiles, friends, groups, members) and the
  * file's settings stay out, as do comments and files someone else added, and what was purged (an
- * emptied Trash's markers bring nothing); a link to one of those is dropped too. Trashed records
+ * emptied Trash's markers bring nothing); a link to one of those is dropped too, so a subtask
+ * whose parent was purged comes in at the top of its list (Dev 2). Trashed records
  * come in trashed, restorable. Other people's ids in fields such as `completedBy` stay as they
  * are: they name who did it, and the server takes them. A file from this same account (another
  * device, another server) keeps its ids, as before.
@@ -196,6 +197,11 @@ export function adoptAnotherAccount(
   const adopt = (collection: CollectionName, entity: BaseEntity): BaseEntity => {
     const { _hlc, ...fields } = entity as unknown as Record<string, unknown>;
     const next = walk(fields) as Record<string, unknown>;
+    // A parent or section left out would be named by nothing: no parent, no section instead.
+    for (const field of ['parentId', 'sectionId']) {
+      const linked = fields[field];
+      if (typeof linked === 'string' && dropped.has(linked)) next[field] = null;
+    }
     next._hlc = _hlc;
     next.createdBy = me;
     if ('ownerId' in next) next.ownerId = me;

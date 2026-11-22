@@ -334,13 +334,21 @@ describe("importWorkspace: another account's file, on a server (1.0)", () => {
     const binnedAt = new Date(T0).toISOString();
     const gone = createTask(annCtx, theirs, { title: 'Old stakes', listId: tent.listId });
     const binned = createTask(annCtx, gone.workspace, { title: 'Old tarp', listId: tent.listId });
+    // Trashed alone, then its parent purged with the Trash (Dev 2).
+    const pole = createTask(annCtx, binned.workspace, {
+      title: 'Old pole',
+      listId: tent.listId,
+      parentId: gone.task.id,
+    });
     const file: WorkspaceFile = {
-      ...binned.workspace,
+      ...pole.workspace,
       entities: {
-        ...binned.workspace.entities,
-        tasks: binned.workspace.entities.tasks.map((task): Task => {
+        ...pole.workspace.entities,
+        tasks: pole.workspace.entities.tasks.map((task): Task => {
           if (task.id === gone.task.id) return { ...task, deletedAt: PURGED_AT };
-          if (task.id === binned.task.id) return { ...task, deletedAt: binnedAt };
+          if (task.id === binned.task.id || task.id === pole.task.id) {
+            return { ...task, deletedAt: binnedAt };
+          }
           if (task.id !== tent.id) return task;
           return { ...task, blockedBy: setElement(annCtx, task.blockedBy, gone.task.id, true) };
         }),
@@ -355,6 +363,9 @@ describe("importWorkspace: another account's file, on a server (1.0)", () => {
     expect(Object.keys(newTent.blockedBy)).toEqual([]);
     const tarp = merged.entities.tasks.find((task) => task.title === 'Old tarp')!;
     expect([tarp.id, tarp.deletedAt]).toEqual([adoptedId(binned.task.id, me), binnedAt]);
+    // Its parent left out, the subtask comes in at the top of the list, not under nothing.
+    const newPole = merged.entities.tasks.find((task) => task.title === 'Old pole')!;
+    expect([newPole.parentId, newPole.deletedAt]).toEqual([null, binnedAt]);
   });
 
   it('imported again, gives the same ids: nothing new', () => {
