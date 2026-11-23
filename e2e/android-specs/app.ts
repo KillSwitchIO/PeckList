@@ -68,6 +68,26 @@ export async function tap(target: ChainablePromiseElement | WebdriverIO.Element)
 
 type ChainablePromiseElement = ReturnType<typeof browser.$>;
 
+/**
+ * Types `value` into a field and makes sure it stayed. In a Custom Tab, a field filled while the
+ * page still settles can come back empty (CI: the provider's user field lost "amy", so its form
+ * refused to submit), so it is read back and typed again, up to three times.
+ */
+export async function fill(
+  target: ChainablePromiseElement | WebdriverIO.Element,
+  value: string,
+): Promise<void> {
+  const element: WebdriverIO.Element = await target;
+  for (let attempt = 1; ; attempt++) {
+    await tap(element);
+    await element.setValue(value);
+    if ((await element.getText()) === value) return;
+    if (attempt === 3)
+      throw new Error(`the field kept "${await element.getText()}", not the value typed`);
+    await browser.pause(500);
+  }
+}
+
 /** Wait until an element is gone. */
 export async function gone(element: ChainablePromiseElement, timeout = 20_000): Promise<void> {
   await element.waitForExist({ reverse: true, timeout });

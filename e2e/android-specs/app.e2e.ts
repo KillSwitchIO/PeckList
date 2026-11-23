@@ -12,6 +12,7 @@ import {
   detailsButton,
   enter,
   field,
+  fill,
   goTo,
   heading,
   hideKeyboard,
@@ -165,8 +166,10 @@ describe('the Android app', () => {
         preferred_username: 'amy',
         name: 'Amy',
       });
-      await fields[0]!.setValue('amy');
-      await fields[1]!.setValue(claims);
+      await fill(fields[0]!, 'amy');
+      await fill(fields[1]!, claims);
+      // Filling taps each field, and the keyboard it brings up can cover the button.
+      await hideKeyboard();
       await tap(button('Sign-in'));
     }
     await browser.waitUntil(async () => (await asking()) > 0, {
