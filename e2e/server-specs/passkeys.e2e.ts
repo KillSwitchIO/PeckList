@@ -159,7 +159,12 @@ describe('passkeys (PL-123)', function () {
     // "Account: admin" or "Your account", with any unread count after it.
     await $('button[aria-haspopup="menu"][aria-label*="ccount"]').click();
     // The menu says Log out (profile.logOut); run 3 of 15c looked for "Sign out" and never found it.
-    await $("//li[@role='menuitem'][normalize-space()='Log out']").click();
+    // It grows open, and a click while it grows lands higher up when it ends: on Change password,
+    // the item above (rc.3, a busy runner). Click once it has stopped moving.
+    const logOut = $("//li[@role='menuitem'][normalize-space()='Log out']");
+    await logOut.waitForDisplayed({ timeout: 15_000 });
+    await logOut.waitForStable({ timeout: 15_000 });
+    await logOut.click();
     // Asked first only when something has not synced yet.
     const anyway = button('Log out anyway');
     const asked = await anyway.waitForExist({ timeout: 3_000 }).then(

@@ -845,6 +845,11 @@ android-release:
       optional: true
     - job: lint
       optional: true
+    # After e2e-server on a release commit: its browsers ran slow on a runner busy with this build
+    # and the packages, and failed (rc.3, three times). Not in a pipeline without it.
+    - job: e2e-server
+      optional: true
+      artifacts: false
   resource_group: heavy-build
   script:
     - |
@@ -906,6 +911,11 @@ packages:
       optional: true
     - job: server-test
       optional: true
+    # After e2e-server, as android-release is; package-test, package-test-arm64 and
+    # windows-installer wait for this job, so for it too.
+    - job: e2e-server
+      optional: true
+      artifacts: false
   timeout: 30m
   resource_group: heavy-build
   cache:
@@ -1110,7 +1120,9 @@ e2e-server-mr:
 e2e-server:
   extends: .node
   image: $CI_IMAGES/browsers:$CI_IMAGES_TAG
-  stage: publish
+  # In build, beside container-image, so the release builds there (android-release, packages) can
+  # wait for it: it runs first, on a runner they are not loading yet.
+  stage: build
   # After ci-images too, when this pipeline runs it, so a main push that changes the browsers image
   # tests with the new :latest.
   needs:
@@ -1134,6 +1146,11 @@ e2e-server:
     E2E_BROWSERS: chrome
   script:
     - pnpm e2e:server
+  # What a failed test saw: its screenshot and page, and the passkey spec's diagnostics.
+  artifacts:
+    when: on_failure
+    paths: [e2e/screenshots]
+    expire_in: 7 days
   rules:
     - *not-on-schedule
     - <<: *release-commit
