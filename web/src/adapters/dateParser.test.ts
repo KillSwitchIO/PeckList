@@ -111,6 +111,70 @@ describe('chrono-node in the app language (PL-148)', () => {
     expect(time(french, 'demain 3h de l’après-midi')).toBe('15:00');
   });
 
+  it('takes a part of the day after a date, which keeps no time (bug sweep)', () => {
+    expect(read(german, 'Arzt morgen früh')).toEqual([
+      { text: 'morgen früh', start: { date: '2026-10-22', time: null }, end: null },
+    ]);
+    expect(read(german, 'Anrufen Montag abends')[0]!.text).toBe('Montag abends');
+    expect(read(spanish, 'Llamar mañana por la mañana')).toEqual([
+      { text: 'mañana por la mañana', start: { date: '2026-10-22', time: null }, end: null },
+    ]);
+    expect(read(spanish, 'Cena el lunes por la noche')).toEqual([
+      { text: 'el lunes por la noche', start: { date: '2026-10-26', time: null }, end: null },
+    ]);
+    // After a time, the part of the day makes it the afternoon, as "de la tarde" does.
+    expect(read(spanish, 'mañana a las 3 por la tarde')).toEqual([
+      {
+        text: 'mañana a las 3 por la tarde',
+        start: { date: '2026-10-22', time: '15:00' },
+        end: null,
+      },
+    ]);
+  });
+
+  it('reads "la próxima semana" as a week on, as "next week" is', () => {
+    expect(read(spanish, 'Llamar la próxima semana')).toEqual([
+      { text: 'la próxima semana', start: { date: '2026-10-28', time: null }, end: null },
+    ]);
+    expect(read(spanish, 'Llamar la semana que viene')[0]!.start.date).toBe('2026-10-28');
+    expect(read(createChronoDateParser(), 'Call next week')[0]!.start.date).toBe('2026-10-28');
+  });
+
+  it('reads 12 "de la noche" as 23:59 on that day, and "del mediodía" as afternoon', () => {
+    expect(read(spanish, 'Entregar mañana a las 12 de la noche')).toEqual([
+      {
+        text: 'mañana a las 12 de la noche',
+        start: { date: '2026-10-22', time: '23:59' },
+        end: null,
+      },
+    ]);
+    expect(read(spanish, 'mañana a las 12 de la tarde')[0]!.start).toEqual({
+      date: '2026-10-22',
+      time: '12:00',
+    });
+    expect(read(spanish, 'Comer mañana a las 12 del mediodía')).toEqual([
+      {
+        text: 'mañana a las 12 del mediodía',
+        start: { date: '2026-10-22', time: '12:00' },
+        end: null,
+      },
+    ]);
+    // In Spain "las 2 del mediodía" is after lunch: 14:00 (Dev 2).
+    expect(read(spanish, 'mañana a las 2 del mediodía')[0]!.start).toEqual({
+      date: '2026-10-22',
+      time: '14:00',
+    });
+  });
+
+  it('finds no date inside a word, whatever its letters', () => {
+    // German chrono read the "Fr" of "Frühstück" as Friday: its word edges miss "ü".
+    expect(read(german, 'Frühstück machen')).toEqual([]);
+    expect(read(german, 'Frühjahrsputz')).toEqual([]);
+    expect(read(createChronoDateParser(), 'Cafésat')).toEqual([]);
+    // A date beside a word still counts.
+    expect(read(german, 'Frühstück Freitag')[0]!.text).toBe('Freitag');
+  });
+
   it('leaves a match that ends in a range word joining nothing', () => {
     // chrono-es reads "de 3 a" in "Clase de 3 a 5" as tomorrow 03:00 (Dev 1).
     expect(read(spanish, 'Clase de 3 a 5')).toEqual([]);

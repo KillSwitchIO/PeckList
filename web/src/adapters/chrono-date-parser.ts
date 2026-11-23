@@ -58,18 +58,31 @@ interface Mending {
   join?: string;
   /** Words after a time: afternoon or evening ("a las 3 de la tarde"), morning, or the hour's own word ("à 15 heures") */
   after?: { pm: string; am: string; word?: string };
+  /** Of `after.pm`, the words that make 12 midnight rather than noon ("a las 12 de la noche"): the day's last minute, 23:59, so a deadline stays on that day */
+  midnight?: string;
+  /** A part of the day after a date with no time ("morgen früh", "el lunes por la noche"): it goes with the date, which keeps no time, as "tomorrow morning" does */
+  dayPart?: string;
+  /** "next week", which chrono does not read in this language: a week on, as English chrono reads it */
+  nextWeek?: string;
 }
 
 const MENDING: Readonly<Record<string, Mending>> = {
-  de: { lead: 'vom|von', join: 'bis' },
+  de: {
+    lead: 'vom|von',
+    join: 'bis',
+    dayPart: String.raw`fr[üu]h|morgens|vormittags?|mittags?|nachmittags?|abends?|nachts?|am\s+(?:morgen|vormittag|mittag|nachmittag|abend)`,
+  },
   es: {
     dayAfterTomorrow: String.raw`pasado\s+ma[ñn]ana`,
     lead: 'el|del|de|a',
     join: String.raw`al|a|hasta(?:\s+el)?`,
     after: {
-      pm: String.raw`de\s+la\s+(?:tarde|noche)`,
-      am: String.raw`de\s+la\s+(?:ma[ñn]ana|madrugada)`,
+      pm: String.raw`(?:de|por)\s+la\s+(?:tarde|noche)|del\s+mediod[ií]a`,
+      am: String.raw`(?:de|por)\s+la\s+(?:ma[ñn]ana|madrugada)`,
     },
+    midnight: String.raw`(?:de|por)\s+la\s+noche`,
+    dayPart: String.raw`(?:por|en)\s+la\s+(?:ma[ñn]ana|tarde|noche)`,
+    nextWeek: String.raw`(?:la\s+)?(?:pr[oó]xima|siguiente)\s+semana|la\s+semana\s+(?:que\s+viene|pr[oó]xima|siguiente)`,
   },
   fr: {
     dayAfterTomorrow: String.raw`apr[eè]s[-\s]?demain`,
@@ -83,13 +96,16 @@ const MENDING: Readonly<Record<string, Mending>> = {
   },
 };
 
-/** "pasado mañana": two days on from the reference, as chrono's own "mañana" is one. */
-function dayAfterTomorrow(source: string): Parser {
+/**
+ * Words that name a day some days on from the reference: "pasado mañana" (two, as chrono's own
+ * "mañana" is one) and "la próxima semana" (seven, as English chrono reads "next week").
+ */
+function daysOn(source: string, days: number): Parser {
   return {
     pattern: () => new RegExp(String.raw`(^|\s)(${source})(?=$|[\s,.;!?])`, 'i'),
     extract: (context, match) => {
       const day = new Date(context.refDate);
-      day.setDate(day.getDate() + 2);
+      day.setDate(day.getDate() + days);
       return context.createParsingResult(match.index! + match[1]!.length, match[2]!, {
         year: day.getFullYear(),
         month: day.getMonth() + 1,
@@ -124,7 +140,14 @@ const timed = (each: Found) =>
 function ownReader(locale: ChronoLocale) {
   const mending = MENDING[locale.language] ?? {};
   const chrono = locale.casual.clone();
-  if (mending.dayAfterTomorrow) chrono.parsers.unshift(dayAfterTomorrow(mending.dayAfterTomorrow));
+  if (mending.dayAfterTomorrow) chrono.parsers.unshift(daysOn(mending.dayAfterTomorrow, 2));
+  if (mending.nextWeek) chrono.parsers.unshift(daysOn(mending.nextWeek, 7));
+  const midnight = mending.midnight
+    ? new RegExp(String.raw`^\s+(?:${mending.midnight})`, 'i')
+    : null;
+  const dayPart = mending.dayPart
+    ? new RegExp(String.raw`^\s+(?:${mending.dayPart})(?=$|[\s,.;!?])`, 'i')
+    : null;
   const words = mending.join ? `|\\s+(?:${mending.join})\\s+` : '';
   const between = new RegExp(String.raw`^(?:\s*[-–]\s*${words})$`, 'i');
   const joins = new RegExp(String.raw`\s*[-–]\s*${words}`, 'gi');
@@ -186,6 +209,23 @@ function ownReader(locale: ChronoLocale) {
       const start = each.start as ParsingComponents;
       if (said[1] && hour < 12) start.assign('hour', hour + 12);
       if (said[2] && hour === 12) start.assign('hour', 0);
+      if (said[1] && hour === 12 && midnight?.test(said[0])) {
+        // The day's last minute, 23:59, so a deadline stays on that day.
+        start.assign('hour', 23);
+        start.assign('minute', 59);
+      }
+      each.text += said[0];
+      const end = each.index + each.text.length;
+      while (mended[at + 1] && mended[at + 1]!.index < end) mended.splice(at + 1, 1);
+    }
+    // "morgen früh", "el lunes por la noche": the part of the day goes with the date, which keeps
+    // no time ("tomorrow morning" has none either). chrono reads "tarde" or "noche" on its own as
+    // today, and the "Fr" of "früh" as Friday; those go.
+    for (let at = 0; dayPart && at < mended.length; at++) {
+      const each = mended[at]!;
+      if (each.end || timed(each)) continue;
+      const said = dayPart.exec(text.slice(each.index + each.text.length));
+      if (!said) continue;
       each.text += said[0];
       const end = each.index + each.text.length;
       while (mended[at + 1] && mended[at + 1]!.index < end) mended.splice(at + 1, 1);
@@ -203,6 +243,15 @@ function ownReader(locale: ChronoLocale) {
     return mended;
   };
 }
+
+/**
+ * Whether a match sits inside a word: chrono's word edges miss letters outside ASCII, so German
+ * chrono reads the "Fr" of "Frühstück" as Friday, and English the "sat" of "Cafésat".
+ */
+const LETTER = /\p{L}/u;
+const inWord = (text: string, each: Found) =>
+  LETTER.test(text.charAt(each.index - 1)) ||
+  LETTER.test(text.charAt(each.index + each.text.length));
 
 const englishReader = (text: string, reference: Date): Found[] =>
   english.casual.parse(text, reference, { forwardDate: true }).map(found);
@@ -245,8 +294,9 @@ export function createChronoDateParser(locale?: ChronoLocale): DateParser {
   const dangling = join ? new RegExp(String.raw`\s(?:${join})$`, 'i') : null;
   return {
     find(text, reference) {
-      const read = englishReader(text, reference);
-      const dates = (own ? together(own(text, reference), read) : read).filter(
+      const outside = (each: Found) => !inWord(text, each);
+      const read = englishReader(text, reference).filter(outside);
+      const dates = (own ? together(own(text, reference).filter(outside), read) : read).filter(
         (each) => !dangling?.test(each.text),
       );
       return dates.map((each): DateMatch => {
