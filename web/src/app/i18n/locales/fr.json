@@ -266,6 +266,7 @@
   "apiKeys.needsServer": "Les clés d’API nécessitent un serveur PeckList avec des comptes.",
   "audit.type.account.api-key-created": "{actor} a créé la clé d’API {target}",
   "audit.type.account.api-key-revoked": "{actor} a révoqué une clé d’API",
+  "audit.type.mcp.task-changed": "{actor} a modifié une tâche via MCP avec la clé d’API {target}",
   "completed.hide": "Masquer le groupe Clôturées",
   "completed.hideHint": "Sur cet appareil. Réaffichez-les dans Paramètres > Tâches.",
   "settings.showCompleted": "Afficher le groupe Clôturées",

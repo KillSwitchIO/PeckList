@@ -266,6 +266,7 @@
   "apiKeys.needsServer": "Las claves de API necesitan un servidor de PeckList con cuentas.",
   "audit.type.account.api-key-created": "{actor} creó la clave de API {target}",
   "audit.type.account.api-key-revoked": "{actor} revocó una clave de API",
+  "audit.type.mcp.task-changed": "{actor} cambió una tarea por MCP con la clave de API {target}",
   "completed.hide": "Ocultar el grupo Cerradas",
   "completed.hideHint": "En este dispositivo. Vuelve a mostrarlas en Ajustes > Tareas.",
   "settings.showCompleted": "Mostrar el grupo Cerradas",
