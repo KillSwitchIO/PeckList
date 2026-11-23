@@ -9,6 +9,12 @@ public enum PutResult
 
     /// <summary>Over the size limit; nothing kept.</summary>
     TooLarge,
+
+    /// <summary>
+    /// The same bytes are here but in use, so they could be neither marked written now nor
+    /// replaced: left as they were, and the clean-up could still take them. Send them again later.
+    /// </summary>
+    Busy,
 }
 
 /// <summary>
@@ -19,6 +25,13 @@ public enum PutResult
 public interface IAttachmentStore
 {
     Task<bool> ExistsAsync(string sha256, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Whether the file is here, marked written now so the clean-up keeps it for an attachment
+    /// about to name it, as an upload of its bytes would be (one answered "already here" sends
+    /// none). False when it is not here, or cannot be marked this moment: then the bytes are sent.
+    /// </summary>
+    Task<bool> KeepAsync(string sha256, CancellationToken cancellation = default);
 
     /// <summary>Keep the bytes if they hash to <paramref name="sha256"/> and fit <paramref name="maxBytes"/>.</summary>
     Task<PutResult> PutAsync(string sha256, Stream content, long maxBytes, CancellationToken cancellation = default);
