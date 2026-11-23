@@ -313,6 +313,22 @@ describe("importWorkspace: another account's file, on a server (1.0)", () => {
     expect(/^[0-9A-HJKMNP-TV-Z]{26}$/.test(newTent.id)).toBe(true);
   });
 
+  it('wears a tag this account already has under its name, rather than a second one (Dev 2)', () => {
+    const { here, theirs, tag } = setup();
+    const benCtx = testContext('dev1', T0, here.owner);
+    const mine = createTag(benCtx, here, 'Outdoors');
+    const merged = importWorkspace(mine.workspace, theirs, { onServer: true });
+    const tags = merged.entities.tags.filter((each) => each.deletedAt === null);
+    expect(tags.map((each) => each.name)).toEqual([mine.tag.name]);
+    const newTent = merged.entities.tasks.find((task) => task.title === 'Tent')!;
+    expect(members(newTent.tags)).toEqual([mine.tag.id]);
+    const template = templatesOf(merged).find((each) => each.name === 'Tent')!;
+    expect((template.body as { tags: string[] }).tags).toEqual([mine.tag.id]);
+    expect(merged.entities.tags.some((each) => each.id === adoptedId(tag.id, here.owner))).toBe(
+      false,
+    );
+  });
+
   it("comes in as this account's own: made by it, its lists, assigned to it at most, no one else's people or words", () => {
     const { here, theirs } = setup();
     const merged = importWorkspace(here, theirs, { onServer: true });
