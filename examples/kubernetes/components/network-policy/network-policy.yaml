@@ -9,9 +9,17 @@ spec:
   policyTypes: [Ingress]
   ingress:
     - from:
+        # ingress-nginx, in its own namespace.
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
+        # k3s's own Traefik: only its pods, not the rest of kube-system.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: pecklist-backup

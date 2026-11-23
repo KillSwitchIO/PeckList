@@ -104,7 +104,9 @@ Two things go with that:
   controller's Service, or use the PROXY protocol if your load balancer offers it.
 - Trusting the pod network trusts **every** pod in the cluster to name the visitor. Add the
   `network-policy` component so only the ingress controller and the backup job reach PeckList
-  (it assumes the controller runs in the `ingress-nginx` namespace; change that to yours).
+  (it lets in ingress-nginx from its own namespace and k3s's built-in Traefik from `kube-system`;
+  change it if your controller runs elsewhere). A controller on `hostNetwork` connects from the
+  node's address, which no pod selector matches: admit the nodes' addresses with an `ipBlock`.
 
 The Ingress's annotations are for ingress-nginx: room for 200 MB uploads (backups to restore), and
 no buffering with a one-hour read timeout, so live updates (`/api/events`) arrive at once and their
