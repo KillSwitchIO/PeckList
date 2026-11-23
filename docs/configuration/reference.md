@@ -219,8 +219,13 @@ they show what the API offers, never anyone's data. Turn it off and both answer 
 Serve the MCP connector at `/mcp`, so assistants that speak the Model Context Protocol (Claude,
 ChatGPT, editors such as Cursor) can read and change a person's tasks. Each person connects with
 one of their own API keys, and the assistant can do only what the key allows and the person could
-do in the app. Off, `/mcp` answers 404. It needs sign-in: the server does not start with `MCP=on`
-and `AUTH_MODE=none`. **Default:** `false`. **Where:** any, live.
+do in the app. Its changes count against the same limit as the task API's (120 a minute per
+person, all their keys and apps together), and each one is in the audit log with the name of the
+key it came by. Tasks in lists shared with you hold other people's words, and an assistant reads
+them too: the tools tell it they are data, not instructions, and mark the tasks in shared lists,
+but check what an assistant wants to change in a shared list before you let it. Off, `/mcp`
+answers 404. It needs sign-in: the server does not start with `MCP=on` and `AUTH_MODE=none`.
+**Default:** `false`. **Where:** any, live.
 
 ### `ATTACHMENT_DIR`
 

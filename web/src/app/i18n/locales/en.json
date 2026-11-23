@@ -266,6 +266,7 @@
   "apiKeys.needsServer": "API keys need a PeckList server with accounts.",
   "audit.type.account.api-key-created": "{actor} made the API key {target}",
   "audit.type.account.api-key-revoked": "{actor} revoked an API key",
+  "audit.type.mcp.task-changed": "{actor} changed a task through MCP with the API key {target}",
   "completed.hide": "Hide the Closed group",
   "completed.hideHint": "On this device. Show them again in Settings > Tasks.",
   "settings.showCompleted": "Show the Closed group",

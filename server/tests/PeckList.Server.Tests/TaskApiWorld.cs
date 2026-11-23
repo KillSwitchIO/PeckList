@@ -60,6 +60,10 @@ internal sealed class TaskApiWorld : IDisposable
             ("DB_CONNECTION_STRING", new Npgsql.NpgsqlConnectionStringBuilder(given) { Database = name }.ToString())));
     }
 
+    /// <summary>On SQLite with the MCP connector on (PL-113).</summary>
+    public static TaskApiWorld StartWithMcp(ServerFixture fixture) =>
+        new(fixture.Factory(("ADMIN_PASSWORD", AdminPassword), ("DB_PATH", fixture.NewDbPath()), ("MCP", "on")));
+
     public void Dispose() => Server.Dispose();
 
     /// <summary>One person: a signed-in session, and their id.</summary>

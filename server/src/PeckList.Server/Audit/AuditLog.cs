@@ -166,13 +166,13 @@ public sealed class AuditLog : BackgroundService
     /// </summary>
     public void RecordEvent(
         HttpContext? context, string type, string? actorId, string? actorName, string? targetId, string? targetName, string? detail,
-        string? impersonatorId = null, string? impersonatorName = null) => Record(new AuditEntry
+        string? impersonatorId = null, string? impersonatorName = null, string outcome = AuditOutcome.Ok) => Record(new AuditEntry
     {
         Id = NextId(),
         Time = time.GetUtcNow(),
         Kind = AuditKind.Event,
         Type = type,
-        Outcome = AuditOutcome.Ok,
+        Outcome = outcome,
         ActorId = actorId,
         ActorName = actorName,
         ImpersonatorId = impersonatorId,

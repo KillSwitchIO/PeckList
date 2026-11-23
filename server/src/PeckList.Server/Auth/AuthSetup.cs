@@ -137,6 +137,7 @@ public static class AuthSetup
                     .RequireAssertion(context => context.User.AccountRole().Can(permission)));
             }
         });
+        services.AddSingleton<Api.TaskWriteLimit>();
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -165,9 +166,10 @@ public static class AuthSetup
             options.AddPolicy(Api.TaskApiEndpoints.ReadRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 "read:" + Caller(context),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = Api.TaskApiEndpoints.ReadsPerMinute, Window = TimeSpan.FromMinutes(1) }));
-            options.AddPolicy(Api.TaskApiEndpoints.WriteRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
-                "write:" + Caller(context),
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = Api.TaskApiEndpoints.WritesPerMinute, Window = TimeSpan.FromMinutes(1) }));
+            // Writes take from a limiter of their own, which the MCP connector's write tools share.
+            options.AddPolicy(Api.TaskApiEndpoints.WriteRateLimit, context => RateLimitPartition.Get(
+                Api.TaskWriteLimit.KeyOf(context),
+                key => context.RequestServices.GetRequiredService<Api.TaskWriteLimit>().For(key)));
             // Signing the CLI in: per address, as nobody is signed in yet.
             options.AddPolicy(Api.CliSignInEndpoints.StartRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 "cli-start:" + AddressKey(context),

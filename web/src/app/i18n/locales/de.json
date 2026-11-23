@@ -266,6 +266,7 @@
   "apiKeys.needsServer": "API-Schlüssel brauchen einen PeckList-Server mit Konten.",
   "audit.type.account.api-key-created": "{actor} hat den API-Schlüssel {target} erstellt",
   "audit.type.account.api-key-revoked": "{actor} hat einen API-Schlüssel widerrufen",
+  "audit.type.mcp.task-changed": "{actor} hat über MCP mit dem API-Schlüssel {target} eine Aufgabe geändert",
   "completed.hide": "Gruppe „Abgeschlossen“ ausblenden",
   "completed.hideHint": "Auf diesem Gerät. Unter Einstellungen > Aufgaben wieder einblenden.",
   "settings.showCompleted": "Gruppe „Abgeschlossen“ anzeigen",
