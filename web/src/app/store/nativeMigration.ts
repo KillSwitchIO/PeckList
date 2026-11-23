@@ -356,6 +356,17 @@ export async function olderCopy(name = 'pecklist'): Promise<WorkspaceFile | null
   return left && asSaved(left);
 }
 
+/**
+ * The account the older copy last synced with, from the sync state kept beside it; null when it
+ * never signed in (a workspace on this phone alone) or there is no copy. Settings asks before
+ * bringing another account's tasks into this one (bug sweep, PL-070 review).
+ */
+export async function olderCopyAccount(name = 'pecklist'): Promise<string | null> {
+  if ((await webViewDatabases(name)).length === 0) return null;
+  const meta = (await createIndexedDbStorage(name).loadMeta(SYNC)) as { account?: unknown } | null;
+  return typeof meta?.account === 'string' ? meta.account : null;
+}
+
 /** Deletes the older copy (attached files stay), and the flag once it is gone. True when gone. */
 export async function deleteOlderCopy(name = 'pecklist'): Promise<boolean> {
   await dropWebView(name);

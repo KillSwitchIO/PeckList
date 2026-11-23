@@ -124,6 +124,7 @@
   "settings.data.olderBringIn": "La récupérer",
   "settings.data.olderDelete": "La supprimer",
   "settings.data.olderConfirm": "Supprimer l’ancienne copie de vos données ? Cette action est irréversible.",
+  "settings.data.olderOtherAccount": "Cette copie était connectée à un autre compte que celui que vous utilisez. Importer ses tâches dans celui-ci ?",
   "settings.data.olderDeleted": "L’ancienne copie est supprimée.",
   "settings.data.olderFailed": "L’ancienne copie n’a pas pu être récupérée. Elle reste là, et vous pourrez réessayer après une mise à jour.",
   "settings.data.invalid": "Ce fichier n’est pas un export PeckList : {reason}",

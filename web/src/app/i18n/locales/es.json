@@ -124,6 +124,7 @@
   "settings.data.olderBringIn": "Traerla",
   "settings.data.olderDelete": "Eliminarla",
   "settings.data.olderConfirm": "¿Eliminar la copia antigua de tus datos? No se puede deshacer.",
+  "settings.data.olderOtherAccount": "Esta copia tenía la sesión iniciada en una cuenta distinta de la que usas ahora. ¿Traer sus tareas a esta?",
   "settings.data.olderDeleted": "La copia antigua se eliminó.",
   "settings.data.olderFailed": "No se pudo traer la copia antigua. Se queda, así que puedes volver a intentarlo tras una actualización.",
   "settings.data.invalid": "Ese archivo no es una exportación de PeckList: {reason}",

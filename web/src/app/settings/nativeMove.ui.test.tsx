@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createIndexedDbStorage } from '../../adapters/indexeddb-storage.ts';
 import type { WorkspaceFile } from '../../core/types.ts';
 import { sampleWorkspace } from '../../test/fixtures.ts';
+import { createMemoryStorage } from '../../adapters/memory-storage.ts';
+import { FakeBackend } from '../../test/fakeTransport.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
+import { createSyncEngine } from '../sync/syncEngine.ts';
 
 beforeEach(() => {
   localStorage.clear();
@@ -25,11 +28,17 @@ const webViewNames = async () =>
 /** Another local owner, as an older build makes on a fresh IndexedDB (QA, D3). */
 const OTHER_OWNER = '01J0000000000000000000000W';
 
-/** An older copy the Android app kept in the WebView because it could not merge it. */
-async function keepOlder(workspace: WorkspaceFile = { ...sampleWorkspace(), owner: OTHER_OWNER }) {
+/**
+ * An older copy the Android app kept in the WebView because it could not merge it; `account` is
+ * the account it last synced with, null for one that never signed in.
+ */
+async function keepOlder(
+  workspace: WorkspaceFile = { ...sampleWorkspace(), owner: OTHER_OWNER },
+  account: string | null = null,
+) {
   const webView = createIndexedDbStorage();
   await webView.save(workspace);
-  await webView.saveMeta('sync', { account: 'U2', cursor: 1, acks: {}, epoch: 'e1' });
+  await webView.saveMeta('sync', { account, cursor: 1, acks: {}, epoch: 'e1' });
   localStorage.setItem('pecklist.olderCopyKept', 'true');
 }
 
@@ -75,6 +84,48 @@ describe('settings: an older copy the Android app kept (PL-070)', () => {
     );
     expect(await webViewNames()).toEqual([]);
     expect(localStorage.getItem('pecklist.olderCopyKept')).toBeNull();
+  });
+
+  it('asks before bringing in a copy another account synced, and cancelling keeps it', async () => {
+    await keepOlder(undefined, 'U2');
+    const { store } = await renderApp('/settings/data', testStore());
+    const data = await screen.findByRole('region', { name: 'Your data' });
+    await userEvent.click(within(data).getByRole('button', { name: 'Bring it in' }));
+    const ask = await screen.findByRole('dialog');
+    expect(within(ask).getByText(/signed in to a different account/)).toBeInTheDocument();
+    await userEvent.click(within(ask).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(titles(store)).not.toContain('Call vet');
+    expect(within(data).getByText('An older copy of your data')).toBeInTheDocument();
+
+    await userEvent.click(within(data).getByRole('button', { name: 'Bring it in' }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Bring it in' }),
+    );
+    expect(await within(data).findByText(/Imported: 2 new tasks/)).toBeInTheDocument();
+    expect(titles(store)).toEqual(expect.arrayContaining(['Mow lawn', 'Call vet']));
+  });
+
+  it('asks nothing for a copy this same account synced', async () => {
+    const backend = new FakeBackend();
+    const ann = backend.addAccount('ann', 'correct horse battery');
+    const store = testStore();
+    await store.getState().init();
+    const sync = createSyncEngine({
+      transport: Object.assign(backend.device(), { session: 'ann' }),
+      workspace: store,
+      storage: createMemoryStorage(),
+      debounceMs: 60_000,
+      intervalMs: 600_000,
+    });
+    await sync.getState().start();
+    await keepOlder(undefined, ann.id);
+    await renderApp('/settings/data', store, sync);
+    const data = await screen.findByRole('region', { name: 'Your data' });
+    await userEvent.click(within(data).getByRole('button', { name: 'Bring it in' }));
+    expect(await within(data).findByText(/Imported: 2 new tasks/)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    sync.getState().stop();
   });
 
   it('keeps a copy that cannot be brought in, and says so', async () => {
