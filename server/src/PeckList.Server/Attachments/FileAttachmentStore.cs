@@ -24,6 +24,31 @@ public sealed class FileAttachmentStore(string folder) : IAttachmentStore
     public Task<bool> ExistsAsync(string sha256, CancellationToken cancellation = default) =>
         Task.FromResult(AttachmentHash.IsValid(sha256) && File.Exists(PathOf(sha256)));
 
+    public async Task<bool> KeepAsync(string sha256, CancellationToken cancellation = default)
+    {
+        if (!AttachmentHash.IsValid(sha256)) return false;
+        var path = PathOf(sha256);
+        // In turn with the clean-up (Dev 2, review of the re-upload race): marked first, it stays;
+        // deleted first, it is not here, and the bytes are sent and stored again.
+        await Turn.WaitAsync(cancellation);
+        try
+        {
+            if (!File.Exists(path)) return false;
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow);
+            return true;
+        }
+        // Busy, or a file this server does not own (a folder copied in as root, on Linux): the
+        // bytes are sent, and storing them puts a copy of its own in place.
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+        finally
+        {
+            Turn.Release();
+        }
+    }
+
     public async Task<PutResult> PutAsync(string sha256, Stream content, long maxBytes, CancellationToken cancellation = default)
     {
         var target = PathOf(sha256);
@@ -74,18 +99,22 @@ public sealed class FileAttachmentStore(string folder) : IAttachmentStore
                 File.SetLastWriteTimeUtc(target, DateTime.UtcNow);
                 return PutResult.Stored;
             }
-            catch (IOException)
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
             {
-                // Busy this moment: the new copy goes in its place instead, written now too. Busy
-                // as well: the copy is there either way.
+                // Busy this moment, or not this server's to touch (copied in as root, on Linux;
+                // replacing it needs only the folder): the new copy goes in its place instead,
+                // written now too. Busy as well: the old copy is there with its old time, which
+                // the clean-up could take, so the upload is asked to come again rather than told
+                // it is stored.
                 try
                 {
                     File.Move(temporary, target, overwrite: true);
+                    return PutResult.Stored;
                 }
                 catch (IOException)
                 {
+                    return PutResult.Busy;
                 }
-                return PutResult.Stored;
             }
         }
         // The same file may have arrived meanwhile: either copy is the same bytes.

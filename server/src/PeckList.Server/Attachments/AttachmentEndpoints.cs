@@ -59,8 +59,10 @@ public static class AttachmentEndpoints
             // "Already here" only to someone who holds the file or may download it, who learns
             // nothing from it. Anyone else sends the bytes, checked whether or not the server has
             // them, and hears the same 201 either way: no answer says whether someone else has it.
+            // "Already here" marks the file written now, as sending the bytes would, so the
+            // clean-up keeps it for the attachment about to name it.
             if ((holders.Holds(sha256, person) || sharing.Index.SeesFile(person, sha256, holders.Holds))
-                && await store.ExistsAsync(sha256, context.RequestAborted))
+                && await store.KeepAsync(sha256, context.RequestAborted))
             {
                 return Results.NoContent();
             }
@@ -76,13 +78,16 @@ public static class AttachmentEndpoints
             {
                 PutResult.Stored => Results.Created($"/api/attachments/{sha256}", null),
                 PutResult.TooLarge => TooLarge(live),
+                // Read by the apps as the server being away for a moment: they send it again later.
+                PutResult.Busy => Results.Json(new AttachmentError("busy", "the file is in use; send it again in a minute"),
+                    statusCode: StatusCodes.Status503ServiceUnavailable),
                 _ => Results.BadRequest(new AttachmentError("hash_mismatch", "the bytes do not match their SHA-256")),
             };
         })
             .WithSummary("Upload a file under its SHA-256 (the raw bytes as the body): 201 stored, 204 already here and yours to download")
             .Takes<Stream>(contentType: "application/octet-stream").Produces(StatusCodes.Status201Created).Produces(StatusCodes.Status204NoContent)
             .Produces<AttachmentError>(StatusCodes.Status400BadRequest).Produces<AttachmentError>(StatusCodes.Status413PayloadTooLarge)
-            .Produces<AttachmentError>(StatusCodes.Status429TooManyRequests);
+            .Produces<AttachmentError>(StatusCodes.Status429TooManyRequests).Produces<AttachmentError>(StatusCodes.Status503ServiceUnavailable);
 
         api.MapGet("/attachments/{sha256}", async (
             string sha256, string? name, string? type, ClaimsPrincipal user, SharingState sharing, FileHolders holders, IAttachmentStore store,

@@ -9,6 +9,7 @@ using PeckList.Core;
 using PeckList.Core.Accounts;
 using PeckList.Core.Attachments;
 using PeckList.Core.Backup;
+using PeckList.Core.Configuration;
 using PeckList.Core.Sharing;
 using PeckList.Server.Attachments;
 
@@ -535,10 +536,43 @@ public sealed class AttachmentTests(ServerFixture fixture) : IClassFixture<Serve
         }
     }
 
+    [Fact]
+    public async Task Already_here_marks_the_file_written_now_so_the_clean_up_keeps_it()
+    {
+        // Dev 2, review of the re-upload race: a holder whose upload was over a day old heard 204
+        // "already here" and sent nothing, and a clean-up before their attachment synced took the bytes.
+        var (lee, _) = await SignIn("lee-keep");
+        var bytes = Encoding.UTF8.GetBytes("held a while, attached again");
+        Assert.Equal(HttpStatusCode.Created, (await lee.PutAsync($"/api/attachments/{Sha(bytes)}", new ByteArrayContent(bytes), Token)).StatusCode);
+        var path = Path.Combine(factory.Services.GetRequiredService<ServerSettings>().AttachmentDir, Sha(bytes)[..2], Sha(bytes));
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddDays(-3));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await lee.PutAsync($"/api/attachments/{Sha(bytes)}", new ByteArrayContent(bytes), Token)).StatusCode);
+        Assert.True(File.GetLastWriteTimeUtc(path) > DateTime.UtcNow.AddMinutes(-5));
+    }
+
+    [Fact]
+    public async Task Keeping_a_file_not_here_says_so()
+    {
+        var folder = Directory.CreateTempSubdirectory("pecklist-keep-").FullName;
+        try
+        {
+            var files = new FileAttachmentStore(folder);
+            Assert.False(await files.KeepAsync(Sha(Encoding.UTF8.GetBytes("never sent")), Token));
+            Assert.False(await files.KeepAsync("not a hash", Token));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
     /// <summary>A store whose list is taken, then <paramref name="between"/> runs, then the list is handed out.</summary>
     private sealed class BetweenListAndDelete(IAttachmentStore inner, Func<Task> between) : IAttachmentStore
     {
         public Task<bool> ExistsAsync(string sha256, CancellationToken cancellation = default) => inner.ExistsAsync(sha256, cancellation);
+
+        public Task<bool> KeepAsync(string sha256, CancellationToken cancellation = default) => inner.KeepAsync(sha256, cancellation);
 
         public Task<PutResult> PutAsync(string sha256, Stream content, long maxBytes, CancellationToken cancellation = default) =>
             inner.PutAsync(sha256, content, maxBytes, cancellation);

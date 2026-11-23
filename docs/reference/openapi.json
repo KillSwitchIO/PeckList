@@ -1250,6 +1250,16 @@
               }
             }
           },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentError"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Not signed in, or the API key is not a working one"
           },
