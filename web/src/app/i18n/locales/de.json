@@ -124,6 +124,7 @@
   "settings.data.olderBringIn": "Übernehmen",
   "settings.data.olderDelete": "Löschen",
   "settings.data.olderConfirm": "Die ältere Kopie deiner Daten löschen? Das lässt sich nicht rückgängig machen.",
+  "settings.data.olderOtherAccount": "Diese Kopie war mit einem anderen Konto angemeldet als dem, das du gerade nutzt. Ihre Aufgaben in dieses Konto übernehmen?",
   "settings.data.olderDeleted": "Die ältere Kopie ist gelöscht.",
   "settings.data.olderFailed": "Die ältere Kopie konnte nicht übernommen werden. Sie bleibt, sodass du es nach einem Update erneut versuchen kannst.",
   "settings.data.invalid": "Diese Datei ist kein PeckList-Export: {reason}",

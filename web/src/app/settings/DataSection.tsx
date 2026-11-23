@@ -10,6 +10,7 @@ import {
   FAILURES_TO_SAY,
   nativeMoveFailures,
   olderCopy,
+  olderCopyAccount,
   olderCopyKept,
 } from '../store/nativeMigration.ts';
 import type { ImportOutcome } from '../store/workspaceStore.ts';
@@ -27,6 +28,7 @@ export function DataSection() {
   const store = useWorkspaceStore();
   // Signed in: another account's file takes fresh ids, which the server accepts (1.0).
   const onServer = useSyncState((state) => state.account !== null);
+  const accountId = useSyncState((state) => state.account?.id ?? null);
   const input = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [open, setOpen] = useState<'import' | 'export' | null>(null);
@@ -36,6 +38,8 @@ export function DataSection() {
   const [older, setOlder] = useState(olderCopyKept);
   const [olderBusy, setOlderBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // The older copy was signed in to another account than this one: asked first.
+  const [confirmOther, setConfirmOther] = useState(false);
 
   const download = () => {
     const workspace = store.getState().workspace;
@@ -99,6 +103,23 @@ export function DataSection() {
     }
   };
 
+  // A copy that synced with another account would add that account's tasks to this one: say so
+  // first. One that never signed in is this phone's own, and comes in as it did.
+  const askBringInOlder = async () => {
+    // Busy from the first tap: a second one while the account is read starts nothing (Dev 2).
+    setOlderBusy(true);
+    let from: string | null = null;
+    try {
+      from = await olderCopyAccount();
+    } catch (error) {
+      console.warn('Could not read the older copy\u2019s account', error);
+    }
+    if (from !== null && from !== accountId) {
+      setOlderBusy(false);
+      setConfirmOther(true);
+    } else void bringInOlder();
+  };
+
   const deleteOlder = async () => {
     setConfirmDelete(false);
     setNotice(null);
@@ -121,7 +142,7 @@ export function DataSection() {
       )}
       {older && (
         <SettingRow label={t('settings.data.older')} hint={t('settings.data.olderHint')}>
-          <Button variant="outlined" disabled={olderBusy} onClick={() => void bringInOlder()}>
+          <Button variant="outlined" disabled={olderBusy} onClick={() => void askBringInOlder()}>
             {t('settings.data.olderBringIn')}
           </Button>
           <Button
@@ -192,6 +213,16 @@ export function DataSection() {
         confirmLabel={t('settings.data.olderDelete')}
         onClose={() => setConfirmDelete(false)}
         onConfirm={() => void deleteOlder()}
+      />
+      <ConfirmDialog
+        open={confirmOther}
+        message={t('settings.data.olderOtherAccount')}
+        confirmLabel={t('settings.data.olderBringIn')}
+        onClose={() => setConfirmOther(false)}
+        onConfirm={() => {
+          setConfirmOther(false);
+          void bringInOlder();
+        }}
       />
       {notice && (
         <Alert

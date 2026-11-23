@@ -124,6 +124,7 @@
   "settings.data.olderBringIn": "Bring it in",
   "settings.data.olderDelete": "Delete it",
   "settings.data.olderConfirm": "Delete the older copy of your data? This can't be undone.",
+  "settings.data.olderOtherAccount": "This copy was signed in to a different account than the one you’re using now. Bring its tasks into this one?",
   "settings.data.olderDeleted": "The older copy is deleted.",
   "settings.data.olderFailed": "The older copy couldn't be brought in. It stays, so you can try again after an update.",
   "settings.data.invalid": "That file is not a PeckList export: {reason}",
