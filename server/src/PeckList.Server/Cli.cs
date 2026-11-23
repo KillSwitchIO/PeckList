@@ -6,6 +6,7 @@ using PeckList.Storage.Postgres;
 using PeckList.Storage.Sql;
 using PeckList.Storage.Sqlite;
 using PeckList.Server.Logging;
+using PeckList.Core.Text;
 
 namespace PeckList.Server;
 
@@ -97,7 +98,7 @@ public static class Cli
                     {
                         summary = await backup.ExportAsync(standardOutput, ServerApp.Version);
                     }
-                    await errors.WriteLineAsync($"Exported {summary.Accounts} accounts and {summary.Entities} entities.");
+                    await errors.WriteLineAsync($"Exported {Counted.Accounts(summary.Accounts)} and {Counted.Entities(summary.Entities)}.");
                     return 0;
                 }
                 case "import":
@@ -106,7 +107,7 @@ public static class Cli
                     if (path is null) return await Fail(errors, "import needs a file: pecklist import <file> [--replace] [--shift-dates]");
                     await using var file = Snapshots.OpenRead(path);
                     var summary = await backup.ImportAsync(file, replace: args.Contains("--replace"), shiftDates: args.Contains("--shift-dates"));
-                    await output.WriteLineAsync($"Imported {summary.Accounts} accounts and {summary.Entities} entities.");
+                    await output.WriteLineAsync($"Imported {Counted.Accounts(summary.Accounts)} and {Counted.Entities(summary.Entities)}.");
                     return 0;
                 }
                 case "migrate-db":
@@ -248,7 +249,7 @@ public static class Cli
                     await RecordAsync(database, "admin.identity-unlinked", account, identity.Provider);
                     gone++;
                 }
-                await output.WriteLineAsync($"Detached {gone} provider account(s) from {account.Username}.");
+                await output.WriteLineAsync($"Detached {Counted.Of(gone, "provider account", "provider accounts")} from {account.Username}.");
                 if (!await signIn.CanSignInAsync((await store.FindByIdAsync(account.Id))!))
                 {
                     await output.WriteLineAsync($"{account.Username} has no way to sign in now: give them a link with pecklist admin login-link {account.Username}");
@@ -258,8 +259,8 @@ public static class Cli
             case "unbind-all" when args.Length > 2:
             {
                 var (unbound, stranded) = await signIn.UnbindProviderAsync(args[2]);
-                await RecordAsync(database, "admin.provider-unbound", null, $"{args[2]}, {unbound} accounts");
-                await output.WriteLineAsync($"Detached {unbound} account(s) from {args[2]}.");
+                await RecordAsync(database, "admin.provider-unbound", null, $"{args[2]}, {Counted.Accounts(unbound)}");
+                await output.WriteLineAsync($"Detached {Counted.Accounts(unbound)} from {args[2]}.");
                 if (stranded.Count > 0)
                 {
                     await output.WriteLineAsync($"No way to sign in now: {string.Join(", ", stranded)}. Open a migration window on the new provider, or give them login links.");
@@ -310,7 +311,7 @@ public static class Cli
         await source.ExportAsync(buffer, ServerApp.Version);
         buffer.Position = 0;
         var summary = await target.ImportAsync(buffer);
-        await output.WriteLineAsync($"Copied {summary.Accounts} accounts and {summary.Entities} entities. Point DB_PROVIDER (and DB_PATH or DB_CONNECTION_STRING) at the new database and restart.");
+        await output.WriteLineAsync($"Copied {Counted.Accounts(summary.Accounts)} and {Counted.Entities(summary.Entities)}. Point DB_PROVIDER (and DB_PATH or DB_CONNECTION_STRING) at the new database and restart.");
         return 0;
     }
 
@@ -351,7 +352,7 @@ public static class Cli
             {
                 count = await users.ExportAsync(account.Id, standardOutput, ServerApp.Version);
             }
-            await errors.WriteLineAsync($"Exported {account.Username}: {count} entities.");
+            await errors.WriteLineAsync($"Exported {account.Username}: {Counted.Entities(count)}.");
             return 0;
         }
         if (rest.Length == 0) return await Fail(errors, "import --user needs a file: pecklist import --user <file> [user]");

@@ -51,6 +51,14 @@ export function calendarTitle(
   const sameMonth = first.slice(5, 7) === last.slice(5, 7);
   const year =
     last.slice(0, 4) === thisYear || (narrow && !sameMonth) ? 'none' : narrow ? 'short' : 'end';
+  if (!compact && first.slice(0, 4) !== last.slice(0, 4)) {
+    // Across a new year Intl writes two whole dates, with a year word for both ends ("2027 рр.",
+    // Ukrainian's plural; Kyrgyz's "-ж." even with no year asked for): each end is its own date
+    // anyway, so each is written as one, the year on the end only ("28 груд. - 3 січ. 2027 р.").
+    const shown = (day: string, withYear: boolean) =>
+      format(day, { month: 'short', day: 'numeric', ...(withYear ? { year: 'numeric' } : {}) });
+    return `${shown(first, false)} - ${shown(last, year === 'end')}`;
+  }
   // The language's own range (PL-148): "Oct 19 - 25", "19.-25. Okt.", "31 oct. - 2 nov.". Asked
   // without a year when none shows, as some languages shape a date with one differently; across a
   // new year Intl names both anyway, and rangeText takes them out.
@@ -84,6 +92,8 @@ function rangeText(parts: RangePart[], year: 'none' | 'end' | 'short'): string {
   const kept = parts.map((part) => ({ ...part }));
   const separator = separatorAt(kept);
   const drop = new Set<number>();
+  // Numeric dates are never merged ("1/18/2027 - 1/29/2027"): the year is named once, at the end.
+  const endHasYear = kept.some((part) => part.type === 'year' && part.source === 'endRange');
   kept.forEach((part, i) => {
     if (part.type !== 'year') return;
     if (year === 'end' && part.source !== 'startRange') return;
@@ -91,7 +101,7 @@ function rangeText(parts: RangePart[], year: 'none' | 'end' | 'short'): string {
     // with the year first or after the separator, the one after ("2026年").
     const joinBefore = i > 0 && kept[i - 1]!.type === 'literal' && i - 1 !== separator;
     const joinAfter = kept[i + 1]?.type === 'literal' && i + 1 !== separator;
-    if (year === 'short') {
+    if (year === 'short' && (part.source !== 'startRange' || !endHasYear)) {
       part.value = `’${part.value.slice(-2)}`;
       if (joinBefore) kept[i - 1]!.value = kept[i - 1]!.value.replace(/^[,\s]+$/, ' ');
       return;

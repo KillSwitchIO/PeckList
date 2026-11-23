@@ -1323,14 +1323,15 @@ public static partial class ClientCli
                         unlinked++;
                         stranded |= result?["stranded"]?.AsArray().Count > 0;
                     }
-                    await Say($"Detached {unlinked} provider account(s) from {username}.");
+                    await Say($"Detached {unlinked} provider {(unlinked == 1 ? "account" : "accounts")} from {username}.");
                     if (stranded) await Say($"{username} has no way left to sign in: give them a password or a sign-in link.");
                     return Done;
                 }
                 case "unbind-all" when args.Argument(0).Length > 0:
                 {
                     var result = await remote.SendAsync(HttpMethod.Post, $"api/admin/providers/{Uri.EscapeDataString(args.Argument(0))}/unbind-all", null, cancellation);
-                    await Say($"Detached {result?["unbound"]} account(s) from {args.Argument(0)}.");
+                    var unbound = result?["unbound"]?.GetValue<long>() ?? 0;
+                    await Say($"Detached {unbound} {(unbound == 1 ? "account" : "accounts")} from {args.Argument(0)}.");
                     if (result?["stranded"] is JsonArray { Count: > 0 } stranded)
                     {
                         await Say($"No way left to sign in: {string.Join(", ", stranded.Select(each => (string?)each))}");

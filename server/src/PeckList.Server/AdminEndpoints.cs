@@ -5,6 +5,7 @@ using PeckList.Core.Configuration;
 using PeckList.Core.Sharing;
 using PeckList.Server.Audit;
 using PeckList.Server.Auth;
+using PeckList.Core.Text;
 
 namespace PeckList.Server;
 
@@ -308,7 +309,7 @@ public static class AdminEndpoints
                 }
             }
             var (unbound, stranded) = await signIn.UnbindProviderAsync(name, cancellation);
-            context.Audit().Detail = $"{unbound} accounts detached";
+            context.Audit().Detail = $"{Counted.Accounts(unbound)} detached";
             return Results.Ok(new UnbindResult(unbound, stranded));
         }).Doc<UnbindResult>("Detach every account from a provider, also one no longer configured").RequirePermission(Permission.ManageUsers).Audited("admin.provider-unbound", "name", AuditTarget.Name);
 
