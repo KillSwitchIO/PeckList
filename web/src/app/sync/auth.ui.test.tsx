@@ -151,6 +151,21 @@ describe('signing in with an identity provider', () => {
     ).toBeInTheDocument();
     expect(window.location.pathname + window.location.search).toBe('/');
   });
+
+  it('says why the app’s sign-in was refused, with a way on', async () => {
+    const backend = new FakeBackend();
+    backend.signIn = {
+      providers: [{ name: 'pocket', displayName: 'Pocket ID' }],
+      localLogin: true,
+    };
+    window.history.replaceState(null, '', '/login?error=app_sign_in_refused');
+    await serverApp(backend);
+    expect(
+      await screen.findByText(
+        'Signing in to the app this way was refused for safety. Sign in with your password, or use the server’s https address.',
+      ),
+    ).toBeInTheDocument();
+  });
 });
 
 describe('signing in to a server', () => {

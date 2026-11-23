@@ -56,12 +56,22 @@ public static partial class SameOriginGuard
     private static bool Changes(string method) =>
         !(HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || HttpMethods.IsOptions(method) || HttpMethods.IsTrace(method));
 
-    /// <summary>Refuse a cross-site request that changes something, with 403 <c>cross_site</c>.</summary>
+    /// <summary>
+    /// Refuse a cross-site request that changes something, with 403 <c>cross_site</c>. The app's
+    /// redeem is a navigation, so a refused one goes to the sign-in page with a reason a person can
+    /// read (a WebView without <c>X-Requested-With</c> on a plain-http server), not a page of JSON.
+    /// </summary>
     public static void UseSameOriginGuard(this IApplicationBuilder app) => app.Use(async (context, next) =>
     {
         if (!Changes(context.Request.Method) || Allows(context))
         {
             await next(context);
+            return;
+        }
+        if (context.Request.Path.Equals("/auth/app/redeem", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = StatusCodes.Status303SeeOther;
+            context.Response.Headers.Location = "/login?error=app_sign_in_refused";
             return;
         }
         context.Response.StatusCode = StatusCodes.Status403Forbidden;

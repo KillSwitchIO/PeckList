@@ -1253,6 +1253,7 @@
   "auth.oidc.oidc_disabled": "This account is turned off. Ask the admin.",
   "auth.oidc.oidc_failed": "Signing in did not finish. Try again.",
   "auth.oidc.app_sign_in_failed": "Signing in to the app did not finish. Try again.",
+  "auth.oidc.app_sign_in_refused": "Signing in to the app this way was refused for safety. Sign in with your password, or use the server’s https address.",
   "auth.otherServer": "Not your server?",
   "auth.changeServer": "Use another",
   "auth.oidc.link_expired": "That sign-in link has expired or was already used. Ask the admin for a new one.",

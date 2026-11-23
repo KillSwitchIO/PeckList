@@ -1253,6 +1253,7 @@
   "auth.oidc.oidc_disabled": "Dieses Konto ist deaktiviert. Wende dich an die Verwaltung.",
   "auth.oidc.oidc_failed": "Die Anmeldung wurde nicht abgeschlossen. Versuch es noch einmal.",
   "auth.oidc.app_sign_in_failed": "Die Anmeldung in der App wurde nicht abgeschlossen. Versuch es noch einmal.",
+  "auth.oidc.app_sign_in_refused": "Diese Art der Anmeldung in der App wurde zur Sicherheit abgelehnt. Melde dich mit deinem Passwort an oder nutze die https-Adresse des Servers.",
   "auth.otherServer": "Nicht dein Server?",
   "auth.changeServer": "Anderen nutzen",
   "auth.oidc.link_expired": "Dieser Anmeldelink ist abgelaufen oder wurde schon benutzt. Bitte die Verwaltung um einen neuen.",

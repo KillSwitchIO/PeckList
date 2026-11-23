@@ -325,7 +325,16 @@ public sealed class AppSignInTests(ServerFixture fixture) : IClassFixture<Server
         using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = Form(("code", "x"), ("verifier", "y")) };
         request.Headers.Add(header, value);
         if (requestedWith.Length > 0) request.Headers.Add("X-Requested-With", requestedWith);
-        var refused = await Browser(server).SendAsync(request, Token);
+        var browser = Browser(server);
+        var refused = await browser.SendAsync(request, Token);
+        if (path == "/auth/app/redeem")
+        {
+            // A navigation in the app's WebView: the sign-in page says why, rather than JSON.
+            Assert.Equal(HttpStatusCode.SeeOther, refused.StatusCode);
+            Assert.Equal("/login?error=app_sign_in_refused", refused.Headers.Location!.ToString());
+            Assert.Equal(HttpStatusCode.Unauthorized, (await browser.GetAsync("/auth/me", Token)).StatusCode);
+            return;
+        }
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
         Assert.Equal("cross_site", (await refused.Content.ReadFromJsonAsync<AuthError>(Token))!.Error);
     }

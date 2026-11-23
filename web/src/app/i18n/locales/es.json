@@ -1253,6 +1253,7 @@
   "auth.oidc.oidc_disabled": "Esta cuenta está desactivada. Consulta con la administración.",
   "auth.oidc.oidc_failed": "No se pudo completar el inicio de sesión. Vuelve a intentarlo.",
   "auth.oidc.app_sign_in_failed": "No se pudo completar el inicio de sesión en la app. Vuelve a intentarlo.",
+  "auth.oidc.app_sign_in_refused": "Se rechazó por seguridad este modo de iniciar sesión en la app. Inicia sesión con tu contraseña o usa la dirección https del servidor.",
   "auth.otherServer": "¿No es tu servidor?",
   "auth.changeServer": "Usar otro",
   "auth.oidc.link_expired": "Ese enlace de inicio de sesión ha caducado o ya se usó. Pide uno nuevo a la administración.",
