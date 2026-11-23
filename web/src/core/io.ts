@@ -143,7 +143,9 @@ export function adoptedId(id: string, owner: string): string {
  * it owns, assigned to it at most. People and sharing (profiles, friends, groups, members) and the
  * file's settings stay out, as do comments and files someone else added, and what was purged (an
  * emptied Trash's markers bring nothing); a link to one of those is dropped too, so a subtask
- * whose parent was purged comes in at the top of its list (Dev 2). Trashed records
+ * whose parent was purged comes in at the top of its list (Dev 2). A tag named as one this account
+ * already has ("outdoors", in any case) is that tag: what wears it wears this account's, and no
+ * second "outdoors" appears (Dev 2). Trashed records
  * come in trashed, restorable. Other people's ids in fields such as `completedBy` stay as they
  * are: they name who did it, and the server takes them. A file from this same account (another
  * device, another server) keeps its ids, as before.
@@ -168,9 +170,23 @@ export function adoptAnotherAccount(
   const renamed = new Map<string, string>();
   // Left out (purged, or someone else's words): a set entry naming one goes too.
   const dropped = new Set<string>();
+  // Live tags of the file named as a live tag here: references go to this account's tag.
+  const tagNamed = new Map(
+    current.entities.tags
+      .filter((tag) => tag.deletedAt === null)
+      .map((tag) => [tag.name.toLowerCase(), tag.id]),
+  );
+  const merged = new Set<string>();
   for (const collection of ADOPTED) {
     for (const entity of file.entities[collection]) {
-      if (wanted(collection, entity)) renamed.set(entity.id, adoptedId(entity.id, me));
+      const same =
+        collection === 'tags' && entity.deletedAt === null
+          ? tagNamed.get((entity as unknown as { name: string }).name.toLowerCase())
+          : undefined;
+      if (same && wanted(collection, entity)) {
+        renamed.set(entity.id, same);
+        merged.add(entity.id);
+      } else if (wanted(collection, entity)) renamed.set(entity.id, adoptedId(entity.id, me));
       else if (!held.has(entity.id)) dropped.add(entity.id);
     }
   }
@@ -218,7 +234,7 @@ export function adoptAnotherAccount(
   for (const collection of COLLECTIONS) {
     entities[collection] = ADOPTED.includes(collection)
       ? file.entities[collection]
-          .filter((entity) => wanted(collection, entity))
+          .filter((entity) => wanted(collection, entity) && !merged.has(entity.id))
           .map((entity) => adopt(collection, entity))
       : [];
   }
