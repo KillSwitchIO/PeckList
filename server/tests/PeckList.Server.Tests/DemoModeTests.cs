@@ -237,7 +237,7 @@ public sealed class DemoModeTests(ServerFixture fixture) : IClassFixture<ServerF
             var output = new StringWriter();
             using var stdout = new MemoryStream();
             Assert.Equal(0, await Cli.RunAsync(["import", file, "--shift-dates"], output, new StringWriter(), stdout, settings));
-            Assert.Contains("Imported 1 accounts and 1 entities", output.ToString());
+            Assert.Contains("Imported 1 account and 1 entity", output.ToString());
 
             using var server = fixture.Factory(("DB_PATH", settings.DbPath), ("ADMIN_PASSWORD", AdminPassword));
             server.CreateClient();

@@ -1,5 +1,6 @@
 using PeckList.Core.Backup;
 using PeckList.Core.Configuration;
+using PeckList.Core.Text;
 
 namespace PeckList.Server;
 
@@ -44,8 +45,9 @@ public sealed class PendingRestore(BackupService backup, ServerSettings settings
         await using (var input = System.IO.File.OpenRead(File))
         {
             var summary = await backup.ImportAsync(input, replace: true, cancellation);
-            logger.LogWarning("Restored the server from a backup: {Accounts} accounts, {Entities} entities", summary.Accounts, summary.Entities);
-            audit.RecordSystem("backup.server-restored", detail: $"{summary.Accounts} accounts, {summary.Entities} entities");
+            var restored = $"{Counted.Accounts(summary.Accounts)}, {Counted.Entities(summary.Entities)}";
+            logger.LogWarning("Restored the server from a backup: {Restored}", restored);
+            audit.RecordSystem("backup.server-restored", detail: restored);
         }
         System.IO.File.Delete(File);
     }

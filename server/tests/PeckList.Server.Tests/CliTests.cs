@@ -127,13 +127,13 @@ public sealed class CliTests : IDisposable
         var export = await Run(settings, "export");
         Assert.Equal(0, export.Code);
         Assert.Contains(BackupService.Format, export.Stdout);
-        Assert.Contains("Exported 1 accounts and 0 entities", export.Errors);
+        Assert.Contains("Exported 1 account and 0 entities", export.Errors);
 
         var file = Path.Combine(folder, "backup.json");
         Assert.Equal(0, (await Run(settings, "export", file)).Code);
         var import = await Run(Settings("other.db"), "import", file);
         Assert.Equal(0, import.Code);
-        Assert.Contains("Imported 1 accounts", import.Output);
+        Assert.Contains("Imported 1 account and", import.Output);
         var again = await Run(settings, "import", file);
         Assert.Equal(1, again.Code);
         Assert.Contains("--replace", again.Errors);
@@ -151,7 +151,7 @@ public sealed class CliTests : IDisposable
         // A snapshot imports as written.
         var restored = await Run(settings, "import", kept[0], "--replace");
         Assert.Equal(0, restored.Code);
-        Assert.Contains("Imported 1 accounts", restored.Output);
+        Assert.Contains("Imported 1 account and", restored.Output);
     }
 
     [Fact]
@@ -290,7 +290,7 @@ public sealed class CliTests : IDisposable
 
         var unbound = await Run(settings, "oidc", "unbind-all", "pocket");
         Assert.Equal(0, unbound.Code);
-        Assert.Contains("Detached 1 account(s) from pocket.", unbound.Output);
+        Assert.Contains("Detached 1 account from pocket.", unbound.Output);
         Assert.Contains("No way to sign in now: kim.", unbound.Output);
         Assert.Empty(await identities.ListAsync(token));
 

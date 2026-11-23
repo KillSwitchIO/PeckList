@@ -93,7 +93,8 @@ describe.each([
     locale: 'ru',
     month: '19-25 окт.',
     months: '31 окт. - 2 нояб.',
-    newYear: '28 дек. - 3 янв. 2027\u202fг.',
+    // Across a new year the end is written as one date, which Intl spaces plainly.
+    newYear: '28 дек. - 3 янв. 2027 г.',
     otherYear: '18-29 янв. 2027\u202fг.',
     shortYear: '18-29 янв. ’27\u202fг.',
     phoneMonths: '28 дек. - 3 янв.',
@@ -102,7 +103,8 @@ describe.each([
     locale: 'uk',
     month: '19-25 жовт.',
     months: '31 жовт. - 2 лист.',
-    newYear: '28 груд. - 3 січ. 2027\u202fрр.',
+    // One year, so “р.”, not the range's plural “рр.” it used to keep.
+    newYear: '28 груд. - 3 січ. 2027 р.',
     otherYear: '18-29 січ. 2027\u202fр.',
     shortYear: '18-29 січ. ’27\u202fр.',
     phoneMonths: '28 груд. - 3 січ.',
@@ -127,6 +129,17 @@ it('writes the months as numbers when a phone’s row is too short for them (Ger
   expect(calendarTitle('days', '2026-11-28', 14, TODAY, 'de', true, true)).toBe('28.11. - 11.12.');
   expect(calendarTitle('days', '2026-04-29', 12, TODAY, 'de', true, true)).toBe('29.04. - 10.05.');
   expect(calendarTitle('days', '2026-11-28', 14, TODAY, 'en-US', true, true)).toBe('11/28 - 12/11');
+
+  // Kyrgyz's range has a year word even with no year asked for; across a new year it goes.
+  expect(calendarTitle('days', '2026-12-28', 7, TODAY, 'ky', true)).toBe('28-дек. - 3-янв.');
+
+  // Numbers are never merged, so the year of another one is named once, at the end.
+  expect(calendarTitle('days', '2027-01-18', 12, TODAY, 'en-US', true, true)).toBe(
+    '1/18 - 1/29/’27',
+  );
+  expect(calendarTitle('days', '2027-01-18', 12, TODAY, 'uk', true, true)).toBe(
+    '18.01 - 29.01.’27',
+  );
 
   // Dates with hyphens of their own keep Intl's en dash between them (Dev 1, N1).
   expect(calendarTitle('days', '2027-01-18', 12, TODAY, 'sv', true, true)).toBe('’27-01-18–29');

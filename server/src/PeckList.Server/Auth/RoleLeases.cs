@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using PeckList.Core.Accounts;
 using PeckList.Core.Configuration;
+using PeckList.Core.Text;
 using PeckList.Server.Audit;
 
 namespace PeckList.Server.Auth;
@@ -108,7 +109,7 @@ public sealed class RoleLeaseCheck(
         if (started > 0)
         {
             audit.RecordSystem("auth.role-lease-started", detail:
-                $"{started} roles from ROLE_MAP now last {settings.RoleMapRenewDays} days from today unless a sign-in through their provider renews them (ROLE_MAP_RENEW_DAYS).");
+                $"{Counted.Of(started, "role", "roles")} from ROLE_MAP now last {settings.RoleMapRenewDays} days from today unless a sign-in through their provider renews them (ROLE_MAP_RENEW_DAYS).");
             Logger.LogInformation("{Count} roles from ROLE_MAP now need a sign-in through their provider to renew them.", started);
         }
         return started;

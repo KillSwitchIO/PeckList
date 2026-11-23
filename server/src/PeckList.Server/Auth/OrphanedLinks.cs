@@ -1,5 +1,6 @@
 using PeckList.Core.Accounts;
 using PeckList.Core.Configuration;
+using PeckList.Core.Text;
 
 namespace PeckList.Server.Auth;
 
@@ -26,8 +27,8 @@ public sealed class OrphanedLinks(IIdentityStore identities, ServerSettings sett
         foreach (var (provider, count) in orphaned)
         {
             logger.LogWarning(
-                "{Count} accounts are still linked to {Provider}, which is no longer set up: those links sign nobody in. Clear them with: pecklist oidc unbind-all {Provider}",
-                count, provider, provider);
+                "{Linked} still linked to {Provider}, which is no longer set up: those links sign nobody in. Clear them with: pecklist oidc unbind-all {Provider}",
+                Counted.Of(count, "account is", "accounts are"), provider, provider);
         }
     }
 
