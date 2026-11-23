@@ -37,7 +37,13 @@ export async function enterPassword(
 ): Promise<void> {
   await device.url(start);
   const field = await device.$('input[autocomplete~="username"]');
-  await field.waitForDisplayed({ timeout: 30_000 });
+  // A cold start, as wdio.conf's before() allows for it: a new origin (the passkey spec's forward)
+  // or a second device loads the app for the first time, and on a runner busy with a release's
+  // packages that took over 30 s (rc.3).
+  await field.waitForDisplayed({
+    timeout: 90_000,
+    timeoutMsg: 'no sign-in page after 90 s',
+  });
   await field.setValue(username);
   await device.$('input[autocomplete="current-password"]').setValue(password);
   await device.$('button[type="submit"]').click();
