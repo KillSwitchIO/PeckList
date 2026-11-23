@@ -98,6 +98,7 @@ const OIDC_ERRORS = [
   'oidc_failed',
   'link_expired',
   'app_sign_in_failed',
+  'app_sign_in_refused',
 ] as const;
 type OidcError = (typeof OIDC_ERRORS)[number];
 const isOidcError = (error: string | null): error is OidcError =>

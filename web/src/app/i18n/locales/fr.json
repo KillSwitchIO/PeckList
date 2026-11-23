@@ -1253,6 +1253,7 @@
   "auth.oidc.oidc_disabled": "Ce compte est désactivé. Contactez l’administration.",
   "auth.oidc.oidc_failed": "La connexion n’a pas abouti. Réessayez.",
   "auth.oidc.app_sign_in_failed": "La connexion à l’application n’a pas abouti. Réessayez.",
+  "auth.oidc.app_sign_in_refused": "Ce mode de connexion à l’application a été refusé par sécurité. Connectez-vous avec votre mot de passe ou utilisez l’adresse https du serveur.",
   "auth.otherServer": "Ce n’est pas votre serveur ?",
   "auth.changeServer": "En utiliser un autre",
   "auth.oidc.link_expired": "Ce lien de connexion a expiré ou a déjà été utilisé. Demandez-en un nouveau à l’administration.",
