@@ -22,12 +22,15 @@ import {
   ownRows,
   type Bar,
 } from '../../core/timeline.ts';
+import { canEditTask } from '../../core/sharing.ts';
 import { updateTask } from '../../core/tasks.ts';
 import type { Id, Task } from '../../core/types.ts';
 import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
-import { useApply, useWorkspace } from '../store/hooks.ts';
+import { useApply, useStoreState, useWorkspace } from '../store/hooks.ts';
 import { useTaskSelection } from '../tasks/selection.ts';
+import { TaskMenu } from '../tasks/TaskMenu.tsx';
+import { TaskReadOnly } from '../tasks/readOnly.ts';
 import { TaskTree } from '../tasks/TaskTree.tsx';
 import { GroupSection } from '../views/GroupSection.tsx';
 import { monthTitle } from '../layout/miniCalendarText.ts';
@@ -51,6 +54,13 @@ const GRIP = 10;
 const MOVE_PX = 5;
 /** A finger holds a bar this long to pick it up; moving sooner scrolls (as the calendar). */
 const HOLD_MS = 350;
+/**
+ * The link handle stays this long after the pointer leaves its bar, so the pointer can go on to it
+ * (Ben, rc.3: it hid before it could be reached).
+ */
+const HANDLE_LINGER_MS = 400;
+/** A menu a hold opened ignores a click this soon: the one lifting the finger sends. */
+const HELD_MENU_GUARD_MS = 400;
 
 const weekdayNarrow = localeDateFormat({ weekday: 'narrow', timeZone: 'UTC' });
 const at = (day: string) => new Date(`${day}T12:00:00Z`);
@@ -81,6 +91,7 @@ function useOnUnmount(): (cleanup: () => void) => () => void {
  */
 export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boolean }) {
   const workspace = useWorkspace();
+  const me = useStoreState((state) => state.context().userId);
   const apply = useApply();
   const today = useToday();
   const { open } = useTaskSelection();
@@ -108,6 +119,54 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
   // The same for a bar being moved or resized: gone with the timeline, a let-go on the next page
   // changes nothing there.
   const endPressOnUnmount = useOnUnmount();
+  // The bar whose link handle shows under a mouse: it lingers a moment after the pointer leaves,
+  // so the pointer can cross onto the handle past the bar's end.
+  const [hovered, setHovered] = useState<Id | null>(null);
+  const linger = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (linger.current) clearTimeout(linger.current);
+    },
+    [],
+  );
+  const hoverBar = (id: Id) => {
+    if (linger.current) clearTimeout(linger.current);
+    linger.current = null;
+    setHovered(id);
+  };
+  const leaveBar = (id: Id) => {
+    if (linger.current) clearTimeout(linger.current);
+    linger.current = setTimeout(() => {
+      linger.current = null;
+      setHovered((current) => (current === id ? null : current));
+    }, HANDLE_LINGER_MS);
+  };
+  // The task menu: a right click on a bar, or on a phone a hold let go without moving (where
+  // linking lives on a phone, PL-055). The task stays after the menu closes: a dialog the menu
+  // opened (Blocked by...) is the menu's own.
+  const [menuTask, setMenuTask] = useState<Id | null>(null);
+  const [menuAt, setMenuAt] = useState<{ top: number; left: number } | null>(null);
+  const openMenu = (id: Id, position: { top: number; left: number }) => {
+    setMenuTask(id);
+    setMenuAt(position);
+  };
+  /**
+   * The menu a hold opens sits under the finger: the click that lifting it may send would land on
+   * the backdrop (closing it) or on the first item. Swallow that one click.
+   */
+  const swallowLiftClick = () => {
+    const swallow = (click: MouseEvent) => {
+      click.preventDefault();
+      click.stopPropagation();
+    };
+    window.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(
+      () => window.removeEventListener('click', swallow, { capture: true }),
+      HELD_MENU_GUARD_MS,
+    );
+  };
+  // What last pressed a bar: a finger's long press is not a right click.
+  const pointerKind = useRef('mouse');
   const theme = useTheme();
   const markers = useId();
 
@@ -164,17 +223,16 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
     let moved = false;
     let scrolled = false;
     let days = 0;
-    const timer =
-      touch && canEdit
-        ? setTimeout(() => {
-            lifted = true;
-            navigator.vibrate?.(10);
-            setDrag({ id: bar.id, part, days: 0 });
-          }, HOLD_MS)
-        : null;
-    const move = (next: PointerEvent) => {
-      if (next.pointerId !== id) return;
-      const far = Math.hypot(next.clientX - x0, next.clientY - y0) >= MOVE_PX;
+    // A held finger: someone who may edit picks the bar up; anyone gets the menu on letting go.
+    const timer = touch
+      ? setTimeout(() => {
+          lifted = true;
+          navigator.vibrate?.(10);
+          if (canEdit) setDrag({ id: bar.id, part, days: 0 });
+        }, HOLD_MS)
+      : null;
+    const step = (x: number, y: number) => {
+      const far = Math.hypot(x - x0, y - y0) >= MOVE_PX;
       if (!lifted) {
         // Moved before the hold: a scroll, which the page has.
         if (far) {
@@ -184,32 +242,58 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
         return;
       }
       if (!moved && !far) return;
-      if (!canEdit) return;
       moved = true;
-      days = Math.round((next.clientX - x0) / day);
+      if (!canEdit) return;
+      days = Math.round((x - x0) / day);
       setDrag({ id: bar.id, part, days });
     };
-    // While a finger holds a bar, moving it must not scroll the timeline.
+    const move = (next: PointerEvent) => {
+      if (next.pointerId === id) step(next.clientX, next.clientY);
+    };
+    // While a finger holds a bar it may move, moving must not scroll the timeline (someone who
+    // can only view still scrolls). Its touch events also carry on where a phone cancels the held
+    // finger's pointer.
     const hold = (touchEvent: TouchEvent) => {
-      if (lifted && touchEvent.cancelable) touchEvent.preventDefault();
+      if (lifted && canEdit && touchEvent.cancelable) touchEvent.preventDefault();
+      const finger = touchEvent.touches[0];
+      if (finger && lifted) step(finger.clientX, finger.clientY);
+    };
+    const cancel = (next: PointerEvent) => {
+      if (next.pointerId !== id) return;
+      // A phone may cancel the pointer of a finger held still: the touch's own end decides.
+      if (touch && lifted) return;
+      finish();
     };
     const finish = () => {
       if (timer) clearTimeout(timer);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', finish);
+      window.removeEventListener('pointercancel', cancel);
       document.removeEventListener('touchmove', hold);
+      document.removeEventListener('touchend', lift);
+      document.removeEventListener('touchcancel', finish);
       release();
       setDrag(null);
     };
     const up = (next: PointerEvent) => {
-      if (next.pointerId !== id) return;
+      if (next.pointerId === id) end();
+    };
+    const lift = (touchEvent: TouchEvent) => {
+      // The finger that pressed the bar, not another one let go elsewhere.
+      if (touchEvent.touches.length === 0) end();
+    };
+    const end = () => {
       const wasLifted = lifted && touch;
       finish();
       if (scrolled) return;
       if (!moved) {
-        // A tap opens the task; a hold let go without moving changes nothing.
-        if (part === 'move' && !wasLifted) open(bar.id);
+        // A tap opens the task; a hold let go without moving opens its menu.
+        if (wasLifted) {
+          swallowLiftClick();
+          openMenu(bar.id, { top: y0, left: x0 });
+        } else if (part === 'move') {
+          open(bar.id);
+        }
         return;
       }
       if (days !== 0) {
@@ -223,8 +307,12 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
     const release = endPressOnUnmount(finish);
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', finish);
-    document.addEventListener('touchmove', hold, { passive: false });
+    window.addEventListener('pointercancel', cancel);
+    if (touch) {
+      document.addEventListener('touchmove', hold, { passive: false });
+      document.addEventListener('touchend', lift);
+      document.addEventListener('touchcancel', finish);
+    }
   };
 
   /** Where a bar shows, with a drag in progress applied. */
@@ -582,6 +670,7 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
             const title = task.title || t('task.untitled');
             const dragging = drag?.id === bar.id;
             const target = linking?.target === bar.id;
+            const handleShown = linking ? linking.from === bar.id : hovered === bar.id;
             return (
               <Box
                 key={bar.id}
@@ -589,9 +678,22 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
                 tabIndex={0}
                 aria-label={t('timeline.bar', { title })}
                 data-timeline-bar={bar.id}
+                onPointerDownCapture={(event) => {
+                  pointerKind.current = event.pointerType;
+                }}
                 onPointerDown={(event) => press(event, original, 'move')}
-                // A held finger picks the bar up: no menu from the browser.
-                onContextMenu={(event) => event.preventDefault()}
+                // The handle shows under a mouse or pen (a finger has none).
+                onPointerEnter={(event) => {
+                  if (event.pointerType !== 'touch') hoverBar(bar.id);
+                }}
+                onPointerLeave={() => leaveBar(bar.id)}
+                // A right click opens the task menu. A held finger picks the bar up instead, and
+                // gets the menu on letting go: no menu from the browser.
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  if (pointerKind.current === 'touch' || pointerKind.current === 'pen') return;
+                  openMenu(bar.id, { top: event.clientY, left: event.clientX });
+                }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') open(bar.id);
                 }}
@@ -634,12 +736,11 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
                   WebkitTouchCallout: 'none',
                   userSelect: 'none',
                   '&:focus-visible': { outline: 2, outlineColor: 'primary.main' },
-                  // The link handle shows on a hovered or focused bar (and the one being linked from).
-                  '&:hover [data-timeline-link-handle], &:focus-visible [data-timeline-link-handle]':
-                    {
-                      opacity: 1,
-                      pointerEvents: 'auto',
-                    },
+                  // The link handle shows on a focused bar too (hovered: see `hovered`).
+                  '&:focus-visible [data-timeline-link-handle]': {
+                    opacity: 1,
+                    pointerEvents: 'auto',
+                  },
                 }}
               >
                 {/* A title too long for its bar: inside when fitted (cut short), else beside it. */}
@@ -688,21 +789,23 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
                   <Box
                     aria-hidden
                     data-timeline-link-handle={bar.id}
+                    data-shown={handleShown ? 'true' : undefined}
                     title={t('timeline.linkHandle')}
                     onPointerDown={(event) => startLink(event, bar.id)}
                     sx={{
                       position: 'absolute',
                       top: '50%',
+                      // Right against the bar's end, no gap for the pointer to fall through.
                       left: '100%',
                       width: LINK_HIT,
                       height: LINK_HIT,
-                      transform: 'translate(2px, -50%)',
+                      transform: 'translateY(-50%)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'crosshair',
-                      opacity: linking?.from === bar.id ? 1 : 0,
-                      pointerEvents: 'none',
+                      opacity: handleShown ? 1 : 0,
+                      pointerEvents: handleShown ? 'auto' : 'none',
                       // No hover on touch screens: no handle there.
                       '@media (hover: none)': { display: 'none' },
                       '&::after': {
@@ -740,6 +843,18 @@ export function TimelineView({ tasks, canEdit }: { tasks: Task[]; canEdit: boole
         >
           <TaskTree tasks={undated} />
         </GroupSection>
+      )}
+      {menuTask && byId.has(menuTask) && (
+        // As on a row: a task I can only view gets only Open.
+        <TaskReadOnly value={!canEditTask(workspace, me, byId.get(menuTask)!)}>
+          <TaskMenu
+            key={menuTask}
+            task={byId.get(menuTask)!}
+            anchor={menuAt && { position: menuAt }}
+            onClose={() => setMenuAt(null)}
+            showOpen
+          />
+        </TaskReadOnly>
       )}
     </Box>
   );
