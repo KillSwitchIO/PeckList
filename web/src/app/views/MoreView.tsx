@@ -65,7 +65,7 @@ function MoreContent() {
             {t('bottomBar.hint', { count: MAX_TABS })}
           </Typography>
         )}
-        <SidebarViews selected={false} onNavigate={go} flat />
+        <SidebarViews selected={false} onNavigate={go} />
         <Divider sx={{ mx: 2 }} />
         <SidebarLists onNavigate={go} />
         <SidebarTags onNavigate={go} />

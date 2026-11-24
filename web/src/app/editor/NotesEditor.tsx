@@ -19,6 +19,7 @@ import { lazyAgain } from '../lazyAgain.tsx';
 import { LoadBoundary } from '../layout/LoadBoundary.tsx';
 import { preloadEditor } from './preloadEditor.ts';
 import { intlLocale } from '../../core/intl.ts';
+import { visuallyHidden } from '../layout/visuallyHidden.ts';
 
 // The editor library loads on first use, keeping it out of the app's first load; the app fetches
 // it ahead once idle (preloadEditor), so opening a task does not wait for it. One that could not
@@ -173,14 +174,3 @@ export function NotesEditor(props: RichTextEditorProps & { title?: string; maxLe
     </Box>
   );
 }
-
-/** Read out by a screen reader, not shown. */
-const visuallyHidden = {
-  position: 'absolute',
-  // Strings: as numbers MUI reads 1 as 100%.
-  width: '1px',
-  height: '1px',
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-} as const;

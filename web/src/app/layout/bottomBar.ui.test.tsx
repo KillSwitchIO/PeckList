@@ -207,4 +207,19 @@ describe('lists and tags on the bottom bar (R-FB-164)', () => {
     expect(within(nav).getByRole('button', { name: 'Pin Garden' })).toBeInTheDocument();
     expect(screen.queryAllByRole('button', { name: /bottom bar/ })).toEqual([]);
   });
+
+  // Ben, rc.3: opening the order popup shifted the page left. Each row's unseen status line was
+  // as wide as its row (MUI reads a bare 1 as 100%), so it poked past a phone's edge and the
+  // popup's scroll lock took that for a scrollbar to make room for.
+  it("take no room for their rows' unseen status lines, so nothing pokes past the screen", async () => {
+    await withGarden('/more');
+    await userEvent.click(screen.getByRole('button', { name: 'Edit sidebar' }));
+    const statuses = screen
+      .getAllByRole('status')
+      .filter((status) => status.closest('[role="button"]') !== null);
+    expect(statuses.length).toBeGreaterThan(5);
+    for (const status of statuses) {
+      expect(getComputedStyle(status)).toMatchObject({ width: '1px', height: '1px' });
+    }
+  });
 });

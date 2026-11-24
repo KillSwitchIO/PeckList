@@ -54,6 +54,8 @@ import { deleteAsking, scheduleAsking } from '../repeat/repeatActions.ts';
 import { asksThisOrAll, shownOccurrence } from '../repeat/thisOrAll.ts';
 import { useTaskSelection } from './selection.ts';
 import { RepeatProperty } from '../repeat/RepeatProperty.tsx';
+import { isPurged } from '../../core/trash.ts';
+import { TrashedDetail } from './TrashedDetail.tsx';
 
 /**
  * A text field that edits locally and commits on blur or Enter, and also when it goes away
@@ -217,8 +219,24 @@ export function TaskDetail({
   useEffect(() => {
     if (undone) onClose();
   }, [undone, onClose]);
+  // Opened while in the Trash (from its row there, or a link): shown as such, to read, restore or
+  // delete forever, until it is restored. A task deleted while it is open says it is gone, as
+  // before, rather than flash the Trash's view on its way to closing.
+  const inTrash = task !== undefined && !isLive(task) && !isPurged(task);
+  const live = task !== undefined && isLive(task);
+  const [fromTrash, setFromTrash] = useState(inTrash);
+  if (fromTrash && live) setFromTrash(false);
+  // Deleted forever meanwhile (here, from its row, Empty trash, or another device): nothing is
+  // left to show, so the details close.
+  const purged = task !== undefined && isPurged(task);
+  useEffect(() => {
+    if (fromTrash && purged) onClose();
+  }, [fromTrash, purged, onClose]);
 
   if (undone) return null;
+  if (fromTrash && inTrash) {
+    return <TrashedDetail task={task} onClose={onClose} />;
+  }
   if (!task || !isLive(task)) {
     return (
       <Box sx={{ p: 2 }}>

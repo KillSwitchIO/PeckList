@@ -112,6 +112,7 @@ Reach for these before writing another copy:
 | `app/sync/syncEngine.ts`: `saveMeta`, `tell`                                | Device-local sync progress; what the person is told next.                                                                         |
 | `core/collections.ts`, `core/queries.ts`, `core/filters.ts`                 | Finding and filtering entities. Do not scan `workspace.entities.tasks` by hand in the UI.                                         |
 | `test/fakeTransport.ts`, `test/renderApp.tsx`, `test/fixtures.ts`           | A fake server with several devices, the app under test, and sample workspaces.                                                    |
+| `app/layout/visuallyHidden.ts`                                              | `sx` for text a screen reader reads out and no one sees. In `sx` a bare `1` means 100%, so never write `width: 1` for 1 px.       |
 
 ## The server
 

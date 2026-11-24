@@ -254,6 +254,8 @@ describe('templates (PL-140)', () => {
   it('sit with the other pages on a phone', async () => {
     mockViewport('phone');
     await renderApp('/more', testStore());
+    // In the More group, as on the sidebar.
+    await userEvent.click(await screen.findByRole('button', { name: /^More/, expanded: false }));
     await userEvent.click(await screen.findByRole('button', { name: /Templates/ }));
     expect(await screen.findByRole('heading', { name: 'Templates' })).toBeInTheDocument();
   });

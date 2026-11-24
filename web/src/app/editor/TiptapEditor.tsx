@@ -55,6 +55,7 @@ import { mainHref, openOutside, touchClick } from '../smartLinks/openOutside.ts'
 import { SmartLinkMenu, type SmartTarget } from '../smartLinks/SmartLinkMenu.tsx';
 import { SmartLinks, smartItemAt } from './smartLinksPlugin.ts';
 import type { EditorView } from '@tiptap/pm/view';
+import { visuallyHidden } from '../layout/visuallyHidden.ts';
 
 /**
  * The smart link (PL-146) or link under a click in the notes: what it is, and where, to select it
@@ -907,14 +908,3 @@ function LinkField({ onDone }: { onDone: (href: string | null) => void }) {
     />
   );
 }
-
-/** Read out by a screen reader, not shown. */
-const visuallyHidden = {
-  position: 'absolute',
-  // Strings: as numbers MUI reads 1 as 100% (QA).
-  width: '1px',
-  height: '1px',
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-} as const;

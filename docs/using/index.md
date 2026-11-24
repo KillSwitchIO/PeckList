@@ -30,7 +30,8 @@ step a day. The arrow at the top right of the small month folds it down to just 
 back), and each device remembers which. Its title picks a month, and clicked again a year, to jump
 far; the dot between its arrows goes back to now. Under it is the app's version, which links to what
 changed. On a phone the main views sit in the bottom bar, and **More** holds the rest of the
-sidebar: the views, saved filters, lists and tags. Its pencil (or holding a row) edits it just
+sidebar: the views, saved filters, lists and tags, with the sidebar's More group (Completed,
+Templates and Trash at first) folded or open as you left it. Its pencil (or holding a row) edits it just
 like **Edit sidebar** on a computer, and the changes apply on every device. While editing, each
 row has a phone button that puts it on the bottom bar: up to four views, saved filters, lists,
 tags or Search. A row on the bar shows its tab number; tabs go on in the order you add them, with
@@ -511,7 +512,8 @@ change its color, pin it, or delete it.
 **Clean up after** (Settings > Your data): how long deleted, completed and won't-do tasks stay, 30 days
 unless you change it. Pick 7 or 15 days, or 2 months up to a year. A completed or won't-do task moves to
 the Trash after that long, and you can still restore it from there. A task's comments and files go to the
-Trash with it and come back with it. What is in the Trash is erased for
+Trash with it and come back with it. Click a task in the Trash to open it: you can read it and the
+subtasks that went with it, and **Restore** or **Delete forever** it from there. What is in the Trash is erased for
 good after the same time, and **Empty trash** does it now. Only a list's owner can erase its trash, so
 tasks from lists others own sit in their own group, and Empty trash leaves them. Completed and won't-do tasks count from the day they were closed, so old history you import moves to the Trash the next time the app opens: pick a longer time first if you want to keep it.
 A task stays while one of its subtasks is open or has time left, and a completed subtask stays with a

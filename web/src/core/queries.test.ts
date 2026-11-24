@@ -13,6 +13,7 @@ import {
   subtaskProgress,
   todayTasks,
   dayTasks,
+  trashedSubtasksOf,
   trashedTasks,
   undatedPinned,
   upcomingTasks,
@@ -160,6 +161,22 @@ describe('smart views', () => {
     s.ctx.now = () => Date.UTC(2026, 9, 20);
     s.ws = deleteTask(s.ctx, s.ws, parent.id);
     expect(titles(trashedTasks(s.ws, Date.UTC(2026, 9, 21)))).toEqual(['parent']);
+  });
+
+  it('a trashed task holds the subtasks deleted with it, not ones deleted before', () => {
+    const s = setup();
+    const parent = s.add('parent');
+    const earlier = s.add('earlier', { parentId: parent.id });
+    s.add('first', { parentId: parent.id });
+    s.add('second', { parentId: parent.id });
+    s.ctx.now = () => Date.UTC(2026, 9, 19);
+    s.ws = deleteTask(s.ctx, s.ws, earlier.id);
+    s.ctx.now = () => Date.UTC(2026, 9, 20);
+    s.ws = deleteTask(s.ctx, s.ws, parent.id);
+    const trashed = s.ws.entities.tasks.find((task) => task.id === parent.id)!;
+    expect(titles(trashedSubtasksOf(s.ws, trashed))).toEqual(['first', 'second']);
+    // A live task has none.
+    expect(trashedSubtasksOf(s.ws, s.add('live'))).toEqual([]);
   });
 });
 

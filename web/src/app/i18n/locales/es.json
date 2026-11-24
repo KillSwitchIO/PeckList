@@ -2048,6 +2048,7 @@
   "trash.othersLists": "En listas de otros",
   "trash.othersListsHint": "El dispositivo de su propietario las borra, así que Vaciar papelera no las toca.",
   "trash.hint": "Las tareas eliminadas se quedan aquí {period}.",
+  "trash.detailNotice": "Esta tarea está en la papelera. Restáurala para cambiarla.",
   "trash.deletedOn": "Eliminada: {date}",
   "trash.deleteForever": "Eliminar para siempre",
   "trash.deleteForeverOf": "Eliminar {title} para siempre",
