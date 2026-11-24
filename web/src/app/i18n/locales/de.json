@@ -2048,6 +2048,7 @@
   "trash.othersLists": "In Listen anderer",
   "trash.othersListsHint": "Diese löscht das Gerät des Eigentümers, daher bleiben sie beim Leeren des Papierkorbs erhalten.",
   "trash.hint": "Gelöschte Aufgaben bleiben {period} hier.",
+  "trash.detailNotice": "Diese Aufgabe liegt im Papierkorb. Stelle sie wieder her, um sie zu ändern.",
   "trash.deletedOn": "Gelöscht: {date}",
   "trash.deleteForever": "Endgültig löschen",
   "trash.deleteForeverOf": "{title} endgültig löschen",

@@ -2048,6 +2048,7 @@
   "trash.othersLists": "In lists others own",
   "trash.othersListsHint": "Their owner's device erases these, so Empty trash leaves them.",
   "trash.hint": "Deleted tasks stay here for {period}.",
+  "trash.detailNotice": "This task is in the Trash. Restore it to change it.",
   "trash.deletedOn": "Deleted {date}",
   "trash.deleteForever": "Delete forever",
   "trash.deleteForeverOf": "Delete {title} forever",

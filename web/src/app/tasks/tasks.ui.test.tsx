@@ -932,8 +932,28 @@ describe('phone', () => {
   it('More lists the remaining views and lists', async () => {
     mockViewport('phone');
     await renderApp('/more');
+    await userEvent.click(screen.getByRole('button', { name: /^More/, expanded: false }));
     await userEvent.click(screen.getByRole('button', { name: 'Trash' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Trash' })).toBeInTheDocument();
+  });
+
+  // Ben, rc.3: the More group showed on the phone only while editing the sidebar.
+  it('More shows the More group as the sidebar does, folded or open, and remembers which', async () => {
+    mockViewport('phone');
+    const store = testStore();
+    await renderApp('/more', store);
+    const group = screen.getByRole('button', { name: /^More/, expanded: false });
+    // Folded: its views wait under it, counted.
+    expect(group).toHaveTextContent('3');
+    expect(screen.queryByRole('button', { name: 'Templates' })).toBeNull();
+    await userEvent.click(group);
+    expect(group).toHaveAttribute('aria-expanded', 'true');
+    const views = screen
+      .getAllByRole('button')
+      .map((button) => button.textContent)
+      .filter((text) => ['Completed', 'Templates', 'Trash'].includes(text ?? ''));
+    expect(views).toEqual(['Completed', 'Templates', 'Trash']);
+    expect(store.getState().workspace!.entities.settings[0]!.sidebar?.groupOpen).toBe(true);
   });
 
   it('More is edited like the desktop sidebar: hide a view, then Done', async () => {

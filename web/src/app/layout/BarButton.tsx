@@ -5,6 +5,7 @@ import { t } from '../i18n/i18n.ts';
 import { BottomBarIcon } from '../icons/icons.tsx';
 import { BarOrderPopover } from './BarOrderPopover.tsx';
 import { useSidebarEdit } from './sidebarEditContext.ts';
+import { visuallyHidden } from './visuallyHidden.ts';
 
 /** How long "the bar is full" stays up after a tap. */
 const FULL_NOTICE_MS = 3000;
@@ -93,12 +94,3 @@ export function BarButton({ id, name }: { id: string; name: string }) {
     </>
   );
 }
-
-const visuallyHidden = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-} as const;

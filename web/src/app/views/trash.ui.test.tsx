@@ -5,7 +5,7 @@ import { createMemoryStorage } from '../../adapters/memory-storage.ts';
 import { FakeBackend } from '../../test/fakeTransport.ts';
 import { createSyncEngine } from '../sync/syncEngine.ts';
 import { createList, inboxList } from '../../core/lists.ts';
-import { createTask, deleteTask } from '../../core/tasks.ts';
+import { createTask, deleteTask, updateTask } from '../../core/tasks.ts';
 import { isPurged } from '../../core/trash.ts';
 import { mockViewport, renderApp, testStore } from '../../test/renderApp.tsx';
 
@@ -44,7 +44,105 @@ describe('trash', () => {
       within(row)
         .getAllByRole('button')
         .map((button) => button.getAttribute('aria-label')),
-    ).toEqual(['Restore', 'Delete Old receipt forever']);
+    ).toEqual(['Open Old receipt', 'Restore', 'Delete Old receipt forever']);
+  });
+
+  // Ben, rc.3: a click on a Trash row opens the task, as a row does in the other views.
+  it('opens a deleted task from its row, to read with what went with it, and nothing to edit', async () => {
+    const store = testStore();
+    await renderApp('/trash', store);
+    store.getState().apply((ctx, ws) => {
+      const made = createTask(ctx, ws, { title: 'Old receipt', listId: inboxList(ws).id });
+      const noted = updateTask(ctx, made.workspace, made.task.id, { notes: 'Keep for taxes' });
+      const sub = createTask(ctx, noted, { title: 'Scan it', listId: '', parentId: made.task.id });
+      return deleteTask(ctx, sub.workspace, made.task.id);
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Old receipt' }));
+
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    expect(
+      within(details).getByText('This task is in the Trash. Restore it to change it.'),
+    ).toBeInTheDocument();
+    expect(within(details).getByRole('heading', { name: 'Old receipt' })).toBeInTheDocument();
+    expect(within(details).getByText('Mess Drawer')).toBeInTheDocument();
+    expect(within(details).getByText(/^Deleted /)).toBeInTheDocument();
+    expect(await within(details).findByText('Keep for taxes')).toBeInTheDocument();
+    expect(within(details).getByText('Scan it')).toBeInTheDocument();
+    // Nothing to change while it is deleted: no title field, checkbox or task menu.
+    expect(within(details).queryByRole('textbox', { name: 'Title' })).toBeNull();
+    expect(within(details).queryByRole('checkbox')).toBeNull();
+    expect(within(details).queryByRole('button', { name: 'Task actions' })).toBeNull();
+    // The subtask went with it and has no row of its own.
+    expect(screen.queryByRole('button', { name: 'Open Scan it' })).toBeNull();
+  });
+
+  it('restores from the details, which then become the usual ones', async () => {
+    const { tasks } = await trashWithTwo();
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Old receipt' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Restore' }));
+
+    await waitFor(() =>
+      expect(tasks().find((task) => task.title === 'Old receipt')!.deletedAt).toBeNull(),
+    );
+    const live = await screen.findByRole('region', { name: 'Task details' });
+    expect(within(live).getByRole('textbox', { name: 'Title' })).toHaveValue('Old receipt');
+    expect(within(live).queryByText(/is in the Trash/)).toBeNull();
+    // Gone from the Trash's rows.
+    expect(screen.queryByRole('button', { name: 'Open Old receipt' })).toBeNull();
+  });
+
+  it('deletes forever from the details after asking, then closes them', async () => {
+    const { tasks } = await trashWithTwo();
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Old receipt' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(within(details).getByRole('button', { name: 'Delete forever' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/cannot be undone/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete forever' }));
+
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
+    expect(screen.queryByText(/no longer exists/)).toBeNull();
+    expect(screen.queryByText('Old receipt')).toBeNull();
+    expect(screen.getByText('Spare key')).toBeInTheDocument();
+    expect(tasks().filter(isPurged)).toHaveLength(1);
+  });
+
+  it('closes the open details when Empty trash takes the task', async () => {
+    await trashWithTwo();
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Spare key' }));
+    await screen.findByRole('region', { name: 'Task details' });
+    await userEvent.click(screen.getByRole('button', { name: 'Empty trash' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Empty trash' }));
+
+    expect(await screen.findByText('The trash is empty.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Task details' })).toBeNull());
+  });
+
+  it('offers no Delete forever in the details of a task in a list someone else owns', async () => {
+    const store = testStore();
+    await renderApp('/trash', store);
+    store.getState().apply((ctx, ws) => {
+      const list = createList(ctx, ws, { name: 'Their list', color: '#A7C7E7' });
+      const made = createTask(ctx, list.workspace, { title: 'Their task', listId: list.list.id });
+      const gone = deleteTask(ctx, made.workspace, made.task.id);
+      return {
+        ...gone,
+        entities: {
+          ...gone.entities,
+          lists: gone.entities.lists.map((each) =>
+            each.id === list.list.id
+              ? { ...each, createdBy: '01ARZ3NDEKTSV4RRFFQ69G5FAV', visibility: 'shared' as const }
+              : each,
+          ),
+        },
+      };
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Open Their task' }));
+    const details = await screen.findByRole('region', { name: 'Task details' });
+    expect(within(details).getByRole('button', { name: 'Restore' })).toBeInTheDocument();
+    expect(within(details).queryByRole('button', { name: 'Delete forever' })).toBeNull();
   });
 
   it('cleans up only after hearing from the server, never from a stale copy', async () => {

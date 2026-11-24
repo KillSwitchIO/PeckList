@@ -97,12 +97,9 @@ export function PathText({ path }: { path: string }) {
 export function SidebarViews({
   selected,
   onNavigate,
-  flat = false,
 }: {
   selected: string | false;
   onNavigate: (path: string) => void;
-  /** Show the More group's views without its fold (the phone's More page), except while editing. */
-  flat?: boolean;
 }) {
   const workspace = useWorkspace();
   const today = useToday();
@@ -210,8 +207,9 @@ export function SidebarViews({
 
   const groupAt = layout.order.indexOf(GROUP);
   const grouped = layout.order.slice(groupAt + 1);
-  const unfolded = flat && !editing;
-  const groupOpen = unfolded || layout.groupOpen;
+  // The phone's More page shows the group as the sidebar does, folded or open (Ben, rc.3: it
+  // showed only while editing there).
+  const groupOpen = layout.groupOpen;
 
   const row = (item: ViewItem, id: string, index: number) => {
     const hidden = layout.hidden.includes(id);
@@ -243,7 +241,7 @@ export function SidebarViews({
             bgcolor: 'action.selected',
             boxShadow: `inset 0 0 0 2px ${theme.palette.primary.main}`,
           },
-          pl: inGroup && !unfolded ? 3 : 2,
+          pl: inGroup ? 3 : 2,
           opacity: hidden ? 0.45 : 1,
           ...(!editing && item.filterId ? rowMenuHoverSx : {}),
           ...editingRowSx(editing, sortable.dragging === id, index),
@@ -311,7 +309,6 @@ export function SidebarViews({
       <List dense>
         {layout.order.map((id, index) => {
           if (id === GROUP) {
-            if (unfolded) return null;
             const count = grouped.filter((each) => editing || !layout.hidden.includes(each)).length;
             return (
               <ListItemButton

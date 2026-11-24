@@ -2048,6 +2048,7 @@
   "trash.othersLists": "Dans les listes d’autres personnes",
   "trash.othersListsHint": "L’appareil de leur propriétaire les efface, donc Vider la corbeille ne les touche pas.",
   "trash.hint": "Les tâches supprimées restent ici {period}.",
+  "trash.detailNotice": "Cette tâche est dans la corbeille. Restaurez-la pour la modifier.",
   "trash.deletedOn": "Supprimée : {date}",
   "trash.deleteForever": "Supprimer définitivement",
   "trash.deleteForeverOf": "Supprimer {title} définitivement",

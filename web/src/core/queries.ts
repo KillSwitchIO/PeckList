@@ -158,6 +158,14 @@ export function trashedTasks(workspace: WorkspaceFile, now: number): Task[] {
     .sort((a, b) => (b.deletedAt ?? '').localeCompare(a.deletedAt ?? ''));
 }
 
+/** A trashed task's subtasks that went to the trash with it (and come back with it), in order. */
+export function trashedSubtasksOf(workspace: WorkspaceFile, task: Task): Task[] {
+  if (!task.deletedAt) return [];
+  return workspace.entities.tasks
+    .filter((each) => each.parentId === task.id && each.deletedAt === task.deletedAt)
+    .sort(compareByOrder);
+}
+
 /** Count of open top-level tasks per list, for the sidebar. */
 export function openCounts(workspace: WorkspaceFile): Map<Id, number> {
   const counts = new Map<Id, number>();

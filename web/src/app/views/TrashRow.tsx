@@ -1,7 +1,16 @@
 import DeleteForeverOutlined from '@mui/icons-material/DeleteForeverOutlined';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import RestoreRounded from '@mui/icons-material/RestoreRounded';
-import { Box, IconButton, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
+import {
+  Box,
+  ButtonBase,
+  IconButton,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
+import type { MouseEvent } from 'react';
 import { getEntity } from '../../core/collections.ts';
 import type { Task } from '../../core/types.ts';
 import { formatDay } from '../format.ts';
@@ -9,12 +18,16 @@ import { useToday } from '../hooks/useToday.ts';
 import { t } from '../i18n/i18n.ts';
 import { listName } from '../lists/listName.ts';
 import { useWorkspace } from '../store/hooks.ts';
+import { openedFromRow } from '../tasks/detailFocus.ts';
+import { useTaskSelection } from '../tasks/selection.ts';
 
 /**
  * A deleted task in the Trash, laid out like a task row in the other views (TaskRow): the same
  * height, spacing, divider and list stripe, a trash mark where the checkbox sits, its list and
  * when it was deleted where a row's details and date go, then Restore and Delete forever. Phones
- * put the list and day on a line under the title, as their task rows do.
+ * put the list and day on a line under the title, as their task rows do. A click on the row opens
+ * the task, as a row does elsewhere (Ben, rc.3): the details show it as in the Trash, to read,
+ * restore or delete forever (TrashedDetail).
  */
 export function TrashRow({
   task,
@@ -30,10 +43,23 @@ export function TrashRow({
   const today = useToday();
   const theme = useTheme();
   const twoLine = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  const { selectedId, open } = useTaskSelection();
+  const selected = selectedId === task.id;
   const list = getEntity(workspace, 'lists', task.listId);
   const title = task.title || t('task.untitled');
   const where = list ? listName(list, workspace) : null;
   const deleted = t('trash.deletedOn', { date: formatDay(task.deletedAt!.slice(0, 10), today) });
+  const openButton = {
+    onClick: (event: MouseEvent) => {
+      // Enter or Space: the details take the keyboard, as from a task row (detailFocus.ts).
+      openedFromRow(task.id, event.detail === 0);
+      open(task.id);
+    },
+    'aria-label': t('task.open', { title }),
+    // J / K step through these rows too (keyboard shortcuts).
+    'data-task-row': task.id,
+    disableRipple: true,
+  };
 
   const actions = (
     <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, pr: 0.5 }}>
@@ -72,7 +98,8 @@ export function TrashRow({
         pl: '4px',
         borderBottom: 1,
         borderColor: 'divider',
-        '&:hover': { bgcolor: 'action.hover' },
+        bgcolor: selected ? 'action.selected' : 'transparent',
+        '&:hover': { bgcolor: selected ? 'action.selected' : 'action.hover' },
         // The list's color as a thin stripe on the left edge, as on a task row.
         '&::before': {
           content: '""',
@@ -104,18 +131,23 @@ export function TrashRow({
       </Box>
       {twoLine ? (
         <Box sx={{ flexGrow: 1, minWidth: 0, py: 1, pr: 0.5 }}>
-          <Typography
-            sx={{
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {title}
-          </Typography>
+          <ButtonBase {...openButton} sx={{ display: 'block', width: '100%', textAlign: 'left' }}>
+            <Typography
+              component="span"
+              sx={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {title}
+            </Typography>
+          </ButtonBase>
+          {/* A tap on the details opens it too; the title is the button to focus. */}
           <Box
+            onClick={() => open(task.id)}
             sx={{
               display: 'flex',
               flexWrap: 'wrap',
@@ -124,6 +156,7 @@ export function TrashRow({
               typography: 'body2',
               fontSize: '0.8125rem',
               color: 'text.secondary',
+              cursor: 'pointer',
             }}
           >
             {where && <Box component="span">{where}</Box>}
@@ -131,21 +164,25 @@ export function TrashRow({
           </Box>
         </Box>
       ) : (
-        <Box
+        <ButtonBase
+          {...openButton}
           sx={{
             flexGrow: 1,
             minWidth: 0,
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'flex-start',
             gap: 1.5,
             py: 1,
             pr: 1.5,
+            textAlign: 'left',
           }}
         >
-          <Typography noWrap title={title} sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Typography noWrap component="span" title={title} sx={{ flexGrow: 1, minWidth: 0 }}>
             {title}
           </Typography>
           <Box
+            component="span"
             sx={{
               display: 'flex',
               alignItems: 'center',
@@ -172,7 +209,7 @@ export function TrashRow({
             )}
             <Box component="span">{deleted}</Box>
           </Box>
-        </Box>
+        </ButtonBase>
       )}
       {twoLine ? <Box sx={{ alignSelf: 'center' }}>{actions}</Box> : actions}
     </Box>

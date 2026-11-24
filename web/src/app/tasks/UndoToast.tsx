@@ -4,21 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n/i18n.ts';
 import { useStoreState } from '../store/hooks.ts';
 import { countUse } from '../telemetry/usage.ts';
+import { visuallyHidden } from '../layout/visuallyHidden.ts';
 
 /** How long Undo stays. */
 const SHOW_MS = 6000;
 /** A sideways swipe this far sends it away. */
 const AWAY_PX = 48;
 const SIZE = 48;
-/** Read out, not seen. */
-const visuallyHidden = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-} as const;
 
 /**
  * Undo after a change (spec: R-FB-68): a small round button off to the side, a ring running down
