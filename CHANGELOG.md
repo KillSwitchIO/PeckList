@@ -4,6 +4,100 @@ All notable changes to PeckList. Each release adds its section from [Conventiona
 with `pnpm release`; the version follows [Semantic Versioning](https://semver.org/). Before 1.0.0 a
 minor release may break things; every break is listed under **Breaking changes** with what to do.
 
+## [0.15.0] - 2026-11-25
+
+### Added
+
+- **web:** JSON catalogs, ICU messages and lazy languages (PL-148)
+- **keys:** Supporter keys from BTCPay as well as Paddle (PL-112)
+- **web:** One ICU message per count-dependent string (PL-148)
+- **web:** Rename a file from its tile's menu (PL-051)
+- **web:** A saved filter keeps its grouping and sort, synced (PL-015)
+- **web:** Pick several tasks in the calendar and move them together (PL-093)
+- **web:** Pick the language PeckList speaks (PL-148)
+- **android:** The app's own text follows the picked language (PL-148)
+- **api:** Snooze a task's reminder with a key (PL-119)
+- German, Spanish and French machine drafts (PL-148)
+- **server:** Server text in the person's language (PL-148 piece 5)
+- **web:** Duplicate a task or a list (PL-139)
+- **server:** German, Spanish and French server text drafts (PL-148)
+- **android:** Pick what a Today widget shows (PL-121)
+- Quick add reads the picked language as well as English (PL-148)
+- **web:** About PeckList, with the source of the running build
+- Task and list templates (PL-140)
+- **android:** No app update notice when F-Droid installed the app
+- **android:** Keep the app's data in its own SQLite (PL-070)
+- The clock follows the language (schema 22)
+- The calendar's Days title in the language's own words
+- French writes the first of a month 1er
+- **android:** French 1er on the phone's own screens
+- Each device's pushes read its own clock; Android follows a clock picked elsewhere
+- Read and use templates from the Task API and the CLI (PL-140)
+- Blocked-by links in core: blockers, loops and date conflicts (PL-055)
+- Blocked-by links in task details, the task menu and rows (PL-055)
+- Blocked-by arrows and drag to link on the timeline (PL-055)
+- Kubernetes manifests with Kustomize (PL-120)
+- MCP connector at /mcp, signed in with API keys (PL-113)
+- Saved filters get an icon and color, and a row menu like lists (PL-149)
+- Bottom bar order popup with a preview, from a numbered tab (PL-149)
+- The MCP tool set, reads and writes with audit and a shared limit (PL-113)
+
+### Fixed
+
+- **api:** Open routes say they take no key; PL-118's tests
+- **web:** The calendar's Days title fits on narrow phones (PL-093)
+- **android:** A crash report is a short summary, not the raw trace (PL-116)
+- **web:** A click on a Days task's grip leaves its time alone
+- **web:** A phone's Days title names another year short (PL-093)
+- **web:** Picking a row's date on a phone sets it, not opens the task
+- **server:** Push contact is mailto when PUBLIC_URL is http
+- **web:** Quick add reads dates with no network and no service worker
+- **web:** Row shortcuts work beside the details drawer
+- **server:** The app's sign-in comes back over plain http
+- **web:** Undo of a template Use or a duplicate closes the opened task
+- **web:** A saved filter keeps view fields a later version added (PL-015)
+- **android-e2e:** Fail fast and clean up on the runner
+- **i18n:** Dates on the Gregorian calendar wherever the months would differ
+- Templates pinned in exports and backups, counted on import; a Templates docs page (PL-140)
+- Another account's export imports on the same server, nothing undone
+- A file opens only through an attachment whose owner holds it
+- A picture nowhere to be had says so instead of opening empty
+- Duplicate speaks German, Spanish and French
+- A language tag Intl rejects no longer breaks every date
+- Timeline arrows go round the bars and titles in their way (PL-055)
+- An imported subtask whose parent was purged comes in with no parent
+- The file clean-up keeps bytes sent or named again while it runs
+- Drag notes items across headings and onto items to nest (PL-149)
+- Backspace deletes an empty notes list item, leaving no blank line (PL-149)
+- The app opens to its lists without a spinner first
+- A template's notes have the full editor, as a task's do
+- The Android app reads its whole store in one go at the start
+- A timeline bar's move ends with the timeline, not on the next page
+- Quick add's date button, and its template button before expand
+- The Trash lists its tasks the way the other views do
+- The unfriend e2e restores from the Trash by the button's label
+- "already here" keeps the file from the clean-up, as an upload does
+- **e2e:** Server specs survive a busy runner; release builds wait for them
+- "1 account" in server messages, and one year in calendar titles
+- A refused app sign-in says why instead of showing JSON
+- An imported tag named as one you have is yours, not a second one
+- The Kubernetes network policy lets k3s's own Traefik in
+- Quick add reads parts of the day, next week and midnight in de and es
+- Bringing in an older copy another account synced asks first
+- **web:** Reach the timeline link dot, and hold a bar for its menu
+- Phone More group shows, Trash rows open, bar order stays put
+
+### Documentation
+
+- **logging:** Elasticsearch 8's certificate names its host name (PL-083)
+- **development:** The browser tests' command and weekly job (PL-002)
+- **readme:** Both image names in full in the quick start, and the demo
+- **store:** Store listing drafts and assets in brand/store
+- **store:** The store listing moves into fastlane
+- Languages in the user guide, translating in CONTRIBUTING (PL-148)
+- **android:** Screenshots of the Today widget's view picker
+- Blocked-by links in Using PeckList (PL-055)
+
 ## [0.15.0-rc.3] - 2026-11-22
 
 ### Added
