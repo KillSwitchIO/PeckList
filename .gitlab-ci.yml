@@ -1073,6 +1073,12 @@ windows-test:
     - *not-affected
     - if: $CI_COMMIT_TAG
       when: never
+    # 0.15.0 only (Ben, 2026-11-24): the group's hosted runner minutes ran out for November, so the
+    # hosted Windows runner refuses this job (ci_quota_exceeded). Nothing under *windows-files
+    # changed since 0.14.0, whose release passed it. Remove this rule once 0.15.0 is cut.
+    - if: '$CI_PIPELINE_SOURCE != "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE =~ /^chore\(release\): 0\.15\.0$/m'
+      interruptible: false
+      allow_failure: true
     - <<: *release-commit
       interruptible: false
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
