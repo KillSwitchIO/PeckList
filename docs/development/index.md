@@ -19,9 +19,10 @@ the house style, the checks and the shared pieces to reach for are in [Coding st
 ## Setting up
 
 Node.js 24 with pnpm, and the .NET 10 SDK. [mise](https://mise.jdx.dev/) installs both from
-`mise.toml`: `mise install`. Docker for the PostgreSQL tests and the image (or set
+`mise.toml`: `mise install`. Docker for the PostgreSQL and CalDAV tests and the image (or set
 `PECKLIST_TEST_POSTGRES` to a connection string for a PostgreSQL server the tests may create
-databases on). Chrome and Firefox for end-to-end tests.
+databases on, and `PECKLIST_TEST_CALDAV` to the address of a Radicale server with sign-in turned off, such as
+`http://localhost:5232/`). Chrome and Firefox for end-to-end tests.
 
 ```bash
 pnpm install           # also installs the git hooks
