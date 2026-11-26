@@ -151,6 +151,15 @@ public static class AuthSetup
             options.AddPolicy(LoginRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 AddressKey(context),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+            // Connecting a calendar makes the server dial the address given (PL-134): a few tries per
+            // person, so the connect form is no free scanner of addresses near the server.
+            options.AddPolicy(Calendars.CalendarEndpoints.ConnectRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                "calendar:" + (context.User.Identity?.IsAuthenticated == true ? "account:" + context.User.UserId() : "address:" + AddressKey(context)),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = Calendars.CalendarEndpoints.ConnectsPerWindow, Window = Calendars.CalendarEndpoints.ConnectWindow }));
+            // "Sync now" is a full run behind the server's one-at-a-time gate (PL-134, Security E3).
+            options.AddPolicy(Calendars.CalendarEndpoints.SyncNowRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                "calendar-sync:" + (context.User.Identity?.IsAuthenticated == true ? "account:" + context.User.UserId() : "address:" + AddressKey(context)),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = Calendars.CalendarEndpoints.SyncsPerWindow, Window = Calendars.CalendarEndpoints.SyncNowWindow }));
             // Thirty a minute per account, shared by the endpoints that take it: far more than a person
             // typing, far too few to walk through names or friend codes (audit S13).
             options.AddPolicy(AccountRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(

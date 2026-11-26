@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Shared by the calendar suites (PL-134): the contract kit every calendar adapter passes, and the
+    fake provider the sync engine is tested against. A library, not a test run: the test projects
+    (PeckList.Calendars.Tests, PeckList.CalDav.Tests, Core and Server tests) reference it.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <PackageReference Include="xunit.v3.assert" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PeckList.Core\PeckList.Core.csproj" />
+  </ItemGroup>
+</Project>

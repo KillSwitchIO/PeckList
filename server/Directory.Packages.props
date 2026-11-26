@@ -27,5 +27,8 @@
     <PackageVersion Include="MessageFormat" Version="8.0.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <!-- The calendar contract kit and fake (PL-134) are a library the test projects share: attributes and asserts without a runner. -->
+    <PackageVersion Include="xunit.v3.assert" Version="4.0.2" />
+    <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.2" />
   </ItemGroup>
 </Project>

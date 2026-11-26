@@ -97,7 +97,7 @@ public sealed class RateLimitTests(ServerFixture fixture) : IClassFixture<Server
         using var server = Server();
         var kim = await SignedIn(server, "kim-s");
         var mo = await SignedIn(server, "mo-s");
-        var notifier = (InProcessChangeNotifier)server.Services.GetRequiredService<IChangeNotifier>();
+        var notifier = server.Services.GetRequiredService<InProcessChangeNotifier>();
         var kimId = (await server.Services.GetRequiredService<IAccountStore>().FindByUsernameAsync("kim-s", Token))!.Id;
 
         var open = new List<HttpResponseMessage>();

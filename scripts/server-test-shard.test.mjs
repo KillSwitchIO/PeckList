@@ -85,8 +85,9 @@ test('shard 3 runs the other projects and every class the list leaves out', () =
   const { status, calls } = run('3');
   assert.equal(status, 0);
   assert.match(calls[0], /^server build --configuration Release/);
+  // Test projects are the *.Tests folders; tests/ also holds libraries the suites share.
   const others = readdirSync(join(root, 'server', 'tests')).filter(
-    (name) => name !== 'PeckList.Server.Tests',
+    (name) => name.endsWith('.Tests') && name !== 'PeckList.Server.Tests',
   );
   for (const project of others)
     assert.ok(

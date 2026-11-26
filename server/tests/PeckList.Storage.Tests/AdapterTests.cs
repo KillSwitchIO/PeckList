@@ -64,7 +64,15 @@ public sealed class PostgresServer : IAsyncLifetime
             await using var create = new Npgsql.NpgsqlCommand($"CREATE DATABASE {name}", admin);
             await create.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
-        var connection = new Npgsql.NpgsqlConnectionStringBuilder(server) { Database = name }.ToString();
+        // Every test has a database and so a pool of its own. Idle connections close after a second
+        // instead of Npgsql's five minutes, or a run's worth of finished tests holds them all and the
+        // server (100 connections by default, as in CI) turns new ones away.
+        var connection = new Npgsql.NpgsqlConnectionStringBuilder(server)
+        {
+            Database = name,
+            ConnectionIdleLifetime = 1,
+            ConnectionPruningInterval = 1,
+        }.ToString();
         var database = new PostgresDatabase(connection);
         if (migrate) await database.MigrateAsync(TestContext.Current.CancellationToken);
         return database;

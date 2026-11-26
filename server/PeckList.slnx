@@ -11,6 +11,8 @@
     <Project Path="src/PeckList.Storage.Sqlite/PeckList.Storage.Sqlite.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/PeckList.Calendars.Testing/PeckList.Calendars.Testing.csproj" />
+    <Project Path="tests/PeckList.Calendars.Tests/PeckList.Calendars.Tests.csproj" />
     <Project Path="tests/PeckList.Client.Tests/PeckList.Client.Tests.csproj" />
     <Project Path="tests/PeckList.Collector.Tests/PeckList.Collector.Tests.csproj" />
     <Project Path="tests/PeckList.Core.Tests/PeckList.Core.Tests.csproj" />

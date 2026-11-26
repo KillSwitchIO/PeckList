@@ -3,7 +3,7 @@
 #   sh scripts/ci/server-test-shard.sh <1|2|3>
 # Shards 1 and 2 run the PeckList.Server.Tests classes listed for them in
 # server/tests/PeckList.Server.Tests/shards.txt; shard 3 runs every other class of it, plus every
-# other test project. A class missing from the list still runs, in shard 3.
+# other test project (a tests/*.Tests folder). A class missing from the list still runs, in shard 3.
 # Each runs on xunit's own runner with SERVER_TEST_THREADS threads (default 4): the suite contends
 # beyond that (thread pool and GC), so three shards of 4 finish far sooner than one run of 12.
 set -eu
@@ -36,7 +36,9 @@ run() { # project, then runner arguments
 }
 
 if [ "$shard" = 3 ]; then
-  for dir in tests/*/; do
+  # Only *.Tests folders are test runs: tests/ also holds libraries the suites share
+  # (PeckList.Calendars.Testing, the calendar contract kit and fake).
+  for dir in tests/*.Tests/; do
     project=$(basename "$dir")
     [ "$project" = PeckList.Server.Tests ] || run "$project"
   done

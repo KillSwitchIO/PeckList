@@ -15,5 +15,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\PeckList.Server\PeckList.Server.csproj" />
     <ProjectReference Include="..\..\src\PeckList.Client\PeckList.Client.csproj" />
+    <ProjectReference Include="..\PeckList.Calendars.Testing\PeckList.Calendars.Testing.csproj" />
   </ItemGroup>
 </Project>

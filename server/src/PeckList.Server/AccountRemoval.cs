@@ -34,6 +34,7 @@ public sealed class AccountRemoval(
     Core.Accounts.IPasskeyStore passkeys,
     Core.Accounts.ICredentialRevocationStore revocations,
     Core.Push.IPushStore push,
+    Core.Calendars.ICalendarStore calendars,
     Core.Supporters.SupporterKeys supporterKeys,
     ISecretStore secrets,
     LiveSettings live,
@@ -144,6 +145,8 @@ public sealed class AccountRemoval(
         // Their own sync epoch, if they ever started over (PL-147).
         await secrets.DeleteAsync(ServerEpoch.PersonKind, account.Id, cancellation);
         await push.RemoveUserAsync(account.Id, cancellation);
+        // Their calendar connections (PL-134): the secrets go with them; events on the calendars stay.
+        await calendars.RemoveUserAsync(account.Id, cancellation);
         await supporterKeys.RemoveAsync(account.Id, cancellation);
         await accounts.DeleteAsync(account.Id, cancellation);
         // Who sees what, groups whose owner left, and invites are worked out again without them.
