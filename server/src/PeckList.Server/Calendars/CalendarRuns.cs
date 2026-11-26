@@ -1,4 +1,6 @@
 using System.Threading.Channels;
+using PeckList.CalDav;
+using PeckList.CalDav.Dav;
 using PeckList.Core.Accounts;
 using PeckList.Core.Calendars;
 using PeckList.Core.Configuration;
@@ -187,6 +189,14 @@ public static class CalendarSetup
         services.AddSingleton<InProcessChangeNotifier>();
         services.AddSingleton<IChangeNotifier>(provider => new CalendarNudgingNotifier(
             provider.GetRequiredService<InProcessChangeNotifier>(), provider.GetRequiredService<CalendarNudges>()));
+        // CalDAV, through its own HttpClient only: the network policy refuses private and local
+        // addresses unless CALENDAR_CALDAV_PRIVATE_NETWORK is on, read live on each new connection.
+        services.AddSingleton<ICalendarProvider>(provider =>
+        {
+            var live = provider.GetRequiredService<LiveSettings>();
+            var policy = new CalDavNetworkPolicy(() => live.Current.CalendarCalDavPrivateNetwork);
+            return new CalDavCalendarProvider(CalDavCalendarProvider.CreateHttpClient(policy), provider.GetRequiredService<TimeProvider>());
+        });
         services.AddSingleton(provider => new CalendarSync(
             provider.GetRequiredService<ICalendarStore>(),
             provider.GetServices<ICalendarProvider>(),

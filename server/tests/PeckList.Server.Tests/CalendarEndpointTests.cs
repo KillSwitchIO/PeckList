@@ -20,8 +20,9 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
-    private WebApplicationFactory<Program> Server(bool on = true, bool withProvider = true) =>
-        fixture.Factory(("ADMIN_PASSWORD", "correct horse battery"), ("CALENDAR_SYNC", on ? "true" : "false"))
+    private WebApplicationFactory<Program> Server(bool on = true, bool withProvider = true, bool privateNetwork = false) =>
+        fixture.Factory(("ADMIN_PASSWORD", "correct horse battery"), ("CALENDAR_SYNC", on ? "true" : "false"),
+                ("CALENDAR_CALDAV_PRIVATE_NETWORK", privateNetwork ? "true" : "false"))
             .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
             {
                 if (withProvider) services.AddSingleton<ICalendarProvider>(fake);
@@ -88,13 +89,13 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
     }
 
     [Fact]
-    public async Task With_no_calendar_kind_on_the_server_a_connect_is_refused_and_the_rest_still_answers()
+    public async Task A_calendar_kind_the_server_lacks_is_refused_and_the_rest_still_answers()
     {
         await using var server = Server(withProvider: false);
         var (client, _) = await SignIn(server, "ben");
 
         var answer = await client.PostAsJsonAsync("/api/calendars/accounts",
-            new { serverUrl = "https://calendar.example.com/dav/", username = "sam", password = Password }, Token);
+            new { provider = "exchange", serverUrl = "https://calendar.example.com/dav/", username = "sam", password = Password }, Token);
         var problem = await answer.Content.ReadFromJsonAsync<JsonObject>(Token);
 
         Assert.Equal(HttpStatusCode.BadRequest, answer.StatusCode);
@@ -102,6 +103,42 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
         Assert.Empty((await client.GetFromJsonAsync<JsonObject>("/api/calendars", Token))!["accounts"]!.AsArray());
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/calendars/events?from=2026-11-01&to=2026-11-30", Token)).StatusCode);
         await server.Services.GetRequiredService<CalendarRuns>().RunDueAsync(new HashSet<string>(), Token);
+    }
+
+    [Fact]
+    public void The_server_syncs_caldav_calendars_and_lists_their_overrides_with_the_series()
+    {
+        using var server = Server(withProvider: false);
+
+        var caldav = server.Services.GetRequiredService<CalendarSync>().Provider("caldav");
+
+        Assert.IsType<PeckList.CalDav.CalDavCalendarProvider>(caldav);
+        Assert.Equal(new CalendarCapabilities(Push: false, CreateCalendar: true, SeriesListsOverrides: true), caldav.Capabilities);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_caldav_server_at_a_private_address_is_refused_unless_the_admin_allows_it(bool allowed)
+    {
+        await using var server = Server(withProvider: false, privateNetwork: allowed);
+        var (client, userId) = await SignIn(server, "ben");
+
+        // Nothing listens on port 1: allowed, the address is dialled and does not answer.
+        var answer = await client.PostAsJsonAsync("/api/calendars/accounts",
+            new { serverUrl = "http://127.0.0.1:1/dav/", username = "sam", password = Password }, Token);
+        var problem = (await answer.Content.ReadFromJsonAsync<JsonObject>(Token))!;
+
+        if (allowed)
+        {
+            Assert.NotEqual("calendar_address_blocked", (string?)problem["error"]);
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, answer.StatusCode);
+            Assert.Equal("calendar_address_blocked", (string?)problem["error"]);
+        }
+        Assert.Empty(await server.Services.GetRequiredService<ICalendarStore>().AccountsAsync(userId, Token));
     }
 
     [Fact]
