@@ -175,9 +175,15 @@ public static class OidcSetup
         });
 
         // Link a provider account to the signed-in user (their settings page).
-        auth.MapGet("/oidc/{name}/link", (string name, ClaimsPrincipal user) =>
+        auth.MapGet("/oidc/{name}/link", async (string name, ClaimsPrincipal user, HttpContext context) =>
         {
             if (name == PasskeyEndpoints.ProviderName) return Results.Redirect("/settings");
+            // Connecting Google Calendar goes by a provider's name here too, so the Android app's
+            // provider-link hand-off carries it with no change (PL-134). A real provider of that name wins.
+            if (name == Calendars.GoogleConnect.LinkName && settings.Provider(name) is null)
+            {
+                return await context.RequestServices.GetRequiredService<Calendars.GoogleConnect>().BeginAsync(context, user.UserId(), scheme: null);
+            }
             if (settings.Provider(name) is null) return Results.NotFound();
             return Results.Challenge(LinkProperties(user.UserId(), appScheme: null), [Scheme(name)]);
         }).RequireAuthorization();

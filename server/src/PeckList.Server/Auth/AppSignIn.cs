@@ -134,7 +134,10 @@ public static partial class AppSignIn
         auth.MapPost("/app/link-start", async (LinkStartRequest request, ClaimsPrincipal user, ISecretStore secrets,
             IDataProtectionProvider protection, TimeProvider time, HttpContext context) =>
         {
-            var provider = request.Provider == PasskeyEndpoints.ProviderName ? PasskeyEndpoints.ProviderName : settings.Provider(request.Provider)?.Name;
+            var provider = request.Provider == PasskeyEndpoints.ProviderName ? PasskeyEndpoints.ProviderName
+                // Connecting Google Calendar rides this hand-off under its own name (PL-134), unless a real provider holds it.
+                : request.Provider == Calendars.GoogleConnect.LinkName && settings.Provider(request.Provider) is null ? Calendars.GoogleConnect.LinkName
+                : settings.Provider(request.Provider)?.Name;
             if (provider is null) return Results.NotFound();
             if (request.Scheme is not { } scheme || !SchemePattern().IsMatch(scheme)) return Results.BadRequest(new AuthError("invalid_request"));
             var code = Tokens.New();
@@ -148,7 +151,8 @@ public static partial class AppSignIn
         {
             var start = await TakeAsync<LinkStart>(secrets, protection, LinkKind, code ?? "", context.RequestAborted);
             var passkey = start?.Provider == PasskeyEndpoints.ProviderName;
-            if (start is null || start.Expires <= time.GetUtcNow() || (!passkey && settings.Provider(start.Provider) is null))
+            var calendar = start?.Provider == Calendars.GoogleConnect.LinkName && settings.Provider(start.Provider) is null;
+            if (start is null || start.Expires <= time.GetUtcNow() || (!passkey && !calendar && settings.Provider(start.Provider) is null))
             {
                 return Results.Content(
                     "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\">" +
@@ -158,6 +162,8 @@ public static partial class AppSignIn
             }
             // Adding a passkey: a page in this tab that needs no session here, then back to the app.
             if (passkey) return Results.Redirect(await PasskeyEndpoints.EnrolLink(start.AccountId, start.Scheme, secrets, protection, time, context.RequestAborted));
+            // Connecting Google Calendar: its own sign-in in this tab, back to the app through <scheme>://link.
+            if (calendar) return await context.RequestServices.GetRequiredService<Calendars.GoogleConnect>().BeginAsync(context, start.AccountId, start.Scheme);
             return Results.Challenge(OidcSetup.LinkProperties(start.AccountId, start.Scheme), [OidcSetup.Scheme(start.Provider)]);
         });
     }

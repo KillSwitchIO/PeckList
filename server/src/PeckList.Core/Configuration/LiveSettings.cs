@@ -30,6 +30,8 @@ public sealed class LiveSettings(ServerSettings start)
             CalendarSync = next.CalendarSync,
             CalendarSyncMinutes = next.CalendarSyncMinutes,
             CalendarCalDavPrivateNetwork = next.CalendarCalDavPrivateNetwork,
+            CalendarGoogleClientId = next.CalendarGoogleClientId,
+            CalendarGoogleClientSecret = next.CalendarGoogleClientSecret,
             Mcp = next.Mcp,
             Telemetry = next.Telemetry,
             CrashReports = next.CrashReports,

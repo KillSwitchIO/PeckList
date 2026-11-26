@@ -5,6 +5,8 @@ using PeckList.Core;
 using PeckList.Core.Calendars;
 using PeckList.Core.Configuration;
 using PeckList.Core.Sharing;
+using PeckList.Google;
+using PeckList.Server.Audit;
 using PeckList.Server.Auth;
 
 namespace PeckList.Server.Calendars;
@@ -19,7 +21,8 @@ public sealed record CalendarLinkView(
     string Id, string Name, string? Color, bool ReadOnly, string Mode, string? TagId, string? ListId, bool MadeByPeckList,
     DateTimeOffset? SyncedAt, string? Problem, DateTimeOffset? NextAttempt);
 
-public sealed record CalendarAccountsView(IReadOnlyList<CalendarAccountView> Accounts);
+/// <summary>The person's accounts, and the kinds this server can connect now (<c>caldav</c>, and <c>google</c> when a Google client is set up).</summary>
+public sealed record CalendarAccountsView(IReadOnlyList<CalendarAccountView> Accounts, IReadOnlyList<string> Providers);
 
 /// <summary>Connect a CalDAV account: the address, the username and an app password.</summary>
 public sealed record CalendarConnectRequest(string? ServerUrl, string? Username, string? Password, string? Provider = null);
@@ -35,7 +38,8 @@ public sealed record CalendarEventView(
     string Id, string LinkId, string Occurrence, string Title, string Notes, string Start, string? End, bool AllDay, string? TimeZone,
     bool Recurring, bool Editable, string? Color);
 
-public sealed record CalendarEventsView(IReadOnlyList<CalendarEventView> Events);
+/// <summary>Shown events; <see cref="Truncated"/> names links that had more than one request shows (Security N4).</summary>
+public sealed record CalendarEventsView(IReadOnlyList<CalendarEventView> Events, IReadOnlyList<string> Truncated);
 
 /// <summary>An edit to a shown event; times as the calendar takes them (<c>2026-11-03</c> or <c>2026-11-03T09:00</c>).</summary>
 public sealed record CalendarEventEdit(string? Title, string? Notes, string? Start, string? End, string? TimeZone);
@@ -72,6 +76,11 @@ public static class CalendarEndpoints
 
     public static readonly TimeSpan SyncNowWindow = TimeSpan.FromMinutes(1);
 
+    /// <summary>The audit entries of connecting and disconnecting a calendar account, any provider; the detail is its kind.</summary>
+    public const string ConnectedAudit = "account.calendar-connected";
+
+    public const string DisconnectedAudit = "account.calendar-disconnected";
+
     private const int MaxUrl = 2048;
     private const int MaxName = 256;
     private const int MaxSecret = 1024;
@@ -81,12 +90,12 @@ public static class CalendarEndpoints
         var calendars = api.MapGroup("/calendars").AddEndpointFilter(async (context, next) =>
             context.HttpContext.RequestServices.GetRequiredService<LiveSettings>().Current.CalendarSync ? await next(context) : Results.NotFound());
 
-        calendars.MapGet("", async (ClaimsPrincipal user, ICalendarStore store, CalendarSync engine, CancellationToken cancellation) =>
-            new CalendarAccountsView(await AccountViewsAsync(user.UserId(), store, engine, cancellation)))
+        calendars.MapGet("", async (ClaimsPrincipal user, ICalendarStore store, CalendarSync engine, GoogleConnect google, CancellationToken cancellation) =>
+            new CalendarAccountsView(await AccountViewsAsync(user.UserId(), store, engine, cancellation), Providers(engine, google)))
             .Doc<CalendarAccountsView>("Your connected calendar accounts and how each calendar is used");
 
         calendars.MapPost("/accounts", async (CalendarConnectRequest request, ClaimsPrincipal user, ICalendarStore store, CalendarSync engine,
-            ICalendarSecrets secrets, TimeProvider time, CancellationToken cancellation) =>
+            ICalendarSecrets secrets, AuditLog audit, HttpContext context, TimeProvider time, CancellationToken cancellation) =>
         {
             var kind = request.Provider ?? "caldav";
             // Google signs in through its own flow, never with a password here.
@@ -118,16 +127,20 @@ public static class CalendarEndpoints
                 await secrets.ProtectAsync(request.Password, cancellation), CalendarAccount.Ok, null, time.GetUtcNow());
             await store.SaveAccountAsync(account, cancellation);
             foreach (var remote in found) await store.SaveLinkAsync(NewLink(Ids.NewUlid(time), account, remote, CalendarModes.Off, null, null, false), cancellation);
+            audit.RecordEvent(context, ConnectedAudit, user.UserId(), user.FindFirstValue(ClaimTypes.Name), account.Id, null, kind);
             var view = (await AccountViewsAsync(user.UserId(), store, engine, cancellation)).Single(each => each.Id == account.Id);
             return Results.Created($"/api/calendars/accounts/{account.Id}", view);
         }).RequireRateLimiting(ConnectRateLimit).Doc<CalendarAccountView>("Connect a CalDAV account (the server checks it first)", StatusCodes.Status201Created)
             .Refuses(400, 429, 502);
 
-        calendars.MapDelete("/accounts/{id}", async (string id, ClaimsPrincipal user, ICalendarStore store, CalendarSync engine, CancellationToken cancellation) =>
+        calendars.MapDelete("/accounts/{id}", async (string id, ClaimsPrincipal user, ICalendarStore store, CalendarSync engine, AuditLog audit,
+            HttpContext context, CancellationToken cancellation) =>
         {
             if (await store.AccountAsync(id, cancellation) is not { } account || account.AccountId != user.UserId()) return Results.NotFound();
-            await StopChannelsAsync(account, store, engine, cancellation);
+            var ending = await EndingAsync(account, store, engine, cancellation);
             await store.DeleteAccountAsync(id, cancellation);
+            audit.RecordEvent(context, DisconnectedAudit, user.UserId(), user.FindFirstValue(ClaimTypes.Name), account.Id, null, account.Provider);
+            await EndAtProviderAsync(ending, cancellation);
             return Results.NoContent();
         }).Doc("Disconnect a calendar account; tasks and events both stay").Refuses(404);
 
@@ -160,7 +173,7 @@ public static class CalendarEndpoints
         }).Doc<CalendarLinkView>("Make a new calendar in the account, synced with a tag", StatusCodes.Status201Created).Refuses(400, 404, 502);
 
         calendars.MapPut("/{linkId}", async (string linkId, CalendarLinkRequest request, ClaimsPrincipal user, ICalendarStore store, CalendarRuns runs,
-            SharingState sharing, TimeProvider time, CancellationToken cancellation) =>
+            SharingState sharing, CalendarChannels channels, TimeProvider time, CancellationToken cancellation) =>
         {
             var userId = user.UserId();
             if (await store.LinkAsync(linkId, cancellation) is not { } link || link.AccountId != userId) return Results.NotFound();
@@ -185,6 +198,8 @@ public static class CalendarEndpoints
                 if (link.NextAttempt is not { } wait || wait <= time.GetUtcNow()) changed = changed with { Problem = null, Failures = 0, NextAttempt = null };
             }
             await store.SaveLinkAsync(changed, cancellation);
+            // Off: its calendar's pushes are no longer wanted.
+            if (changed.Mode == CalendarModes.Off) await channels.StopAsync(link, cancellation);
             if (restart && changed.Mode != CalendarModes.Off) await runs.RunNowAsync(link.Id, cancellation);
             return Results.Ok(View((await store.LinkAsync(link.Id, cancellation))!));
         }).Doc<CalendarLinkView>("Choose how a calendar is used: off, show events, or sync with a tag").Refuses(400, 404);
@@ -201,16 +216,19 @@ public static class CalendarEndpoints
             if (!TryDay(from, out var first) || !TryDay(to, out var last) || last < first) return Refuse(400, "invalid_range", "from and to are days, from first");
             if (last.DayNumber - first.DayNumber + 1 > CalendarOccurrences.MaxDays) return Refuse(400, "invalid_range", $"at most {CalendarOccurrences.MaxDays} days at a time");
             var events = new List<CalendarEventView>();
+            var truncated = new List<string>();
             foreach (var link in (await store.LinksAsync(user.UserId(), cancellation)).Where(each => each.Mode == CalendarModes.Show))
             {
-                foreach (var shown in CalendarOccurrences.Expand(link.Id, await store.ItemsAsync(link.Id, cancellation), first, last))
+                var expanded = CalendarOccurrences.Expand(link.Id, await store.ItemsAsync(link.Id, cancellation), first, last, out var cut);
+                if (cut) truncated.Add(link.Id);
+                foreach (var shown in expanded)
                 {
                     events.Add(new CalendarEventView(EventKey(link.Id, shown.EventId), link.Id, shown.Occurrence, shown.Data.Summary, shown.Data.Description,
                         shown.Data.Start.Value, shown.Data.End?.Value, shown.Data.AllDay, shown.Data.Start.TimeZone, shown.Recurring,
                         !shown.Recurring && !link.ReadOnly, link.Color));
                 }
             }
-            return Results.Ok(new CalendarEventsView([.. events.OrderBy(each => each.Start, StringComparer.Ordinal)]));
+            return Results.Ok(new CalendarEventsView([.. events.OrderBy(each => each.Start, StringComparer.Ordinal)], truncated));
         }).Doc<CalendarEventsView>($"Shown calendars' events from one day to another (at most {CalendarOccurrences.MaxDays} days)").Refuses(400);
 
         calendars.MapPatch("/events/{id}", async (string id, CalendarEventEdit edit, ClaimsPrincipal user, ICalendarStore store, CalendarSync engine,
@@ -286,7 +304,8 @@ public static class CalendarEndpoints
 
     private static IResult Refuse(int status, string error, string message) => Results.Json(new AdminError(error, message), statusCode: status);
 
-    private static CalendarLink NewLink(string id, CalendarAccount account, RemoteCalendar remote, string mode, string? tagId, string? listId, bool made) =>
+    /// <summary>A link to a calendar of an account, as connecting makes them.</summary>
+    internal static CalendarLink NewLink(string id, CalendarAccount account, RemoteCalendar remote, string mode, string? tagId, string? listId, bool made) =>
         new(id, account.Id, account.AccountId, remote.Id, remote.Name, remote.Color, remote.ReadOnly, mode, tagId, listId, made,
             null, 0, null, null, null, null, 0, null);
 
@@ -302,20 +321,63 @@ public static class CalendarEndpoints
     private static CalendarLinkView View(CalendarLink link) =>
         new(link.Id, link.Name, link.Color, link.ReadOnly, link.Mode, link.TagId, link.ListId, link.MadeByPeckList, link.SyncedAt, link.Problem, link.NextAttempt);
 
-    /// <summary>Push channels the account's links hold are stopped, best effort: a disconnect never fails on them.</summary>
-    private static async Task StopChannelsAsync(CalendarAccount account, ICalendarStore store, CalendarSync engine, CancellationToken cancellation)
+    /// <summary>The kinds people can connect here: CalDAV when the server has it, Google when a client is set up and its name is free.</summary>
+    private static IReadOnlyList<string> Providers(CalendarSync engine, GoogleConnect google) =>
+        [.. new[] { engine.Provider("caldav") is null ? null : "caldav", google.Available ? "google" : null }.OfType<string>()];
+
+    /// <summary>How long a disconnect waits on the provider, all calls together, before it lets go.</summary>
+    internal static readonly TimeSpan EndAtProviderWithin = TimeSpan.FromSeconds(10);
+
+    /// <summary>What a disconnect still asks of the provider once the account is gone: its channels stopped, its grant revoked.</summary>
+    private sealed record Ending(ICalendarProvider Provider, CalendarConnection Connection, IReadOnlyList<PushChannel> Channels);
+
+    /// <summary>
+    /// Read before the account (and its secret) is deleted. Null when there is nothing to ask the
+    /// provider, or the secret no longer opens (a changed key, a damaged row): the disconnect goes on.
+    /// </summary>
+    private static async Task<Ending?> EndingAsync(CalendarAccount account, ICalendarStore store, CalendarSync engine, CancellationToken cancellation)
     {
-        if (engine.Provider(account.Provider) is not { Capabilities.Push: true } provider) return;
-        var links = (await store.LinksAsync(account.AccountId, cancellation)).Where(each => each.CalendarAccountId == account.Id && each.Channel is not null).ToList();
-        if (links.Count == 0) return;
+        if (engine.Provider(account.Provider) is not { } provider) return null;
+        IReadOnlyList<PushChannel> channels = provider.Capabilities.Push
+            ? [.. (await store.LinksAsync(account.AccountId, cancellation)).Where(each => each.CalendarAccountId == account.Id && each.Channel is not null).Select(each => each.Channel!)]
+            : [];
+        if (channels.Count == 0 && provider is not GoogleCalendarProvider) return null;
         try
         {
-            var connection = await engine.ConnectionAsync(account, cancellation);
-            foreach (var link in links) await provider.StopWatchAsync(connection, link.Channel!, cancellation);
+            return new Ending(provider, await engine.ConnectionAsync(account, cancellation), channels);
         }
-        catch (CalendarProblem)
+        catch (Exception) when (!cancellation.IsCancellationRequested)
         {
-            // The service will stop calling on its own when the channel expires.
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// After the account is deleted: push channels stopped and a Google grant revoked, so its token
+    /// stops working everywhere. Best effort and bounded by <see cref="EndAtProviderWithin"/>: a
+    /// disconnect never fails or hangs on the provider (an expired channel stops on its own).
+    /// </summary>
+    private static async Task EndAtProviderAsync(Ending? ending, CancellationToken cancellation)
+    {
+        if (ending is null) return;
+        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+        bounded.CancelAfter(EndAtProviderWithin);
+        try
+        {
+            foreach (var channel in ending.Channels) await ending.Provider.StopWatchAsync(ending.Connection, channel, bounded.Token);
+        }
+        catch (Exception) when (!cancellation.IsCancellationRequested)
+        {
+            // Google stops calling when the channel ends; the account is already gone here.
+        }
+        if (ending.Provider is not GoogleCalendarProvider google) return;
+        try
+        {
+            await google.RevokeAsync(ending.Connection, bounded.Token);
+        }
+        catch (Exception) when (!cancellation.IsCancellationRequested)
+        {
+            // Google could not be asked in time; the token is deleted here either way.
         }
     }
 

@@ -25,6 +25,27 @@ public sealed class CalendarOccurrencesTests
     }
 
     [Fact]
+    public void One_calendar_shows_at_most_its_share_and_says_it_was_cut_short()
+    {
+        // Security N4: 3000 single events on one day, and 100 daily series running since 2020.
+        var singles = Enumerable.Range(0, 3000).Select(each => Item(new RemoteEvent($"e{each:D4}", "\"1\"",
+            new EventData("Busy", "", CalendarTime.Date("2026-11-10"), null), At)));
+        var daily = Enumerable.Range(0, 100).Select(each => Item(new RemoteEvent($"d{each:D3}", "\"1\"",
+            new EventData("Daily", "", CalendarTime.Date("2020-01-01"), null, "FREQ=DAILY"), At)));
+
+        var many = CalendarOccurrences.Expand("link1", singles, new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30), out var manyCut);
+        var longRunning = CalendarOccurrences.Expand("link1", daily, new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30), out var longCut);
+        var few = CalendarOccurrences.Expand("link1", [Item(Gym)], new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30), out var fewCut);
+
+        Assert.Equal(CalendarOccurrences.MaxShownPerLink, many.Count);
+        Assert.True(manyCut);
+        Assert.True(longCut, "the step budget ran out before every series reached the range");
+        Assert.True(longRunning.Count < 100 * 30);
+        Assert.False(fewCut);
+        Assert.NotEmpty(few);
+    }
+
+    [Fact]
     public void A_moved_occurrence_shows_in_its_new_place_and_a_cancelled_one_not_at_all()
     {
         var moved = new RemoteEvent("gym@2026-11-09", "\"2\"",

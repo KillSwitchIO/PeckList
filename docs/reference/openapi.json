@@ -11088,7 +11088,8 @@
       },
       "CalendarAccountsView": {
         "required": [
-          "accounts"
+          "accounts",
+          "providers"
         ],
         "type": "object",
         "properties": {
@@ -11096,6 +11097,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CalendarAccountView"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }
@@ -11270,7 +11277,8 @@
       },
       "CalendarEventsView": {
         "required": [
-          "events"
+          "events",
+          "truncated"
         ],
         "type": "object",
         "properties": {
@@ -11278,6 +11286,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CalendarEventView"
+            }
+          },
+          "truncated": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }

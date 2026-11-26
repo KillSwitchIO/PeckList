@@ -75,6 +75,17 @@ public abstract class CalendarStoreContract : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_link_is_found_by_its_push_channel_and_only_by_it()
+    {
+        await Store.SaveLinkAsync(Link("l1", "a1", "ben") with { Channel = new PushChannel("ch1", "res1", Monday.AddDays(7)), ChannelTokenHash = "hash" }, Token);
+        await Store.SaveLinkAsync(Link("l2", "a1", "ben", CalendarModes.Show, "/2/"), Token);
+
+        Assert.Equal("l1", (await Store.LinkByChannelAsync("ch1", Token))?.Id);
+        Assert.Null(await Store.LinkByChannelAsync("ch2", Token));
+        Assert.Null(await Store.LinkByChannelAsync("", Token));
+    }
+
+    [Fact]
     public async Task Only_links_in_use_are_active()
     {
         await Store.SaveLinkAsync(Link("l1", "a1", "ben", CalendarModes.Off, "/1/"), Token);

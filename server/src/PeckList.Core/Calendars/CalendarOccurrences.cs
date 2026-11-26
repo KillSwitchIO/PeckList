@@ -44,9 +44,28 @@ public static class CalendarOccurrences
 
     private const int MaxSteps = 5000;
 
+    /// <summary>
+    /// The most rule steps one link may take in one request, all its series together (Security N4): a
+    /// calendar of thousands of repeating events must not make every read of the events cost seconds.
+    /// Enough for dozens of daily series running for years.
+    /// </summary>
+    public const int MaxStepsPerLink = 200_000;
+
+    /// <summary>The most occurrences one link shows in one request (Security N4); the earliest are kept.</summary>
+    public const int MaxShownPerLink = 2000;
+
     /// <summary>The occurrences of a link's items from <paramref name="from"/> to <paramref name="to"/>, both included, by start.</summary>
-    public static IReadOnlyList<ShownEvent> Expand(string linkId, IEnumerable<CalendarItem> items, DateOnly from, DateOnly to)
+    public static IReadOnlyList<ShownEvent> Expand(string linkId, IEnumerable<CalendarItem> items, DateOnly from, DateOnly to) =>
+        Expand(linkId, items, from, to, out _);
+
+    /// <summary>
+    /// As <see cref="Expand(string, IEnumerable{CalendarItem}, DateOnly, DateOnly)"/>, within
+    /// <see cref="MaxStepsPerLink"/> and <see cref="MaxShownPerLink"/>; <paramref name="truncated"/> says
+    /// whether either cut something off.
+    /// </summary>
+    public static IReadOnlyList<ShownEvent> Expand(string linkId, IEnumerable<CalendarItem> items, DateOnly from, DateOnly to, out bool truncated)
     {
+        var budget = new int[] { MaxStepsPerLink };
         var stored = items.Select(item => (Event: CalendarJson.ReadEvent(item.EventJson), Hidden: HiddenMarks.Read(item.HiddenJson))).ToList();
         var overrides = stored.Where(each => each.Event.SeriesId is not null && each.Event.OriginalStart is not null)
             .ToLookup(each => each.Event.SeriesId!, StringComparer.Ordinal);
@@ -62,7 +81,7 @@ public static class CalendarOccurrences
             var moved = overrides[remote.Id].ToDictionary(each => Day(each.Event.OriginalStart!), each => each, StringComparer.Ordinal);
             var excluded = (data.ExDates ?? []).Select(Day).ToHashSet(StringComparer.Ordinal);
             var first = DayOf(Day(data.Start));
-            foreach (var day in Days(data, first, to))
+            foreach (var day in Days(data, first, to, budget))
             {
                 var text = DayText(day);
                 if (excluded.Contains(text) || hidden.Hides(text)) continue;
@@ -84,14 +103,18 @@ public static class CalendarOccurrences
             if (remote.Cancelled || hidden.All || !Touches(remote.Data, from, to)) continue;
             shown.Add(new ShownEvent(linkId, remote.Id, Day(remote.OriginalStart ?? remote.Data.Start), remote.Data, true));
         }
-        return [.. shown.OrderBy(each => each.Data.Start.Value, StringComparer.Ordinal).ThenBy(each => each.EventId, StringComparer.Ordinal)];
+        var ordered = shown.OrderBy(each => each.Data.Start.Value, StringComparer.Ordinal).ThenBy(each => each.EventId, StringComparer.Ordinal).ToList();
+        truncated = budget[0] <= 0 || ordered.Count > MaxShownPerLink;
+        return ordered.Count > MaxShownPerLink ? ordered[..MaxShownPerLink] : ordered;
     }
 
     /// <summary>The days a series starts on, up to <paramref name="to"/>: the first only when it does not repeat (or its rule is not one we read).</summary>
-    private static IEnumerable<DateOnly> Days(EventData data, DateOnly first, DateOnly to)
+    private static IEnumerable<DateOnly> Days(EventData data, DateOnly first, DateOnly to, int[] budget)
     {
+        if (budget[0] <= 0) yield break;
         if (Recurrence.Parse(data.RRule) is not { } rule)
         {
+            budget[0]--;
             yield return first;
             yield break;
         }
@@ -99,6 +122,7 @@ public static class CalendarOccurrences
         var date = first;
         for (var count = 1; count <= MaxSteps && date <= to; count++)
         {
+            if (--budget[0] < 0) yield break;
             if (rule.Count is { } limit && count > limit) yield break;
             if (until is { } end && date > end) yield break;
             yield return date;

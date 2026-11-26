@@ -156,6 +156,10 @@ public static class AuthSetup
             options.AddPolicy(Calendars.CalendarEndpoints.ConnectRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 "calendar:" + (context.User.Identity?.IsAuthenticated == true ? "account:" + context.User.UserId() : "address:" + AddressKey(context)),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = Calendars.CalendarEndpoints.ConnectsPerWindow, Window = Calendars.CalendarEndpoints.ConnectWindow }));
+            // Google's push calls (PL-134): Google calls once per change, so many from one address are someone else's.
+            options.AddPolicy(Calendars.GoogleConnectEndpoints.PushRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                "calendar-push:" + AddressKey(context),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = Calendars.GoogleConnectEndpoints.PushesPerMinute, Window = TimeSpan.FromMinutes(1) }));
             // "Sync now" is a full run behind the server's one-at-a-time gate (PL-134, Security E3).
             options.AddPolicy(Calendars.CalendarEndpoints.SyncNowRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 "calendar-sync:" + (context.User.Identity?.IsAuthenticated == true ? "account:" + context.User.UserId() : "address:" + AddressKey(context)),

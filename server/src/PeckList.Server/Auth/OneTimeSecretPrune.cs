@@ -41,6 +41,8 @@ public sealed class OneTimeSecretPrune(ISecretStore secrets, IDataProtectionProv
         (AppSignIn.Kind, value => AppSignIn.ExpiresOf(protection, value)),
         (AppSignIn.LinkKind, value => AppSignIn.ExpiresOf(protection, value)),
         (PasskeyEndpoints.EnrollKind, value => PasskeyEndpoints.ExpiresOf(protection, value)),
+        (Calendars.GoogleConnect.PendingKind, value => Calendars.GoogleConnect.ExpiresOf(protection, value)),
+        (Calendars.GoogleConnect.ConfirmKind, value => Calendars.GoogleConnect.ExpiresOf(protection, value)),
         // Reports waiting to be sent have no end; only the empty rows sent ones left go.
         (CrashReporting.QueueKind, _ => null),
     ];

@@ -177,6 +177,7 @@ public static partial class ServerApp
         });
 
         var app = builder.Build();
+        app.Services.GetRequiredService<GoogleConnect>().WarnIfNameTaken();
         if (loaded.PageLeftOut is { Count: > 0 } leftOut)
         {
             app.Logger.LogError("Some settings saved on the admin page were not used ({Settings}); the rest were: {Problem}",
@@ -233,6 +234,7 @@ public static partial class ServerApp
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapStartOver().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports().MapAccountSupporter().MapCalendars();
         app.MapGroup("/api/v1").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapTaskApi();
+        app.MapGoogleCalendar();
         app.MapCliSignIn();
         app.MapMcpConnector();
         app.MapGroup("/api/admin").RequireAuthorization().RequirePasswordChanged().MapAdmin().MapAdminEmail().MapAdminPasskeys().MapSettings().MapBackups().MapLogging().MapAudit().MapStats().MapSetup().MapTelemetry().MapAdminCrashReports().MapAdminSupporter();
