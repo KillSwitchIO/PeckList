@@ -25,6 +25,8 @@
     <PackageVersion Include="Jint" Version="4.4.1" />
     <!-- ICU MessageFormat for the server's text (PL-148): plurals by CLDR rules, MIT, no dependencies. -->
     <PackageVersion Include="MessageFormat" Version="8.0.0" />
+    <!-- Generic test containers (the CalDAV tests run Radicale, PL-134); MIT, the core of Testcontainers.PostgreSql. -->
+    <PackageVersion Include="Testcontainers" Version="4.16.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
     <!-- The calendar contract kit and fake (PL-134) are a library the test projects share: attributes and asserts without a runner. -->

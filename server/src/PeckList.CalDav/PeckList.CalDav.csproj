@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The CalDAV calendar adapter (PL-134): HTTP, WebDAV XML and iCalendar, no third-party
+       packages. iCloud, Fastmail, Nextcloud and other CalDAV servers. -->
+  <ItemGroup>
+    <ProjectReference Include="..\PeckList.Core\PeckList.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PeckList.CalDav.Tests" />
+  </ItemGroup>
+</Project>

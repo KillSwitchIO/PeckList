@@ -351,10 +351,15 @@ server-test:
           '-c',
           'full_page_writes=off',
         ]
+    # The CalDAV adapter's tests (PL-134), for the same reason. Radicale with no sign-in: each test
+    # takes a username of its own. Keep the tag in step with RadicaleServer.Image.
+    - name: tomsquest/docker-radicale:3.9.0.0
+      alias: radicale
   variables:
     POSTGRES_USER: postgres
     POSTGRES_PASSWORD: postgres-ci-only
     PECKLIST_TEST_POSTGRES: Host=postgres;Username=postgres;Password=postgres-ci-only;Database=postgres
+    PECKLIST_TEST_CALDAV: http://radicale:5232/
   script:
     - sh scripts/ci/server-test-shard.sh "$SHARD"
   rules:

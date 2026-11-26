@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/PeckList.Cli/PeckList.Cli.csproj" />
+    <Project Path="src/PeckList.CalDav/PeckList.CalDav.csproj" />
     <Project Path="src/PeckList.Client/PeckList.Client.csproj" />
     <Project Path="src/PeckList.Collector/PeckList.Collector.csproj" />
     <Project Path="src/PeckList.Core/PeckList.Core.csproj" />
@@ -11,6 +12,7 @@
     <Project Path="src/PeckList.Storage.Sqlite/PeckList.Storage.Sqlite.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/PeckList.CalDav.Tests/PeckList.CalDav.Tests.csproj" />
     <Project Path="tests/PeckList.Calendars.Testing/PeckList.Calendars.Testing.csproj" />
     <Project Path="tests/PeckList.Calendars.Tests/PeckList.Calendars.Tests.csproj" />
     <Project Path="tests/PeckList.Client.Tests/PeckList.Client.Tests.csproj" />
