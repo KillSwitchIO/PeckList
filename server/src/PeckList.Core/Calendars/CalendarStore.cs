@@ -128,6 +128,9 @@ public interface ICalendarStore
     /// <summary>One link by id, or null.</summary>
     Task<CalendarLink?> LinkAsync(string id, CancellationToken cancellation = default);
 
+    /// <summary>The link holding the push channel with this id, or null (a Google push names only its channel).</summary>
+    Task<CalendarLink?> LinkByChannelAsync(string channelId, CancellationToken cancellation = default);
+
     /// <summary>Add or replace a link.</summary>
     Task SaveLinkAsync(CalendarLink link, CancellationToken cancellation = default);
 

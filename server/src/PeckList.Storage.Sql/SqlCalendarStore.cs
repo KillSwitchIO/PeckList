@@ -77,6 +77,9 @@ public sealed class SqlCalendarStore(SqlDatabase database) : ICalendarStore
     public async Task<CalendarLink?> LinkAsync(string id, CancellationToken cancellation = default) =>
         (await LinksWhereAsync("id = @id", new { id }, cancellation)).SingleOrDefault();
 
+    public async Task<CalendarLink?> LinkByChannelAsync(string channelId, CancellationToken cancellation = default) =>
+        (await LinksWhereAsync("channel_id = @channelId", new { channelId }, cancellation)).FirstOrDefault();
+
     public Task SaveLinkAsync(CalendarLink link, CancellationToken cancellation = default) =>
         ExecuteAsync(
             """

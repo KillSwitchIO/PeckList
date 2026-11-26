@@ -5,6 +5,7 @@ using PeckList.Core.Accounts;
 using PeckList.Core.Calendars;
 using PeckList.Core.Configuration;
 using PeckList.Core.Sync;
+using PeckList.Google;
 
 namespace PeckList.Server.Calendars;
 
@@ -39,23 +40,33 @@ public sealed class CalendarSecrets(ISecretStore secrets, ConfigCipher? configKe
     }
 }
 
-/// <summary>People whose tasks just changed, so their synced calendars hear within seconds rather than at the next check.</summary>
+/// <summary>
+/// People whose tasks just changed, so their synced calendars hear within seconds rather than at the
+/// next check, and links whose calendar just told the server it changed (a Google push).
+/// </summary>
 public sealed class CalendarNudges
 {
-    private readonly Channel<string> people = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly Channel<(bool Link, string Id)> nudged = Channel.CreateUnbounded<(bool, string)>(new UnboundedChannelOptions { SingleReader = true });
 
     /// <summary>Ask for a run of this person's synced calendars soon.</summary>
-    public void Nudge(string userId) => people.Writer.TryWrite(userId);
+    public void Nudge(string userId) => nudged.Writer.TryWrite((false, userId));
 
-    /// <summary>Wait until someone is nudged.</summary>
-    public ValueTask<bool> WaitAsync(CancellationToken cancellation) => people.Reader.WaitToReadAsync(cancellation);
+    /// <summary>Ask for a run of one link soon, whatever its mode: its calendar changed.</summary>
+    public void NudgeLink(string linkId) => nudged.Writer.TryWrite((true, linkId));
+
+    /// <summary>Wait until someone or something is nudged.</summary>
+    public ValueTask<bool> WaitAsync(CancellationToken cancellation) => nudged.Reader.WaitToReadAsync(cancellation);
 
     /// <summary>Everyone nudged since the last call.</summary>
-    public HashSet<string> Drain()
+    public HashSet<string> Drain() => DrainAll().People;
+
+    /// <summary>Everyone and every link nudged since the last call.</summary>
+    public (HashSet<string> People, HashSet<string> Links) DrainAll()
     {
-        var drained = new HashSet<string>(StringComparer.Ordinal);
-        while (people.Reader.TryRead(out var person)) drained.Add(person);
-        return drained;
+        var people = new HashSet<string>(StringComparer.Ordinal);
+        var links = new HashSet<string>(StringComparer.Ordinal);
+        while (nudged.Reader.TryRead(out var each)) (each.Link ? links : people).Add(each.Id);
+        return (people, links);
     }
 }
 
@@ -82,7 +93,8 @@ public sealed class CalendarNudgingNotifier(InProcessChangeNotifier inner, Calen
 /// a link that failed waits out its backoff. Nothing runs while <c>CALENDAR_SYNC</c> is off.
 /// </summary>
 public sealed class CalendarRuns(
-    CalendarSync engine, ICalendarStore calendars, LiveSettings live, CalendarNudges nudges, TimeProvider time, ILogger<CalendarRuns> logger)
+    CalendarSync engine, ICalendarStore calendars, LiveSettings live, CalendarNudges nudges, CalendarChannels channels, TimeProvider time,
+    ILogger<CalendarRuns> logger)
     : BackgroundService
 {
     /// <summary>How long after a nudge the run starts, so a burst of edits makes one run.</summary>
@@ -122,11 +134,11 @@ public sealed class CalendarRuns(
             await Task.WhenAny(nudged, ticked);
             if (stopping.IsCancellationRequested) return;
             if (nudged.IsCompletedSuccessfully) await Task.Delay(Settle, time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
-            var people = nudges.Drain();
+            var (people, links) = nudges.DrainAll();
             if (!live.Current.CalendarSync || stopping.IsCancellationRequested) continue;
             try
             {
-                await RunDueAsync(people, stopping);
+                await RunDueAsync(people, links, stopping);
             }
             catch (Exception error) when (!stopping.IsCancellationRequested)
             {
@@ -136,14 +148,21 @@ public sealed class CalendarRuns(
     }
 
     /// <summary>Every link that is due: nudged synced links, and any link whose interval has passed; none still backing off.</summary>
-    public async Task RunDueAsync(IReadOnlySet<string> nudged, CancellationToken cancellation)
+    public Task RunDueAsync(IReadOnlySet<string> nudged, CancellationToken cancellation) => RunDueAsync(nudged, new HashSet<string>(), cancellation);
+
+    /// <summary>
+    /// Every link that is due: links whose calendar pushed a change, synced links of nudged people, and
+    /// any link whose interval has passed; none still backing off.
+    /// </summary>
+    public async Task RunDueAsync(IReadOnlySet<string> nudged, IReadOnlySet<string> pushed, CancellationToken cancellation)
     {
         var now = time.GetUtcNow();
         var every = TimeSpan.FromMinutes(live.Current.CalendarSyncMinutes);
         foreach (var link in await calendars.ActiveLinksAsync(cancellation))
         {
             if (link.NextAttempt is { } wait && wait > now) continue;
-            var due = (link.Mode == CalendarModes.Sync && nudged.Contains(link.AccountId))
+            var due = pushed.Contains(link.Id)
+                || (link.Mode == CalendarModes.Sync && nudged.Contains(link.AccountId))
                 || link.SyncedAt is not { } synced
                 || now - synced >= every;
             if (due) await RunNowAsync(link.Id, cancellation);
@@ -163,6 +182,8 @@ public sealed class CalendarRuns(
             var run = await engine.SyncLinkAsync(linkId, cancellation);
             if (run.Problem is { } problem) logger.LogWarning("Calendar link {Link} could not sync: {Problem}", linkId, problem);
             else if (run.Refused > 0) logger.LogInformation("Calendar link {Link}: {Refused} task changes refused by sharing rules", linkId, run.Refused);
+            // A calendar that synced and can push keeps a channel open, so its changes come within seconds.
+            if (run.Problem is null && !run.Skipped) await channels.KeepAsync(linkId, cancellation);
             return run;
         }
         catch (Exception error) when (!cancellation.IsCancellationRequested)
@@ -197,6 +218,13 @@ public static class CalendarSetup
             var policy = new CalDavNetworkPolicy(() => live.Current.CalendarCalDavPrivateNetwork);
             return new CalDavCalendarProvider(CalDavCalendarProvider.CreateHttpClient(policy), provider.GetRequiredService<TimeProvider>());
         });
+        // Google: the built-in PeckList client, or an admin's own read live (CALENDAR_GOOGLE_CLIENT_*).
+        services.AddSingleton<IGoogleClients>(provider => new ServerGoogleClients(provider.GetRequiredService<LiveSettings>(), GoogleDefaults.BuiltIn()));
+        services.AddSingleton(provider => new GoogleCalendarProvider(
+            GoogleCalendarProvider.CreateHttpClient(), provider.GetRequiredService<IGoogleClients>(), provider.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<ICalendarProvider>(provider => provider.GetRequiredService<GoogleCalendarProvider>());
+        services.AddSingleton<GoogleConnect>();
+        services.AddSingleton<CalendarChannels>();
         services.AddSingleton(provider => new CalendarSync(
             provider.GetRequiredService<ICalendarStore>(),
             provider.GetServices<ICalendarProvider>(),

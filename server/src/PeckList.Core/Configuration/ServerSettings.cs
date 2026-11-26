@@ -138,6 +138,16 @@ public sealed record ServerSettings
     public bool CalendarCalDavPrivateNetwork { get; init; }
 
     /// <summary>
+    /// An admin's own Google OAuth client for calendar sign-ins (<c>CALENDAR_GOOGLE_CLIENT_ID</c>, PL-134).
+    /// Set with <see cref="CalendarGoogleClientSecret"/>, it replaces the built-in PeckList client and
+    /// sign-ins come straight back to this server, skipping the relay page on pecklist.com.
+    /// </summary>
+    public string? CalendarGoogleClientId { get; init; }
+
+    /// <summary>The secret of <see cref="CalendarGoogleClientId"/> (<c>CALENDAR_GOOGLE_CLIENT_SECRET</c>).</summary>
+    public string? CalendarGoogleClientSecret { get; init; }
+
+    /// <summary>
     /// Serve the MCP connector at <c>/mcp</c> (<c>MCP</c>, PL-113): assistants such as Claude and
     /// ChatGPT read and change a person's tasks with their API key. Off unless turned on.
     /// </summary>
@@ -425,6 +435,8 @@ public sealed record ServerSettings
             CalendarSync = Flag("CALENDAR_SYNC", false),
             CalendarSyncMinutes = Count("CALENDAR_SYNC_MINUTES", 5, 1),
             CalendarCalDavPrivateNetwork = Flag("CALENDAR_CALDAV_PRIVATE_NETWORK", false),
+            CalendarGoogleClientId = Get("CALENDAR_GOOGLE_CLIENT_ID"),
+            CalendarGoogleClientSecret = Get("CALENDAR_GOOGLE_CLIENT_SECRET"),
             Mcp = Flag("MCP", false),
             Telemetry = Flag("TELEMETRY", true) && !Flag("DO_NOT_TRACK", false),
             CrashReports = Flag("CRASH_REPORTS", true),

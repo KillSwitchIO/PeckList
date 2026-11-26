@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Google Calendar adapter (PL-134): the Calendar API v3 and Google's OAuth token endpoint over
+       plain HTTP and System.Text.Json, no third-party packages. -->
+  <ItemGroup>
+    <ProjectReference Include="..\PeckList.Core\PeckList.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PeckList.Google.Tests" />
+  </ItemGroup>
+</Project>

@@ -39,6 +39,8 @@ public static class SettingsCatalog
         new("CALENDAR_SYNC", "general", SettingKind.Flag, "false", Live: true),
         new("CALENDAR_SYNC_MINUTES", "general", SettingKind.Number, "5", Live: true),
         new("CALENDAR_CALDAV_PRIVATE_NETWORK", "general", SettingKind.Flag, "false", Live: true),
+        new("CALENDAR_GOOGLE_CLIENT_ID", "general", SettingKind.Text, Live: true),
+        new("CALENDAR_GOOGLE_CLIENT_SECRET", "general", SettingKind.Secret, Live: true),
         new("MCP", "general", SettingKind.Flag, "false", Live: true),
         new("TELEMETRY", "telemetry", SettingKind.Flag, "true", Live: true),
         new("CRASH_REPORTS", "telemetry", SettingKind.Flag, "true", Live: true),

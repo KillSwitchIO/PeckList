@@ -250,7 +250,7 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
         var lines = new LogLines();
         var services = server.Services;
         var runs = new CalendarRuns(services.GetRequiredService<CalendarSync>(), services.GetRequiredService<ICalendarStore>(),
-            services.GetRequiredService<Core.Configuration.LiveSettings>(), services.GetRequiredService<CalendarNudges>(), TimeProvider.System, lines);
+            services.GetRequiredService<Core.Configuration.LiveSettings>(), services.GetRequiredService<CalendarNudges>(), services.GetRequiredService<CalendarChannels>(), TimeProvider.System, lines);
         fake.FailNext(new FormatException("SUMMARY:calendar text from the server"));
 
         var run = await runs.RunNowAsync(LinkOf(account), Token);

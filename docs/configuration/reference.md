@@ -216,8 +216,8 @@ they show what the API offers, never anyone's data. Turn it off and both answer 
 
 ### `CALENDAR_SYNC`
 
-Let people connect their own calendars (any CalDAV calendar, such as iCloud, Fastmail or
-Nextcloud) and sync them with their tasks both ways. The server does the syncing, so it keeps each
+Let people connect their own calendars (Google Calendar, and any CalDAV calendar such as iCloud,
+Fastmail or Nextcloud) and sync them with their tasks both ways. The server does the syncing, so it keeps each
 person's calendar password or token, encrypted with the settings key (wrapped by `CONFIG_KEY` when
 that is set). Those connections stay out of exports and backups: after a restore, people connect
 again and their tasks are all still there. Turn it off and the calendar pages and routes go away
@@ -242,6 +242,33 @@ may use plain `http://` once this is on. It is off by default because anyone who
 types the address the server calls: with it on, they could point PeckList at other machines on
 its network. Turn it on only when you trust the people with accounts. **Default:** `false`.
 **Where:** any, live.
+
+### `CALENDAR_GOOGLE_CLIENT_ID`
+
+Your own Google OAuth client for connecting Google calendars, with
+[`CALENDAR_GOOGLE_CLIENT_SECRET`](#calendar_google_client_secret). If your server's build includes
+PeckList's shared Google client, people can connect Google Calendar without this; otherwise set
+your own, or Google isn't offered. With the shared client, Google's sign-in comes back through a
+page on pecklist.com that asks the person to confirm their server's address and then hands the
+one-time code to it. The page stores nothing, and the code is useless without the key only the
+server holds; the server swaps it for its own tokens, so nothing passes through
+pecklist.com after that. The shared client needs [`PUBLIC_URL`](#public_url) unless the server is
+reached by a home-network name or address, so set it for Google. Set your own client to skip that
+page, or to use your own Google Cloud project. Make it a **Web application** client with the
+Google Calendar API enabled, the scopes `calendar.calendarlist.readonly`, `calendar.events` and
+`calendar.app.created`, and this redirect address: your `PUBLIC_URL` followed by
+`/auth/calendar/google/callback` (for example
+`https://tasks.example.com/auth/calendar/google/callback`). People who connected with one client
+reconnect when you change it. Disconnecting a Google account ends PeckList's access for that
+Google account everywhere it's connected with the same client, other servers and other people
+included, so those connections need a reconnect. Google only offers changes within seconds when
+`PUBLIC_URL` is a public `https://` address; otherwise the server checks every
+[`CALENDAR_SYNC_MINUTES`](#calendar_sync_minutes). **Default:** empty. **Where:** any, live.
+
+### `CALENDAR_GOOGLE_CLIENT_SECRET`
+
+The secret of [`CALENDAR_GOOGLE_CLIENT_ID`](#calendar_google_client_id). Both are needed for your
+own client to be used. **Default:** empty. **Where:** any, live.
 
 ### `MCP`
 
