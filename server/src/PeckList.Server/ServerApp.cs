@@ -1,3 +1,4 @@
+using PeckList.Server.Calendars;
 using PeckList.Server.Supporters;
 using PeckList.Server.Push;
 using PeckList.Server.Api;
@@ -61,7 +62,8 @@ public static partial class ServerApp
         builder.Services.AddEntityStore(settings);
         // After the store: its startup (migrations) runs before the admin is made.
         builder.Services.AddPeckListAuth(settings, loaded.Layers.Cipher);
-        builder.Services.AddSingleton<IChangeNotifier, InProcessChangeNotifier>();
+        // The change notifier comes with calendar sync (PL-134), which it nudges.
+        builder.Services.AddCalendars(loaded.Layers.Cipher);
         builder.Services.AddSingleton<PeckList.Core.Sharing.SharingState>();
         // The server's text (PL-148): the embedded catalogs, and each person's language.
         builder.Services.AddSingleton<PeckList.Core.Text.ITextCatalog>(PeckList.Core.Text.JsonTextCatalog.Embedded);
@@ -229,7 +231,7 @@ public static partial class ServerApp
                 AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)))
             .WithSummary("What this server is: its version, data schema, time zone, file size limit, and whether sign-in and demo mode are on");
         app.MapAuth();
-        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapStartOver().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports().MapAccountSupporter();
+        app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapStartOver().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports().MapAccountSupporter().MapCalendars();
         app.MapGroup("/api/v1").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapTaskApi();
         app.MapCliSignIn();
         app.MapMcpConnector();

@@ -122,6 +122,22 @@ public sealed record ServerSettings
     public bool ApiDocs { get; init; } = true;
 
     /// <summary>
+    /// Two-way sync with people's own calendars (<c>CALENDAR_SYNC</c>, PL-134). Off by default and
+    /// always off on a demo: while off, the calendar routes answer 404 and nothing syncs.
+    /// </summary>
+    public bool CalendarSync { get; init; }
+
+    /// <summary>Minutes between calendar checks when nothing nudges sooner (<c>CALENDAR_SYNC_MINUTES</c>).</summary>
+    public int CalendarSyncMinutes { get; init; } = 5;
+
+    /// <summary>
+    /// Let CalDAV connections reach private and local addresses (<c>CALENDAR_CALDAV_PRIVATE_NETWORK</c>):
+    /// a calendar server on the same network or tailnet. Off by default, since anyone who can sign in
+    /// chooses the address the server calls.
+    /// </summary>
+    public bool CalendarCalDavPrivateNetwork { get; init; }
+
+    /// <summary>
     /// Serve the MCP connector at <c>/mcp</c> (<c>MCP</c>, PL-113): assistants such as Claude and
     /// ChatGPT read and change a person's tasks with their API key. Off unless turned on.
     /// </summary>
@@ -406,6 +422,9 @@ public sealed record ServerSettings
             AttachmentDailyMb = Count("ATTACHMENT_DAILY_MB", 1024, 0),
             UpdateCheck = Flag("UPDATE_CHECK", true),
             ApiDocs = Flag("API_DOCS", true),
+            CalendarSync = Flag("CALENDAR_SYNC", false),
+            CalendarSyncMinutes = Count("CALENDAR_SYNC_MINUTES", 5, 1),
+            CalendarCalDavPrivateNetwork = Flag("CALENDAR_CALDAV_PRIVATE_NETWORK", false),
             Mcp = Flag("MCP", false),
             Telemetry = Flag("TELEMETRY", true) && !Flag("DO_NOT_TRACK", false),
             CrashReports = Flag("CRASH_REPORTS", true),
@@ -434,6 +453,7 @@ public sealed record ServerSettings
                 AttachmentMaxMb = Math.Min(settings.AttachmentMaxMb, DemoAttachmentMaxMb),
                 AttachmentDailyMb = settings.AttachmentDailyMb == 0 ? DemoAttachmentDailyMb : Math.Min(settings.AttachmentDailyMb, DemoAttachmentDailyMb),
                 UpdateCheck = false,
+                CalendarSync = false,
                 Telemetry = false,
                 Mail = null,
             };

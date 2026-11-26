@@ -214,6 +214,35 @@ Swagger UI page at `/api/docs` to read it and try calls with an API key (see the
 they show what the API offers, never anyone's data. Turn it off and both answer 404.
 **Default:** `true`. **Where:** any, live.
 
+### `CALENDAR_SYNC`
+
+Let people connect their own calendars (any CalDAV calendar, such as iCloud, Fastmail or
+Nextcloud) and sync them with their tasks both ways. The server does the syncing, so it keeps each
+person's calendar password or token, encrypted with the settings key (wrapped by `CONFIG_KEY` when
+that is set). Those connections stay out of exports and backups: after a restore, people connect
+again and their tasks are all still there. Turn it off and the calendar pages and routes go away
+and nothing syncs; connections already made are kept for when it comes back on. Always off on a
+demo server. **Default:** `false`. **Where:** any, live.
+
+### `CALENDAR_SYNC_MINUTES`
+
+How often, in minutes, the server checks each synced calendar for changes when nothing prompts it
+sooner. A change to a synced task is sent within seconds either way. Lower means changes made on
+the calendar show up sooner, at the cost of more requests to the calendar service.
+**Default:** `5`. **Where:** any, live.
+
+### `CALENDAR_CALDAV_PRIVATE_NETWORK`
+
+Let people connect a CalDAV server at a private or local address. Turn this on when your
+calendar server runs on your own network or tailnet (a Nextcloud or Radicale at home, say), so
+the PeckList server can reach it. While off, PeckList connects only to calendar servers on the
+public internet and refuses addresses such as `192.168.x.x`, `10.x.x.x`, `100.64.x.x` and
+`localhost`. A server on the public internet always needs `https://`; one at a private address
+may use plain `http://` once this is on. It is off by default because anyone who can sign in
+types the address the server calls: with it on, they could point PeckList at other machines on
+its network. Turn it on only when you trust the people with accounts. **Default:** `false`.
+**Where:** any, live.
+
 ### `MCP`
 
 Serve the MCP connector at `/mcp`, so assistants that speak the Model Context Protocol (Claude,
@@ -346,7 +375,7 @@ A public trial server that starts over on a schedule (every night, or every hour
 and the [demo accounts](#demo_accounts)) and forces, whatever else is set:
 [`REGISTRATION`](#registration) `open`, [`ACCOUNT_DELETE_GRACE_DAYS`](#account_delete_grace_days)
 `0`, [`ATTACHMENT_MAX_MB`](#attachment_max_mb) at most `2`, [`TELEMETRY`](#telemetry) and
-[`UPDATE_CHECK`](#update_check) off. The server makes no calls out of its own (no usage report,
+[`UPDATE_CHECK`](#update_check) and [`CALENDAR_SYNC`](#calendar_sync) off. The server makes no calls out of its own (no usage report,
 release check or Web Push; reminders still show on the device). Only the identity providers and
 log servers you set up still get calls. Every answer carries `X-Robots-Tag: noindex, nofollow`
 and the page a robots meta tag. Needs `AUTH_MODE=local`. **Default:** `false`. **Where:** env.

@@ -164,7 +164,7 @@ public static partial class SettingsLoader
     /// database alone then opens nothing. A key stored plain is wrapped once <c>CONFIG_KEY</c> is set.
     /// </summary>
     /// <exception cref="SettingsException">The key is wrapped and <c>CONFIG_KEY</c> is not set, or is another.</exception>
-    private static async Task<ConfigCipher> PageCipherAsync(ISecretStore secrets, ConfigCipher? configKey, CancellationToken cancellation)
+    internal static async Task<ConfigCipher> PageCipherAsync(ISecretStore secrets, ConfigCipher? configKey, CancellationToken cancellation)
     {
         const string Name = "the settings key";
         var existing = (await secrets.ListAsync(KeyKind, cancellation)).FirstOrDefault().Value;

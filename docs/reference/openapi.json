@@ -2278,6 +2278,688 @@
         }
       }
     },
+    "/api/calendars": {
+      "get": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Your connected calendar accounts and how each calendar is used",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarAccountsView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/accounts": {
+      "post": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Connect a CalDAV account (the server checks it first)",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarConnectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarAccountView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/accounts/{id}": {
+      "delete": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Disconnect a calendar account; tasks and events both stay",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/accounts/{id}/calendars": {
+      "post": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Make a new calendar in the account, synced with a tag",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarLinkView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/{linkId}": {
+      "put": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Choose how a calendar is used: off, show events, or sync with a tag",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarLinkView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/{linkId}/sync": {
+      "post": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Sync a calendar now",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarLinkView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/events": {
+      "get": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Shown calendars' events from one day to another (at most 62 days)",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/events/{id}": {
+      "patch": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Edit a shown event; it is written back to its calendar",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarEventEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/events/{id}/hide": {
+      "post": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Tick a shown event: hide it in PeckList (one occurrence, or all); the calendar is not changed",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarOccurrenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/events/{id}/task": {
+      "post": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Make a shown event a task in the inbox, and hide the event",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarOccurrenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarTaskMade"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me": {
       "get": {
         "tags": [
@@ -10352,6 +11034,378 @@
           }
         }
       },
+      "CalendarAccountView": {
+        "required": [
+          "id",
+          "provider",
+          "name",
+          "serverUrl",
+          "username",
+          "status",
+          "problem",
+          "canCreateCalendar",
+          "calendars"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "serverUrl": {
+            "type": "string"
+          },
+          "username": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "canCreateCalendar": {
+            "type": "boolean"
+          },
+          "calendars": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarLinkView"
+            }
+          }
+        }
+      },
+      "CalendarAccountsView": {
+        "required": [
+          "accounts"
+        ],
+        "type": "object",
+        "properties": {
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarAccountView"
+            }
+          }
+        }
+      },
+      "CalendarConnectRequest": {
+        "required": [
+          "serverUrl",
+          "username",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "serverUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "username": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "provider": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarCreateRequest": {
+        "required": [
+          "name",
+          "tagId",
+          "listId"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tagId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarEventEdit": {
+        "required": [
+          "title",
+          "notes",
+          "start",
+          "end",
+          "timeZone"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "start": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "end": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarEventView": {
+        "required": [
+          "id",
+          "linkId",
+          "occurrence",
+          "title",
+          "notes",
+          "start",
+          "end",
+          "allDay",
+          "timeZone",
+          "recurring",
+          "editable",
+          "color"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "linkId": {
+            "type": "string"
+          },
+          "occurrence": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          },
+          "end": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "allDay": {
+            "type": "boolean"
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recurring": {
+            "type": "boolean"
+          },
+          "editable": {
+            "type": "boolean"
+          },
+          "color": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarEventsView": {
+        "required": [
+          "events"
+        ],
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarEventView"
+            }
+          }
+        }
+      },
+      "CalendarLinkRequest": {
+        "required": [
+          "mode",
+          "tagId",
+          "listId"
+        ],
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tagId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarLinkView": {
+        "required": [
+          "id",
+          "name",
+          "color",
+          "readOnly",
+          "mode",
+          "tagId",
+          "listId",
+          "madeByPeckList",
+          "syncedAt",
+          "problem",
+          "nextAttempt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "tagId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "madeByPeckList": {
+            "type": "boolean"
+          },
+          "syncedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nextAttempt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "CalendarOccurrenceRequest": {
+        "required": [
+          "occurrence"
+        ],
+        "type": "object",
+        "properties": {
+          "occurrence": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarTaskMade": {
+        "required": [
+          "taskId"
+        ],
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          }
+        }
+      },
       "CliApproved": {
         "required": [
           "keyName",
@@ -13594,6 +14648,9 @@
     },
     {
       "name": "Attachments"
+    },
+    {
+      "name": "Calendars"
     },
     {
       "name": "Crash-reports"
