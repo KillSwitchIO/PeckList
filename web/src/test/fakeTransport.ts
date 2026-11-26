@@ -43,6 +43,8 @@ import {
 } from '../ports/sync.ts';
 import type { AdminApi } from '../ports/admin.ts';
 import { FakeSyncServer } from './fakeSyncServer.ts';
+import { FakeCalendars } from './fakeCalendars.ts';
+import type { CalendarsApi } from '../ports/calendars.ts';
 
 /**
  * A supporter key as the fake server reads it (PL-112): the real shape, `PECKLIST-YYYYMMDD-S|V-...`,
@@ -101,6 +103,9 @@ export class FakeBackend {
   /** Presses and the snooze list answer as an unreachable server would. */
   failReminderPresses = false;
   failSnoozes = false;
+  /** `CALENDAR_SYNC` is on (PL-134): the info says so and the calendar routes answer. */
+  calendarSync = false;
+  readonly calendars = new FakeCalendars();
 
   /** An account's numbers as the server would count them: its live tasks by status. */
   stats(id: string, username: string): UserStats {
@@ -749,7 +754,13 @@ export class FakeTransport implements SyncTransport {
       version: this.backend.serverVersion,
       schemaVersion: this.backend.schemaVersion,
       ...(this.backend.demo ? { demo: this.backend.demo } : {}),
+      ...(this.backend.calendarSync ? { calendarSync: true } : {}),
     });
+  }
+
+  /** The calendar routes; the app uses them only while the info says calendar sync is on. */
+  get calendars(): CalendarsApi {
+    return this.backend.calendars;
   }
 
   me(): Promise<Account | null> {

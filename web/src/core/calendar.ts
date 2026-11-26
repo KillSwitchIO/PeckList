@@ -7,12 +7,13 @@ import { inLiveList } from './filters.ts';
 import { occurrenceOf, projectOccurrences } from './occurrences.ts';
 import type { Id, LocalDateOrDateTime, Priority, Schedule, Task, WorkspaceFile } from './types.ts';
 
-/** One thing on the calendar: a task's schedule, or its due flag. */
+/** One thing on the calendar: a task's schedule, its due flag, or a shown calendar's event (PL-134). */
 export interface CalendarItem {
-  /** The task id for a schedule; `due:<task id>` for a due flag. */
+  /** The task id for a schedule; `due:<task id>` for a due flag; `event:<event key>` for an event. */
   id: string;
+  /** Empty for an event, which is no task. */
   taskId: Id;
-  kind: 'schedule' | 'due';
+  kind: 'schedule' | 'due' | 'event';
   title: string;
   /** `YYYY-MM-DD` for all-day items, `YYYY-MM-DDTHH:mm` for timed ones (the viewer's wall clock). */
   start: LocalDateOrDateTime;
@@ -30,6 +31,8 @@ export interface CalendarItem {
   movable: boolean;
   /** A repeating task's date to come (core/occurrences), not the task's own date. */
   occurrence?: string;
+  /** An event's occurrence (core/calendarEvents `eventKey`). */
+  eventKey?: string;
 }
 
 /** Where a drag left an item, in calendar terms (all-day ends inclusive, null for one day). */
@@ -40,7 +43,8 @@ export interface CalendarPlacement {
 }
 
 /** `HH:mm` plus minutes, rolling into the next day when it must. */
-function addMinutes(value: LocalDateOrDateTime, minutes: number): LocalDateOrDateTime {
+/** A wall-clock date and time `minutes` later, across midnight as needed. */
+export function addMinutes(value: LocalDateOrDateTime, minutes: number): LocalDateOrDateTime {
   const time = timePart(value) ?? '00:00';
   const [h, m] = time.split(':').map(Number) as [number, number];
   const total = h * 60 + m + minutes;

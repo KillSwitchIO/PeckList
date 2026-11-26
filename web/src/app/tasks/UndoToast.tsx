@@ -5,6 +5,7 @@ import { t } from '../i18n/i18n.ts';
 import { useStoreState } from '../store/hooks.ts';
 import { countUse } from '../telemetry/usage.ts';
 import { visuallyHidden } from '../layout/visuallyHidden.ts';
+import { commitOutsideUndo, undoOutsideUndo, useOutsideUndo } from './outsideUndo.ts';
 
 /** How long Undo stays. */
 const SHOW_MS = 6000;
@@ -16,7 +17,8 @@ const SIZE = 48;
  * Undo after a change (spec: R-FB-68): a small round button off to the side, a ring running down
  * the time it stays, rather than a bar across the screen. Swipe it left or right to send it away
  * sooner; touching it, or nudging it less than that, starts the time over (R-FB-119). What
- * changed is read out to screen readers and shows on hover.
+ * changed is read out to screen readers and shows on hover. A change held outside the workspace
+ * (hiding a calendar's event) shows the same way, and is made when the button goes.
  */
 export function UndoToast({
   bottomOffset = 0,
@@ -27,12 +29,23 @@ export function UndoToast({
   /** Room to keep below it on bigger screens (the + button) */
   wideBottomOffset?: number;
 }) {
-  const entry = useStoreState((state) => state.lastUndoable);
-  const undo = useStoreState((state) => state.undo);
-  const dismiss = useStoreState((state) => state.dismissUndo);
+  const stored = useStoreState((state) => state.lastUndoable);
+  const undoStored = useStoreState((state) => state.undo);
+  const dismissStored = useStoreState((state) => state.dismissUndo);
+  const outside = useOutsideUndo();
+  // A workspace change while one is held outside is the newer: the held one is made.
+  const entry = stored
+    ? { key: `store:${stored.id}`, label: stored.label }
+    : outside
+      ? { key: `outside:${outside.id}`, label: outside.label }
+      : null;
+  useEffect(() => {
+    if (stored && outside) commitOutsideUndo();
+  }, [stored, outside]);
+  const dismiss = stored ? dismissStored : commitOutsideUndo;
   const [dx, setDx] = useState(0);
   const [leaving, setLeaving] = useState(0);
-  const [shown, setShown] = useState(entry?.id ?? null);
+  const [shown, setShown] = useState(entry?.key ?? null);
   // Bumped to start the time over.
   const [round, setRound] = useState(0);
   const swiped = useRef(false);
@@ -41,17 +54,18 @@ export function UndoToast({
     latest.current = dismiss;
   });
   // A new change: back in place.
-  if ((entry?.id ?? null) !== shown) {
-    setShown(entry?.id ?? null);
+  if ((entry?.key ?? null) !== shown) {
+    setShown(entry?.key ?? null);
     setDx(0);
     setLeaving(0);
   }
   // Gone after a while.
+  const showing = entry?.key ?? null;
   useEffect(() => {
-    if (!entry) return;
+    if (!showing) return;
     const timer = setTimeout(() => latest.current(), SHOW_MS);
     return () => clearTimeout(timer);
-  }, [entry, round]);
+  }, [showing, round]);
 
   if (!entry) return null;
 
@@ -109,13 +123,14 @@ export function UndoToast({
       </Box>
       <Tooltip title={entry.label} placement="top">
         <ButtonBase
-          key={entry.id}
+          key={entry.key}
           aria-label={t('common.undo')}
           onPointerDown={press}
           onClick={() => {
             if (swiped.current) return;
             countUse('undo');
-            undo(entry.id);
+            if (stored) undoStored(stored.id);
+            else undoOutsideUndo();
           }}
           sx={{
             position: 'relative',

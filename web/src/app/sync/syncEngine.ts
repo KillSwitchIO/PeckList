@@ -72,6 +72,13 @@ export interface PhoneTasks {
   label: string;
 }
 
+/** Values kept on this device by name, as JSON. */
+export interface DeviceCache {
+  /** The value kept under `key`, or null. */
+  load(key: string): Promise<unknown>;
+  save(key: string, value: unknown): Promise<void>;
+}
+
 /** How the last sync went, for the indicator. */
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error' | 'app-update' | 'server-behind';
 
@@ -80,6 +87,12 @@ export interface SyncState {
   readonly transport: SyncTransport;
   /** This device's attached files, by SHA-256. */
   readonly blobs: BlobStore;
+  /**
+   * What this device keeps of the server's answers beside the workspace (a calendar's last
+   * events, PL-134): in the workspace's own storage, so an admin viewing as someone keeps none of
+   * it and signing out forgets it with everything else.
+   */
+  readonly cache: DeviceCache;
   phase: SyncPhase;
   status: SyncStatus;
   account: Account | null;
@@ -828,6 +841,10 @@ export function createSyncEngine(deps: SyncEngineDependencies): SyncEngine {
     return {
       transport,
       blobs,
+      cache: {
+        load: (key) => storage.loadMeta(`cache:${key}`),
+        save: (key, value) => storage.saveMeta(`cache:${key}`, value),
+      },
       phase: 'checking',
       status: 'idle',
       account: null,

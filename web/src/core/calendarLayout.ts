@@ -170,7 +170,8 @@ export const MIN_BLOCK_MINUTES = 20;
  */
 export function timedBlocks(items: readonly CalendarItem[], day: string): TimedBlock[] {
   const placed = items
-    .filter((item) => !item.allDay && item.kind === 'schedule')
+    // Schedules and calendar events (PL-134) take time; a due flag is a mark, not a block.
+    .filter((item) => !item.allDay && item.kind !== 'due')
     .map((item) => {
       const top = datePart(item.start) < day ? 0 : minutesOf(item.start);
       const end = item.end ?? item.start;

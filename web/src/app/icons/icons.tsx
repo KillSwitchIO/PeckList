@@ -364,6 +364,17 @@ export function CalendarCheckIcon(props: SvgIconProps) {
   );
 }
 
+/** Connected calendars (PL-134): a calendar page with two arrows going round, both ways. */
+export function CalendarSyncIcon(props: SvgIconProps) {
+  return (
+    <PeckIcon {...props}>
+      <path d="M13 20H7a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v3M4 9.5h16" />
+      <path d="M15 16.5a3 3 0 0 1 5.2-1.6M21 18a3 3 0 0 1-5.2 1.6" />
+      <path d="M20.5 13v2h-2M15.5 21.5v-2h2" />
+    </PeckIcon>
+  );
+}
+
 /** Numbered list: 1 2 3 beside three lines. */
 export function NumberedListIcon(props: SvgIconProps) {
   return (

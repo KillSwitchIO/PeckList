@@ -4,12 +4,15 @@ import {
   AccountIcon,
   BellIcon,
   CalendarIcon,
+  CalendarSyncIcon,
   ChecklistIcon,
   DataIcon,
   HeartIcon,
   InfoIcon,
   PaletteIcon,
 } from '../icons/icons.tsx';
+import { CalendarsSettings } from '../calendars/CalendarsSettings.tsx';
+import { useCalendarsApi } from '../calendars/useCalendarEvents.ts';
 import { t } from '../i18n/i18n.ts';
 import { CategoryPage, type PageCategory } from '../layout/CategoryPage.tsx';
 import { ServerSection } from '../native/ServerSection.tsx';
@@ -106,6 +109,13 @@ export function SettingsPage() {
     (state) => state.phase === 'ready' && Boolean(state.transport.push),
   );
   const supportVisible = useSupportVisible();
+  const calendars = useCalendarsApi() !== null;
+  // A Google calendar sign-in from the Android app comes back as `/settings?link=cal_...` (the
+  // app's fixed return address): it belongs to Calendars (PL-134).
+  const linked = params.get('link');
+  if (!section && linked?.startsWith('cal_')) {
+    return <Navigate to={`/settings/calendars?calendar=${encodeURIComponent(linked)}`} replace />;
+  }
   // The server sends confirmation and linking results to /settings: they belong to Account.
   if (!section && (params.has('email') || params.has('link'))) {
     return <Navigate to={`/settings/account?${params.toString()}`} replace />;
@@ -146,6 +156,18 @@ export function SettingsPage() {
       icon: <ChecklistIcon />,
       content: () => <TasksCategory />,
     },
+    // Left out rather than hidden while the server has calendar sync off (PL-134).
+    ...(calendars
+      ? [
+          {
+            id: 'calendars',
+            label: t('calendars.title'),
+            hint: t('settings.category.calendarsHint'),
+            icon: <CalendarSyncIcon />,
+            content: () => <CalendarsSettings />,
+          },
+        ]
+      : []),
     {
       id: 'notifications',
       label: t('notifications.settings'),
