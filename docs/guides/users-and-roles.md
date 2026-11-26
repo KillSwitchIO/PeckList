@@ -110,6 +110,10 @@ change sent from it. Starting and ending the view are recorded under the admin's
 reason, in the [event log](logging.md#access-and-event-log). It cannot target another super admin or a turned-off
 account, and it ends when the admin signs out.
 
+Events from the person's own connected calendars aren't shown in that tab, and neither is their
+**Calendars** settings page: those come from outside PeckList. Tasks they sync with a calendar are
+PeckList tasks, so those show.
+
 ### Deleting an account
 
 Deleting turns the account off at once and ends its sessions. It is removed for good, with

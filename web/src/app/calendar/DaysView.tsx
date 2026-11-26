@@ -18,6 +18,7 @@ import { MAX_HOUR, MIN_HOUR } from './calendarPrefs.ts';
 import { besideScrolling, scrolling } from './scrollbars.ts';
 import { dateTimeFormat, localeDateFormat } from '../../core/intl.ts';
 import { useBulkSelect } from '../tasks/bulkSelect.ts';
+import { useEventInk } from '../calendars/eventInk.ts';
 
 const GUTTER = 44;
 /** How long a finger holds a task still before its big time grips show. */
@@ -83,7 +84,8 @@ export function DaysView({
   hourHeight: number;
   onHourHeight: (height: number) => void;
   /** `occurrence`: a repeating task's date to come that was picked, not its own date. */
-  onOpenTask: (taskId: string, occurrence?: string) => void;
+  /** `eventKey`: a shown calendar's event (PL-134), which is no task. */
+  onOpenTask: (taskId: string, occurrence?: string, eventKey?: string) => void;
   onOpenDay: (day: string, anchor: HTMLElement) => void;
   onSlot: (day: string, minutes: number, anchor: HTMLElement) => void;
   onPage: (direction: 1 | -1) => void;
@@ -117,6 +119,7 @@ export function DaysView({
   // even on a short task, until a tap elsewhere.
   const [editing, setEditing] = useState<string | null>(null);
   const bulk = useBulkSelect();
+  const ink = useEventInk();
   const picked = bulk?.selecting ? bulk.picked : null;
   // A held task with its grips stays in sight, above the bulk bar that comes up with them on a
   // phone (PL-093); again once the calendar has made room for the bar.
@@ -399,7 +402,7 @@ export function DaysView({
                     item={item}
                     day={day}
                     dense
-                    onOpen={() => onOpenTask(item.taskId, item.occurrence)}
+                    onOpen={() => onOpenTask(item.taskId, item.occurrence, item.eventKey)}
                     onPointerDown={(event) => item.movable && onGrab(event, item, 0)}
                   />
                 ))}
@@ -507,6 +510,7 @@ export function DaysView({
                       role="button"
                       tabIndex={0}
                       data-cal-item={block.item.id}
+                      data-event={block.item.kind === 'event' ? '' : undefined}
                       data-picked={picked?.has(block.item.taskId) ? '' : undefined}
                       // Room for the big grips, which stand 14 px past each end, when it is
                       // scrolled into sight.
@@ -524,11 +528,11 @@ export function DaysView({
                           setEditing(null);
                           if (editing === block.item.id) return;
                         }
-                        onOpenTask(block.item.taskId, block.item.occurrence);
+                        onOpenTask(block.item.taskId, block.item.occurrence, block.item.eventKey);
                       }}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter')
-                          onOpenTask(block.item.taskId, block.item.occurrence);
+                          onOpenTask(block.item.taskId, block.item.occurrence, block.item.eventKey);
                       }}
                       onPointerDown={(event) => {
                         event.stopPropagation();
@@ -575,8 +579,14 @@ export function DaysView({
                         height: Math.max(14, tall - 2),
                         left: `calc(${(block.column / Math.min(block.columns, side)) * 100}% + 1px)`,
                         width: `calc(${100 / Math.min(block.columns, side)}% - 3px)`,
-                        bgcolor: block.item.color,
-                        color: '#1F2328',
+                        // An event is tinted with a bar, a task filled: they read apart (PL-134).
+                        ...(block.item.kind === 'event'
+                          ? {
+                              bgcolor: `color-mix(in srgb, ${ink(block.item.color)} 28%, transparent)`,
+                              borderLeft: `3px solid ${ink(block.item.color)}`,
+                              color: 'text.primary',
+                            }
+                          : { bgcolor: block.item.color, color: '#1F2328' }),
                         borderRadius: 0.75,
                         px: 0.5,
                         overflow: 'hidden',
@@ -616,7 +626,12 @@ export function DaysView({
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {block.item.title || t('task.untitled')}
+                        {block.item.title ||
+                          t(
+                            block.item.kind === 'event'
+                              ? 'calendars.event.untitled'
+                              : 'task.untitled',
+                          )}
                       </Box>
                       {tall > 28 && startText && (
                         <Box component="span" sx={{ opacity: 0.75 }}>

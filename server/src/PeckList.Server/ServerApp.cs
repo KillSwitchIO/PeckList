@@ -229,8 +229,8 @@ public static partial class ServerApp
         app.MapApiDocs();
         app.MapGet("/api/info", (LiveSettings live) =>
             new ServerInfo("pecklist", Version, WorkspaceSchema.CurrentVersion, settings.TimeZoneChosen ? TimeZoneInfo.Local.Id : null, live.Current.AttachmentMaxMb,
-                AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings)))
-            .WithSummary("What this server is: its version, data schema, time zone, file size limit, and whether sign-in and demo mode are on");
+                AppSignIn: settings.AuthMode != AuthMode.None, Demo: Demo.Info(settings), CalendarSync: live.Current.CalendarSync))
+            .WithSummary("What this server is: its version, data schema, time zone, file size limit, and whether sign-in, demo mode and calendar sync are on");
         app.MapAuth();
         app.MapGroup("/api").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapSync().MapFriends().MapAccount().MapStartOver().MapAccountEmail().MapAccountPasskeys().MapAttachments().MapNotifications().MapHistory().MapPush().MapProviderPicture().MapAppCheck().MapUpdates().MapApiKeys().MapClientTelemetry().MapCrashReports().MapAccountSupporter().MapCalendars();
         app.MapGroup("/api/v1").RequireAuthorization().RequirePasswordChanged().EnsureProfiles().MapTaskApi();
@@ -317,6 +317,7 @@ public static partial class ServerApp
 /// <paramref name="AppSignIn"/>: the Android app may sign in and link providers through a browser
 /// tab (<c>/auth/app/*</c>); the app checks it, since an older server has no such pages.
 /// <paramref name="Demo"/>: set on a demo server, for the app's banner (PL-117).
+/// <paramref name="CalendarSync"/>: <c>CALENDAR_SYNC</c> is on, so the app offers Settings &gt; Calendars and shows events (PL-134).
 /// </summary>
 public sealed record ServerInfo(string Name, string Version, int SchemaVersion, string? TimeZone = null, int? AttachmentMaxMb = null,
-    bool AppSignIn = false, DemoInfo? Demo = null);
+    bool AppSignIn = false, DemoInfo? Demo = null, bool CalendarSync = false);

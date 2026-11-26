@@ -37,7 +37,8 @@ export function DayPopup({
   anchor: HTMLElement | null;
   onClose: () => void;
   /** `occurrence`: a repeating task's date to come that was picked, not its own date. */
-  onOpenTask: (taskId: string, occurrence?: string) => void;
+  /** `eventKey`: a shown calendar's event (PL-134), which is no task. */
+  onOpenTask: (taskId: string, occurrence?: string, eventKey?: string) => void;
   /** Open this day in the Days view */
   onShowDays?: () => void;
 }) {
@@ -61,7 +62,7 @@ export function DayPopup({
                 day={day}
                 onOpen={() => {
                   onClose();
-                  onOpenTask(item.taskId, item.occurrence);
+                  onOpenTask(item.taskId, item.occurrence, item.eventKey);
                 }}
               />
             ))}

@@ -43,7 +43,8 @@ interface DayCellProps {
   month: string;
   selected: boolean;
   /** `occurrence`: a repeating task's date to come that was picked, not its own date. */
-  onOpenTask: (taskId: string, occurrence?: string) => void;
+  /** `eventKey`: a shown calendar's event (PL-134), which is no task. */
+  onOpenTask: (taskId: string, occurrence?: string, eventKey?: string) => void;
   onOpenDay: (day: string, anchor: HTMLElement) => void;
   onGrab: (event: React.PointerEvent<HTMLElement>, item: CalendarItem) => void;
   /** Narrow cells (phones) say "+3" rather than "+3 more" */
@@ -123,7 +124,7 @@ const DayCell = memo(function DayCell({
             item={item}
             day={day}
             dense
-            onOpen={() => onOpenTask(item.taskId, item.occurrence)}
+            onOpen={() => onOpenTask(item.taskId, item.occurrence, item.eventKey)}
             onPointerDown={(event) => {
               event.stopPropagation();
               if (item.movable) onGrab(event, item);
@@ -224,7 +225,8 @@ export function MonthView({
   byDay: Map<string, CalendarItem[]>;
   onView: (info: MonthViewInfo) => void;
   /** `occurrence`: a repeating task's date to come that was picked, not its own date. */
-  onOpenTask: (taskId: string, occurrence?: string) => void;
+  /** `eventKey`: a shown calendar's event (PL-134), which is no task. */
+  onOpenTask: (taskId: string, occurrence?: string, eventKey?: string) => void;
   onOpenDay: (day: string, anchor: HTMLElement) => void;
   onRange: (first: string, last: string, point: { x: number; y: number }) => void;
   /** The page's menu for picked days is open: keep them marked */

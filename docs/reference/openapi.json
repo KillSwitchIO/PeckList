@@ -11,7 +11,7 @@
         "tags": [
           "Info"
         ],
-        "summary": "What this server is: its version, data schema, time zone, file size limit, and whether sign-in and demo mode are on",
+        "summary": "What this server is: its version, data schema, time zone, file size limit, and whether sign-in, demo mode and calendar sync are on",
         "responses": {
           "200": {
             "description": "OK",
@@ -13380,6 +13380,10 @@
                 "$ref": "#/components/schemas/DemoInfo"
               }
             ]
+          },
+          "calendarSync": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

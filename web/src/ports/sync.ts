@@ -2,6 +2,7 @@ import type { UserStats } from './stats.ts';
 import type { SyncChange } from '../core/sync.ts';
 import type { Snooze } from '../core/reminders.ts';
 import type { AdminApi } from './admin.ts';
+import type { CalendarsApi } from './calendars.ts';
 
 /** What `/api/info` says about the server. */
 export interface ServerInfo {
@@ -16,6 +17,8 @@ export interface ServerInfo {
   appSignIn?: boolean;
   /** Set on a demo server (`DEMO_MODE`): when it resets and the accounts anyone may use. */
   demo?: DemoInfo | null;
+  /** `CALENDAR_SYNC` is on: Settings offers Calendars and views show events (PL-134; older servers: absent). */
+  calendarSync?: boolean;
 }
 
 /** A demo server's banner facts (PL-117). */
@@ -687,6 +690,8 @@ export interface SyncTransport {
   cliSignIn?: CliSignInApi;
   /** Attached files (optional: older servers keep none). */
   files?: FileApi;
+  /** Calendars (PL-134); the routes answer only while the server's `calendarSync` is on. */
+  calendars?: CalendarsApi;
   /** Admin actions; the server refuses them for anyone without the permission. */
   admin?: AdminApi;
 }

@@ -35,6 +35,7 @@ import type { Snooze } from '../core/reminders.ts';
 import { SyncFailure, TooManyRequests } from '../ports/sync.ts';
 import { messageOf } from '../core/errors.ts';
 import { createHttpAdmin } from './http-admin.ts';
+import { createHttpCalendars } from './http-calendars.ts';
 import { supporterRefusal } from './supporter.ts';
 
 interface ErrorBody {
@@ -86,12 +87,16 @@ export function createHttpSync(
       clearTimeout(timer);
     }
   };
-  /** A JSON request (or a plain GET). */
-  const call = (path: string, init?: { method?: string; body?: unknown }) =>
+  /**
+   * A JSON request (or a plain GET). `keepalive` lets one sent as the page goes away still arrive
+   * (a calendar event's hide flushed on pagehide).
+   */
+  const call = (path: string, init?: { method?: string; body?: unknown; keepalive?: boolean }) =>
     send(path, {
       method: init?.method ?? 'GET',
       headers: init?.body === undefined ? {} : { 'Content-Type': 'application/json' },
       body: init?.body === undefined ? null : JSON.stringify(init.body),
+      ...(init?.keepalive ? { keepalive: true } : {}),
     });
   /** A file's own request: raw bytes, not JSON. */
   const fileCall = (sha256: string, method: string, body?: Blob) =>
@@ -625,6 +630,8 @@ export function createHttpSync(
         if (!response.ok && response.status !== 404) return fail(response);
       },
     },
+
+    calendars: createHttpCalendars(call, fail, (response) => tooMany(response).retryAfterSeconds),
 
     cliSignIn: {
       async lookup(code) {

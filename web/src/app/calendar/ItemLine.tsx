@@ -8,6 +8,7 @@ import { formatTime } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { DueIcon } from '../icons/icons.tsx';
 import { useBulkSelect } from '../tasks/bulkSelect.ts';
+import { useEventInk } from '../calendars/eventInk.ts';
 
 const PRIORITY_KEY = { 1: 'low', 2: 'medium', 3: 'high' } as const;
 
@@ -38,6 +39,10 @@ const Line = styled(ButtonBase)(({ theme }) => ({
     backgroundColor: 'color-mix(in srgb, var(--item-color) 33%, transparent)',
   },
   '&[data-movable]': { cursor: 'grab' },
+  // A calendar's event (PL-134): always tinted, so a timed one reads apart from a task.
+  '&[data-event]': {
+    backgroundColor: 'color-mix(in srgb, var(--item-color) 22%, transparent)',
+  },
   // A repeating task's date to come: there, but not yet the task's own.
   '&[data-occurrence]': { opacity: 0.6 },
   '&:hover': { backgroundColor: theme.palette.action.hover },
@@ -76,6 +81,7 @@ export function ItemLine({
   dense?: boolean;
 }) {
   const theme = useTheme();
+  const ink = useEventInk();
   const bulk = useBulkSelect();
   const picked = bulk?.selecting ? bulk.picked.has(item.taskId) : undefined;
   const due = item.kind === 'due';
@@ -88,6 +94,7 @@ export function ItemLine({
       data-cal-item={item.id}
       data-dense={flag(dense)}
       data-due={flag(due)}
+      data-event={flag(item.kind === 'event')}
       data-done={flag(item.done)}
       data-all-day={flag(item.allDay)}
       data-movable={flag(item.movable)}
@@ -96,7 +103,7 @@ export function ItemLine({
       aria-pressed={picked}
       style={
         {
-          '--item-color': item.color,
+          '--item-color': item.kind === 'event' ? ink(item.color) : item.color,
           ...(priority ? { '--priority-color': theme.pecklist.priority[priority].fill } : {}),
         } as CSSProperties
       }
@@ -111,7 +118,9 @@ export function ItemLine({
       {due && <DueIcon className="item-due" />}
       {priority && <span className="item-priority" aria-hidden />}
       {time && <span className="item-time">{formatTime(time)}</span>}
-      <span className="item-title">{item.title || t('task.untitled')}</span>
+      <span className="item-title">
+        {item.title || t(item.kind === 'event' ? 'calendars.event.untitled' : 'task.untitled')}
+      </span>
     </Line>
   );
 }

@@ -77,6 +77,18 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
 
     private static string LinkOf(JsonObject account) => (string)account["calendars"]![0]!["id"]!;
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_server_info_says_whether_calendar_sync_is_on(bool on)
+    {
+        await using var server = Server(on: on);
+
+        var info = await server.CreateClient().GetFromJsonAsync<JsonObject>("/api/info", Token);
+
+        Assert.Equal(on, (bool)info!["calendarSync"]!);
+    }
+
     [Fact]
     public async Task Every_route_answers_404_while_calendar_sync_is_off()
     {

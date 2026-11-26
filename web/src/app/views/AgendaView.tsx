@@ -32,6 +32,9 @@ import { GroupSection } from './GroupSection.tsx';
 import { PinnedGroup, PostponeButton } from './groups.tsx';
 import { WeekStrip } from './WeekStrip.tsx';
 import { TaskDragProvider } from '../tasks/drag/TaskDrag.tsx';
+import { EventRows } from '../calendars/EventsGroup.tsx';
+import { useShownEvents } from '../calendars/useCalendarEvents.ts';
+import type { PlacedEvent } from '../../core/calendarEvents.ts';
 
 /** Days loaded at first, and how many more each time the end comes near. */
 const DAYS = 14;
@@ -102,6 +105,17 @@ export function AgendaView({
     () => agendaDays(source, today, start, count),
     [source, today, start, count],
   );
+  // Shown calendars' events head each day's tasks (PL-134), fetched as the list grows.
+  const shown = useShownEvents(start, addDays(start, count - 1));
+  const eventsByDay = useMemo(() => {
+    const byDay = new Map<string, PlacedEvent[]>();
+    for (const placed of shown) {
+      for (let day = placed.first; day <= placed.last; day = addDays(day, 1)) {
+        byDay.set(day, [...(byDay.get(day) ?? []), placed]);
+      }
+    }
+    return byDay;
+  }, [shown]);
   const overdue = useMemo(
     () => (fromToday ? todayGroups(source, today).overdue : []),
     [fromToday, source, today],
@@ -128,7 +142,7 @@ export function AgendaView({
   const busyIn = (from: string) =>
     new Set(
       agendaDays(source, today, from, 7)
-        .filter((day) => day.tasks.length > 0)
+        .filter((day) => day.tasks.length > 0 || eventsByDay.has(day.date))
         .map((day) => day.date),
     );
 
@@ -331,6 +345,7 @@ export function AgendaView({
           )}
           {days.map((day) => {
             const tasks = sorted(pinnedFirst(day.tasks).rest, sort);
+            const events = eventsByDay.get(day.date) ?? [];
             const title = dayTitle(day.date, today);
             return (
               <Box
@@ -372,6 +387,7 @@ export function AgendaView({
                       label={t('agenda.addTo', { day: title })}
                     />
                   )}
+                  <EventRows events={events} from={day.date} />
                   {tasks.length > 0 ? (
                     <TaskTree
                       tasks={tasks}
@@ -380,7 +396,8 @@ export function AgendaView({
                       dragZone={{ group: { kind: 'date', value: day.date } }}
                     />
                   ) : (
-                    adding !== day.date && (
+                    adding !== day.date &&
+                    events.length === 0 && (
                       <Typography variant="body2" color="text.disabled" sx={{ px: 1, pb: 0.5 }}>
                         {t('agenda.nothing')}
                       </Typography>

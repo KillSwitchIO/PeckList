@@ -84,6 +84,9 @@ import type { YearStay } from './yearLayout.ts';
 import { YearView, type YearHeat } from './YearView.tsx';
 import { doneByDay, doneScale } from '../../core/completions.ts';
 import { useNarrowed } from '../views/useNarrowed.tsx';
+import { eventItems } from '../../core/calendarEvents.ts';
+import { EventPopover } from '../calendars/EventPopover.tsx';
+import { useShownEvents } from '../calendars/useCalendarEvents.ts';
 import { BOTTOM_TABS_HEIGHT } from '../theme/theme.ts';
 
 /** How many unscheduled tasks show at first (and more on asking). */
@@ -165,6 +168,15 @@ const WEEK_CHOICES = Array.from({ length: MAX_WEEKS - MIN_WEEKS + 1 }, (_, i) =>
  * Unscheduled tasks drag in from the side (a sheet on phones). Year is for reading, so nothing
  * drags there and Unscheduled steps aside. Upcoming, the agenda, is in the menu.
  */
+/** The element drawn for a calendar item, to open something beside it. */
+function itemElement(id: string): HTMLElement | null {
+  return (
+    Array.from(document.querySelectorAll<HTMLElement>('[data-cal-item]')).find(
+      (element) => element.dataset.calItem === id,
+    ) ?? null
+  );
+}
+
 export function CalendarPage() {
   const theme = useTheme();
   const phone = useMediaQuery(theme.breakpoints.down('md'));
@@ -210,9 +222,19 @@ export function CalendarPage() {
     if (bulk.selecting) bulk.toggle([id], on);
     else if (on) bulk.start([id]);
   };
-  const openOrPick = (id: string, occurrence?: string) => {
+  // A shown calendar's event opened, and what it opened from (PL-134).
+  const [eventOpen, setEventOpen] = useState<{ key: string; anchor: HTMLElement | null } | null>(
+    null,
+  );
+  const openOrPick = (id: string, occurrence?: string, eventKey?: string) => {
     const shift = shiftClick.current;
     shiftClick.current = false;
+    if (eventKey) {
+      // Events are no tasks: nothing to pick for a bulk change, only to open.
+      if (!bulk?.selecting)
+        setEventOpen({ key: eventKey, anchor: itemElement(`event:${eventKey}`) });
+      return;
+    }
     if (bulk && (bulk.selecting || shift)) pick(id, !(bulk.selecting && bulk.picked.has(id)));
     else open(id, occurrence ? { on: occurrence } : undefined);
   };
@@ -263,14 +285,19 @@ export function CalendarPage() {
   // done on them, drawn as done (Ben, 2026-11-02).
   // Year counts for itself a year at a time, so Month's window stays unworked while it shows.
   const inYear = mode === 'year';
+  // Shown calendars' events beside the tasks in Days and Month (PL-134); Year counts tasks only.
+  const events = useShownEvents(win?.from ?? today, win?.to ?? today);
   const items = useMemo(
     () =>
       win && !inYear
-        ? calendarItems(shown, win.from, win.to, settings?.pointEventMinutes ?? 60, (task) =>
-            canEditTask(workspace, me, task),
-          ).filter((item) => !item.done || datePart(item.end ?? item.start) < today)
+        ? [
+            ...calendarItems(shown, win.from, win.to, settings?.pointEventMinutes ?? 60, (task) =>
+              canEditTask(workspace, me, task),
+            ).filter((item) => !item.done || datePart(item.end ?? item.start) < today),
+            ...eventItems(events, win.from, win.to),
+          ]
         : [],
-    [shown, workspace, win, inYear, settings?.pointEventMinutes, me, today],
+    [shown, workspace, win, inYear, settings?.pointEventMinutes, me, today, events],
   );
   const byDay = useMemo(
     () => (win ? itemsByDay(items, win.from, win.to) : new Map<string, CalendarItem[]>()),
@@ -783,6 +810,11 @@ export function CalendarPage() {
           <Box sx={{ maxHeight: '50dvh' }}>{panel}</Box>
         </BottomSheet>
       )}
+      <EventPopover
+        placed={eventOpen ? (events.find((each) => each.key === eventOpen.key) ?? null) : null}
+        anchor={eventOpen?.anchor ?? null}
+        onClose={() => setEventOpen(null)}
+      />
       {popup && (
         <DayPopup
           day={popup.day}
@@ -790,7 +822,12 @@ export function CalendarPage() {
           items={byDay.get(popup.day) ?? []}
           anchor={popup.anchor}
           onClose={() => setPopup(null)}
-          onOpenTask={(id, on) => open(id, on ? { on } : undefined)}
+          onOpenTask={(id, on, eventKey) =>
+            eventKey
+              ? // The popup closes first: the event opens from the day it was on.
+                setEventOpen({ key: eventKey, anchor: popup.anchor })
+              : open(id, on ? { on } : undefined)
+          }
           onShowDays={() => {
             setPopup(null);
             showDays(popup.day, 1);

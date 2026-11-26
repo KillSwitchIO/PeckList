@@ -3,7 +3,8 @@ import { groupDeleted } from './closedGroups.ts';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import { Box, Button, Typography } from '@mui/material';
 import { useState } from 'react';
-import { localTimeZone } from '../../core/dates.ts';
+import { addDays, localTimeZone } from '../../core/dates.ts';
+import { EventsGroup } from '../calendars/EventsGroup.tsx';
 import { findInbox } from '../../core/lists.ts';
 import {
   completedOn,
@@ -132,6 +133,8 @@ export function TodayView() {
     >
       <AddForToday today={today} />
       <CompactRowsContext.Provider value={density.value === 'compact'}>
+        {/* Calendar events head the day in every grouping, and never count as work left (PL-134). */}
+        <EventsGroup from={today} to={today} groupKey="events:today" />
         {view.grouping === 'date' ? (
           <>
             {empty && <EmptyState title={t('empty.today')} hint={t('empty.today.hint')} />}
@@ -190,6 +193,7 @@ export function UpcomingView() {
   return (
     <Page title={t('nav.upcoming')} actions={actions}>
       <AddForToday today={today} />
+      <EventsGroup from={today} to={addDays(today, 6)} groupKey="events:upcoming" />
       <GroupedTasks
         tasks={[...current.overdue, ...current.today, ...groups.flatMap((group) => group.tasks)]}
         closed={[]}
