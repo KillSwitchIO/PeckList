@@ -297,7 +297,8 @@ public sealed partial class CalDavCalendarProvider(HttpClient http, TimeProvider
             return EventTime.Day(day);
         if (DateTime.TryParseExact(time.Value, ["yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss"], CultureInfo.InvariantCulture, DateTimeStyles.None, out var at))
             return EventTime.At(at, string.IsNullOrEmpty(time.TimeZone) ? null : time.TimeZone);
-        throw new ArgumentException($"not a calendar time: {time.Value}", nameof(time));
+        // Not the value: problem messages reach the log and the person (Security, PL-134 fix 1).
+        throw new ArgumentException("not a calendar time", nameof(time));
     }
 
     // X-PECKLIST-TASK is "<instance>/<task id>". It comes back from the calendar, so anything not
@@ -327,7 +328,9 @@ public sealed partial class CalDavCalendarProvider(HttpClient http, TimeProvider
         }
         catch (ArgumentException e)
         {
-            throw new CalendarProblem(CalendarProblemKind.Refused, "calendar_refused", e.Message, inner: e);
+            // A fixed message: an argument exception can quote what the calendar server sent (a time
+            // zone name, a duplicate key), and problem messages reach the log and the person.
+            throw new CalendarProblem(CalendarProblemKind.Refused, "calendar_refused", "the calendar could not take this event", inner: e);
         }
         catch (Exception e) when (e is not CalendarProblem and not OperationCanceledException)
         {

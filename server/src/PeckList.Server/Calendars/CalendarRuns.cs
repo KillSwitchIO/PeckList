@@ -180,7 +180,8 @@ public sealed class CalendarRuns(
         try
         {
             var run = await engine.SyncLinkAsync(linkId, cancellation);
-            if (run.Problem is { } problem) logger.LogWarning("Calendar link {Link} could not sync: {Problem}", linkId, problem);
+            // The detail is the code, the service's status and reason, the call and the event id: never event text.
+            if (run.Problem is { } problem) logger.LogWarning("Calendar link {Link} could not sync: {Problem}", linkId, run.Detail ?? problem);
             else if (run.Refused > 0) logger.LogInformation("Calendar link {Link}: {Refused} task changes refused by sharing rules", linkId, run.Refused);
             // A calendar that synced and can push keeps a channel open, so its changes come within seconds.
             if (run.Problem is null && !run.Skipped) await channels.KeepAsync(linkId, cancellation);

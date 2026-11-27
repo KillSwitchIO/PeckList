@@ -276,6 +276,25 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
         Assert.NotNull(link.NextAttempt);
     }
 
+    [Fact]
+    public async Task A_calendar_problem_is_logged_with_the_services_answer_and_the_call()
+    {
+        await using var server = Server();
+        var (client, _) = await SignIn(server, "ben");
+        var account = await ConnectAsync(client);
+        (await client.PutAsJsonAsync($"/api/calendars/{LinkOf(account)}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        var lines = new LogLines();
+        var services = server.Services;
+        var runs = new CalendarRuns(services.GetRequiredService<CalendarSync>(), services.GetRequiredService<ICalendarStore>(),
+            services.GetRequiredService<Core.Configuration.LiveSettings>(), services.GetRequiredService<CalendarNudges>(), services.GetRequiredService<CalendarChannels>(), TimeProvider.System, lines);
+        fake.FailNext(new CalendarProblem(CalendarProblemKind.Refused, "calendar_refused", "Google answered 400 (badRequest)"));
+
+        await runs.RunNowAsync(LinkOf(account), Token);
+
+        var line = Assert.Single(lines.All);
+        Assert.Contains("calendar_refused (Google answered 400 (badRequest)) in list", line, StringComparison.Ordinal);
+    }
+
     /// <summary>Every line logged, with any exception attached, as text.</summary>
     private sealed class LogLines : Microsoft.Extensions.Logging.ILogger<CalendarRuns>
     {

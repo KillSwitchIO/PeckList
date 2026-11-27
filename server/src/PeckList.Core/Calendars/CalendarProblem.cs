@@ -44,4 +44,49 @@ public sealed class CalendarProblem(CalendarProblemKind kind, string code, strin
 
     /// <summary>Worth trying again later without the person doing anything.</summary>
     public bool Transient => Kind is CalendarProblemKind.Unavailable or CalendarProblemKind.RateLimited;
+
+    /// <summary>The call that failed (<see cref="CalendarCalls"/>), for the log; null when nobody said.</summary>
+    public string? Call { get; private init; }
+
+    /// <summary>The event the failed call was about, for the log; null for calls about no one event.</summary>
+    public string? EventId { get; private init; }
+
+    /// <summary>
+    /// This problem, saying which call failed and on which event. A call already named stays: a token
+    /// refresh that failed inside an update is still the refresh's failure.
+    /// </summary>
+    public CalendarProblem At(string call, string? eventId = null) =>
+        new(Kind, Code, Message, RetryAfter, this) { Call = Call ?? call, EventId = EventId ?? Loggable(eventId) };
+
+    /// <summary>The most an id is kept to for the log.</summary>
+    public const int MaxLoggedId = 100;
+
+    /// <summary>
+    /// An event id fit for one log line. A CalDAV id is the href the server sent: a hostile server (or
+    /// an invite's UID) can put line breaks in it, it can be long, and its path usually names the
+    /// person. So only its last path segment, without control characters, at most <see cref="MaxLoggedId"/>.
+    /// </summary>
+    public static string? Loggable(string? eventId)
+    {
+        if (eventId is null) return null;
+        var trimmed = eventId.TrimEnd('/');
+        var last = trimmed[(trimmed.LastIndexOf('/') + 1)..];
+        var clean = new string([.. last.Where(each => !char.IsControl(each))]);
+        return clean.Length > MaxLoggedId ? clean[..MaxLoggedId] : clean;
+    }
+
+    /// <summary>One line for the log: the code, the service's words (status and reason, never content), the call and the event.</summary>
+    public string Describe() =>
+        $"{Code} ({Message}){(Call is null ? "" : " in " + Call)}{(EventId is null ? "" : " for event " + EventId)}";
+}
+
+/// <summary>The port calls a <see cref="CalendarProblem"/> can name.</summary>
+public static class CalendarCalls
+{
+    public const string List = "list";
+    public const string Create = "create";
+    public const string Update = "update";
+    public const string Delete = "delete";
+    public const string Watch = "watch";
+    public const string Refresh = "refresh";
 }

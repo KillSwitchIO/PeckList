@@ -161,6 +161,23 @@ public sealed class CalDavProviderTests
     }
 
     [Fact]
+    public async Task A_value_the_adapter_cannot_write_is_refused_without_quoting_it()
+    {
+        var server = new FakeServer();
+        // An unknown zone and a time that isn't one: their own words would quote them.
+        var zone = new EventData("x", "", CalendarTime.Local("2026-11-27T09:00", "Mars/Olympus_Mons"), null);
+        var time = new EventData("x", "", CalendarTime.Local("not-a-time-secret", null), null);
+
+        var unknownZone = await Assert.ThrowsAsync<CalendarProblem>(() => Provider(server).CreateEventAsync(Connection, Calendar, zone, Token));
+        var badTime = await Assert.ThrowsAsync<CalendarProblem>(() => Provider(server).CreateEventAsync(Connection, Calendar, time, Token));
+
+        Assert.Equal("calendar_refused", unknownZone.Code);
+        Assert.DoesNotContain("Olympus", unknownZone.Describe(), StringComparison.Ordinal);
+        Assert.DoesNotContain("secret", badTime.Describe(), StringComparison.Ordinal);
+        Assert.Empty(server.Requests);
+    }
+
+    [Fact]
     public void Writes_times_with_seconds_only_when_they_are_not_zero()
     {
         Assert.Equal(CalendarTime.Local("2026-11-27T09:00", "Europe/Berlin"),

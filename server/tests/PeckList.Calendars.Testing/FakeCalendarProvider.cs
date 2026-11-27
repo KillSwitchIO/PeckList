@@ -18,6 +18,7 @@ public sealed class FakeCalendarProvider : ICalendarProvider
     private readonly Dictionary<string, (Account Account, Calendar Calendar)> calendars = new(StringComparer.Ordinal);
     private readonly Queue<Exception> failures = new();
     private readonly HashSet<string> hanging = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CalendarProblem> refusing = new(StringComparer.Ordinal);
     private bool raceNextWrite;
     private int next;
 
@@ -164,6 +165,15 @@ public sealed class FakeCalendarProvider : ICalendarProvider
         lock (gate) for (var count = 0; count < times; count++) failures.Enqueue(failure);
     }
 
+    /// <summary>
+    /// The service refuses every change to one event (as Google refuses changes to a birthday): updates
+    /// and deletes of it throw <paramref name="problem"/>, by default a 400 with Google's words.
+    /// </summary>
+    public void RefuseWrites(string eventId, CalendarProblem? problem = null)
+    {
+        lock (gate) refusing[eventId] = problem ?? new CalendarProblem(CalendarProblemKind.Refused, "calendar_refused", "Google answered 400 (eventTypeRestriction)");
+    }
+
     /// <summary>The service stops answering for a calendar: reading its changes waits until cancelled.</summary>
     public void Hang(string calendarId)
     {
@@ -300,6 +310,7 @@ public sealed class FakeCalendarProvider : ICalendarProvider
         lock (gate)
         {
             var calendar = Writable(Owned(Enter(connection), calendarId));
+            if (refusing.TryGetValue(basis.Id, out var refusal)) throw refusal;
             Race(calendar, basis.Id);
             var stored = calendar.Events.GetValueOrDefault(basis.Id)
                 ?? throw new CalendarProblem(CalendarProblemKind.NotFound, "calendar_event_not_found", "the event is gone");
@@ -317,6 +328,7 @@ public sealed class FakeCalendarProvider : ICalendarProvider
         lock (gate)
         {
             var calendar = Writable(Owned(Enter(connection), calendarId));
+            if (refusing.TryGetValue(eventId, out var refusal)) throw refusal;
             Race(calendar, eventId);
             if (calendar.Events.GetValueOrDefault(eventId) is not { } stored) return Task.CompletedTask;
             if (stored.Etag != etag) throw Stale();

@@ -246,7 +246,16 @@ public sealed partial class GoogleCalendarProvider(HttpClient http, IGoogleClien
         var token = fresh.TryGetValue(connection, out var cached) ? cached : GoogleToken.Read(connection.Secret)
             ?? throw new CalendarProblem(CalendarProblemKind.Auth, "calendar_auth_failed", "the stored Google sign-in can't be read");
         if (!force && token.AccessToken is { } access && token.AccessExpires - GoogleOAuth.RefreshMargin > time.GetUtcNow()) return access;
-        var renewed = await oauth.RefreshAsync(token, clients.ById(token.ClientId), cancellation);
+        GoogleToken renewed;
+        try
+        {
+            renewed = await oauth.RefreshAsync(token, clients.ById(token.ClientId), cancellation);
+        }
+        catch (CalendarProblem problem)
+        {
+            // Named here, so the log says the refresh failed and not the call that needed it.
+            throw problem.At(CalendarCalls.Refresh);
+        }
         fresh.AddOrUpdate(connection, renewed);
         if (connection.SecretChanged is { } save) await save(renewed.Write());
         return renewed.AccessToken!;

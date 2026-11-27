@@ -346,6 +346,24 @@ public sealed class CalendarSyncTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_failed_run_says_which_call_failed_on_which_event_and_what_the_service_answered()
+    {
+        rig.Fake.FailNext(new CalendarProblem(CalendarProblemKind.Refused, "calendar_refused", "Google answered 400 (badRequest)"));
+
+        var listing = await rig.RunAsync();
+
+        Assert.Equal("calendar_refused", listing.Problem);
+        Assert.Equal("calendar_refused (Google answered 400 (badRequest)) in list", listing.Detail);
+
+        var birthday = rig.Fake.Seed(rig.CalendarId, new EventData("Kim's birthday", "", CalendarTime.Date("2026-12-01"), CalendarTime.Date("2026-12-02")));
+        rig.Fake.RefuseWrites(birthday.Id);
+
+        var marking = await rig.RunAsync();
+
+        Assert.Equal($"calendar_refused (Google answered 400 (eventTypeRestriction)) in update for event {birthday.Id}", marking.Detail);
+    }
+
+    [Fact]
     public async Task An_adapter_bug_backs_the_link_off_like_a_failing_service()
     {
         rig.Fake.FailNext(new InvalidOperationException("2026-13-45 is not a date"), times: 2);
