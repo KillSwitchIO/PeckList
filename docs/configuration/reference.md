@@ -245,21 +245,26 @@ its network. Turn it on only when you trust the people with accounts. **Default:
 
 ### `CALENDAR_GOOGLE_CLIENT_ID`
 
-Your own Google OAuth client for connecting Google calendars, with
-[`CALENDAR_GOOGLE_CLIENT_SECRET`](#calendar_google_client_secret). If your server's build includes
-PeckList's shared Google client, people can connect Google Calendar without this; otherwise set
-your own, or Google isn't offered. With the shared client, Google's sign-in comes back through a
-page on pecklist.com that asks the person to confirm their server's address and then hands the
-one-time code to it. The page stores nothing, and the code is useless without the key only the
-server holds; the server swaps it for its own tokens, so nothing passes through
-pecklist.com after that. The shared client needs [`PUBLIC_URL`](#public_url) unless the server is
-reached by a home-network name or address, so set it for Google. Set your own client to skip that
-page, or to use your own Google Cloud project. Make it a **Web application** client with the
-Google Calendar API enabled, the scopes `calendar.calendarlist.readonly`, `calendar.events` and
-`calendar.app.created`, and this redirect address: your `PUBLIC_URL` followed by
-`/auth/calendar/google/callback` (for example
-`https://tasks.example.com/auth/calendar/google/callback`). People who connected with one client
-reconnect when you change it. Disconnecting a Google account ends PeckList's access for that
+Your Google OAuth client for connecting Google calendars, with
+[`CALENDAR_GOOGLE_CLIENT_SECRET`](#calendar_google_client_secret). PeckList doesn't come with a
+Google client, so Google Calendar is offered only once you set both. Make one in your own Google
+Cloud project: enable the Google Calendar API, set up the consent screen for **External** users,
+and create a **Web application** client with the scopes `calendar.calendarlist.readonly`,
+`calendar.events` and `calendar.app.created`, and this redirect address: your
+[`PUBLIC_URL`](#public_url) followed by `/auth/calendar/google/callback` (for example
+`https://tasks.example.com/auth/calendar/google/callback`). Google accepts only an `https://`
+address on a public domain name there. Sign-ins come straight back to your server, which keeps the
+tokens itself.
+
+Your client doesn't need Google's verification for a household or a small group. While the app is
+in **Testing**, only the Google accounts you add as test users can connect, and their connections
+expire after 7 days, so PeckList asks them to reconnect each week. Once you publish it (**In
+production**) without sending it for verification, anyone can connect, up to 100 Google accounts
+in all, and connections no longer expire. Each person first sees Google's "Google hasn't verified
+this app" screen, where they choose **Advanced** and then go on to your app. More than 100
+accounts, or a sign-in without that screen, needs Google to verify your app.
+
+People who connected with one client reconnect when you change it. Disconnecting a Google account ends PeckList's access for that
 Google account everywhere it's connected with the same client, other servers and other people
 included, so those connections need a reconnect. Google only offers changes within seconds when
 `PUBLIC_URL` is a public `https://` address; otherwise the server checks every
