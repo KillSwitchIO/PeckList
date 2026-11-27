@@ -1,10 +1,11 @@
 import UndoRounded from '@mui/icons-material/UndoRounded';
 import { Box, ButtonBase, CircularProgress, Tooltip } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../i18n/i18n.ts';
 import { useStoreState } from '../store/hooks.ts';
 import { countUse } from '../telemetry/usage.ts';
 import { visuallyHidden } from '../layout/visuallyHidden.ts';
+import { holdLateTaps, releaseLateTaps } from './lateTaps.ts';
 import { commitOutsideUndo, undoOutsideUndo, useOutsideUndo } from './outsideUndo.ts';
 
 /** How long Undo stays. */
@@ -18,7 +19,8 @@ const SIZE = 48;
  * the time it stays, rather than a bar across the screen. Swipe it left or right to send it away
  * sooner; touching it, or nudging it less than that, starts the time over (R-FB-119). What
  * changed is read out to screen readers and shows on hover. A change held outside the workspace
- * (hiding a calendar's event) shows the same way, and is made when the button goes.
+ * (hiding a calendar's event) shows the same way, and is made when the button goes. For a moment
+ * after it goes, a tap where it was is let fall, so a late tap at Undo opens nothing underneath.
  */
 export function UndoToast({
   bottomOffset = 0,
@@ -66,6 +68,18 @@ export function UndoToast({
     const timer = setTimeout(() => latest.current(), SHOW_MS);
     return () => clearTimeout(timer);
   }, [showing, round]);
+  // Where it rests (not mid-swipe), for the taps that come just too late once it goes.
+  const box = useRef<HTMLDivElement>(null);
+  const restingAt = useRef<DOMRect | null>(null);
+  useLayoutEffect(() => {
+    if (box.current && !dx && !leaving) restingAt.current = box.current.getBoundingClientRect();
+  });
+  const wasShowing = useRef(false);
+  useLayoutEffect(() => {
+    if (showing) releaseLateTaps();
+    else if (wasShowing.current && restingAt.current) holdLateTaps(restingAt.current);
+    wasShowing.current = !!showing;
+  }, [showing]);
 
   if (!entry) return null;
 
@@ -101,6 +115,7 @@ export function UndoToast({
 
   return (
     <Box
+      ref={box}
       sx={{
         position: 'fixed',
         // Phones: bottom left, clear of the add button on the right. Bigger screens: bottom right.

@@ -224,6 +224,61 @@ describe('calendar', () => {
     expect(await screen.findByRole('textbox', { name: /title/i })).toHaveValue('Dentist');
   });
 
+  /** A phone's Month, a change to undo, and Undo resting bottom left over today's cell. */
+  async function phoneMonthWithUndo() {
+    mockViewport('phone');
+    const { store, dentist } = await calendarWith();
+    const month = await screen.findByRole('grid', { name: 'Month' });
+    const day = within(month).getByRole('gridcell', { name: 'Today' });
+    // jsdom has no layout: say where Undo rests.
+    const measure = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.querySelector(':scope > [aria-label="Undo"]')
+        ? new DOMRect(16, 700, 48, 48)
+        : measure.call(this);
+    });
+    act(() =>
+      store
+        .getState()
+        .apply((ctx, ws) => updateTask(ctx, ws, dentist, { title: 'Dentist at 3' }), 'Renamed'),
+    );
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+    const tap = (clientX: number, pointerId: number) => {
+      fireEvent.pointerDown(day, { clientX, clientY: 720, button: 0, pointerId });
+      fireEvent.pointerUp(window, { clientX, clientY: 720, pointerId });
+      fireEvent.click(day, { clientX, clientY: 720 });
+    };
+    return { tap };
+  }
+
+  it('lets a late tap at Undo fall, rather than open the Month day under it (phones)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { tap } = await phoneMonthWithUndo();
+      act(() => vi.advanceTimersByTime(6000));
+      expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+      // Just after it goes, a tap where it was opens nothing.
+      tap(30, 3);
+      expect(screen.queryByRole('dialog')).toBeNull();
+      // Half a second on, the same tap opens the day.
+      act(() => vi.advanceTimersByTime(500));
+      tap(30, 4);
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('opens the Month day at once for a tap beside where Undo was (phones)', async () => {
+    const { tap } = await phoneMonthWithUndo();
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+    tap(100, 5);
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
   it('adds a task at a tapped time in Days', async () => {
     localStorage.setItem(
       'pecklist.calendar',
