@@ -18,7 +18,8 @@ public sealed record CalendarRun(
     int Conflicts = 0,
     int Refused = 0,
     bool Skipped = false,
-    string? Problem = null);
+    string? Problem = null,
+    string? Detail = null);
 
 /// <summary>
 /// The two-way calendar sync (spec: PL-134). One run of a link reads the calendar's changes by sync
@@ -141,7 +142,7 @@ public sealed class CalendarSync(
                 await calendars.SaveAccountAsync(account with { Status = CalendarAccount.AuthFailed, Problem = problem.Code }, cancellation);
             }
             await FailedAsync(linkId, problem.Code, problem.RetryAfter, cancellation);
-            return new CalendarRun(Problem: problem.Code);
+            return new CalendarRun(Problem: problem.Code, Detail: problem.Describe());
         }
         catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
         {
@@ -182,7 +183,7 @@ public sealed class CalendarSync(
     private static CalendarRun Add(CalendarRun a, CalendarRun b) => new(
         a.EventsCreated + b.EventsCreated, a.EventsUpdated + b.EventsUpdated, a.EventsDeleted + b.EventsDeleted,
         a.TasksCreated + b.TasksCreated, a.TasksChanged + b.TasksChanged, a.TasksTrashed + b.TasksTrashed,
-        a.Conflicts + b.Conflicts, a.Refused + b.Refused, false, b.Problem ?? a.Problem);
+        a.Conflicts + b.Conflicts, a.Refused + b.Refused, false, b.Problem ?? a.Problem, b.Detail ?? a.Detail);
 
     private async Task<CalendarRun> RunAsync(CalendarLink link, ICalendarProvider provider, CalendarConnection connection, CancellationToken cancellation)
     {
@@ -197,11 +198,18 @@ public sealed class CalendarSync(
     {
         try
         {
-            return await provider.ChangesAsync(connection, link.RemoteId, link.SyncToken, cancellation);
+            try
+            {
+                return await provider.ChangesAsync(connection, link.RemoteId, link.SyncToken, cancellation);
+            }
+            catch (CalendarProblem problem) when (problem.Kind == CalendarProblemKind.SyncTokenExpired && link.SyncToken is not null)
+            {
+                return await provider.ChangesAsync(connection, link.RemoteId, null, cancellation);
+            }
         }
-        catch (CalendarProblem problem) when (problem.Kind == CalendarProblemKind.SyncTokenExpired && link.SyncToken is not null)
+        catch (CalendarProblem problem)
         {
-            return await provider.ChangesAsync(connection, link.RemoteId, null, cancellation);
+            throw problem.At(CalendarCalls.List);
         }
     }
 
@@ -469,7 +477,7 @@ public sealed class CalendarSync(
             }
             if (!InScope(taskId, doc)) return;
             var data = CalendarMapping.EventOf(doc!, MarkerFor(taskId), zone)!;
-            var made = await engine.Safely(() => provider.CreateEventAsync(connection, link.RemoteId, data, cancellation));
+            var made = await Safely(CalendarCalls.Create, null, () => provider.CreateEventAsync(connection, link.RemoteId, data, cancellation));
             if (made is null)
             {
                 conflicts++;
@@ -533,7 +541,7 @@ public sealed class CalendarSync(
             var written = remote;
             if (!CalendarJson.Same(merged, theirs))
             {
-                var result = await engine.Safely(() => provider.UpdateEventAsync(connection, link.RemoteId, remote, merged, cancellation));
+                var result = await Safely(CalendarCalls.Update, remote.Id, () => provider.UpdateEventAsync(connection, link.RemoteId, remote, merged, cancellation));
                 if (result is null)
                 {
                     // Changed again on the calendar since it was read: merged on the run that follows.
@@ -578,7 +586,7 @@ public sealed class CalendarSync(
 
         private async Task DeleteEventAsync(string eventId, string etag, string? taskId, CancellationToken cancellation)
         {
-            var gone = await engine.Safely(async () =>
+            var gone = await Safely(CalendarCalls.Delete, eventId, async () =>
             {
                 await provider.DeleteEventAsync(connection, link.RemoteId, eventId, etag, cancellation);
                 return true;
@@ -610,7 +618,7 @@ public sealed class CalendarSync(
             handled.Add(id);
             // The event learns its task, so a new link pairs it instead of copying it.
             var marked = remote.Data with { Marker = MarkerFor(id) };
-            var written = await engine.Safely(() => provider.UpdateEventAsync(connection, link.RemoteId, remote, marked, cancellation));
+            var written = await Safely(CalendarCalls.Update, remote.Id, () => provider.UpdateEventAsync(connection, link.RemoteId, remote, marked, cancellation));
             if (written is null)
             {
                 conflicts++;
@@ -735,8 +743,11 @@ public sealed class CalendarSync(
         }
     }
 
-    /// <summary>A port call that may meet a stale etag: null on <see cref="CalendarProblemKind.Conflict"/> (merged on the next run), the rest thrown.</summary>
-    private async Task<T?> Safely<T>(Func<Task<T>> call) where T : class
+    /// <summary>
+    /// A port call that may meet a stale etag: null on <see cref="CalendarProblemKind.Conflict"/> (merged
+    /// on the next run), the rest thrown naming <paramref name="name"/> and <paramref name="eventId"/>.
+    /// </summary>
+    private static async Task<T?> Safely<T>(string name, string? eventId, Func<Task<T>> call) where T : class
     {
         try
         {
@@ -746,9 +757,13 @@ public sealed class CalendarSync(
         {
             return null;
         }
+        catch (CalendarProblem problem)
+        {
+            throw problem.At(name, eventId);
+        }
     }
 
-    private async Task<bool> Safely(Func<Task<bool>> call)
+    private static async Task<bool> Safely(string name, string? eventId, Func<Task<bool>> call)
     {
         try
         {
@@ -757,6 +772,10 @@ public sealed class CalendarSync(
         catch (CalendarProblem problem) when (problem.Kind is CalendarProblemKind.Conflict)
         {
             return false;
+        }
+        catch (CalendarProblem problem)
+        {
+            throw problem.At(name, eventId);
         }
     }
 

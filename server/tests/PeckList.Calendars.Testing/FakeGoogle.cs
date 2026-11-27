@@ -234,6 +234,9 @@ public sealed class FakeGoogle : HttpMessageHandler
                     Cancel(calendar, eventId);
                     return new HttpResponseMessage(HttpStatusCode.NoContent);
                 }
+                // Google keeps birthday events to itself: a change is refused with a 400. The reason
+                // name is the fake's own; only the status matters to the adapter.
+                if ((string?)stored["eventType"] == "birthday") return Error(HttpStatusCode.BadRequest, "eventTypeRestriction");
                 Merge(stored, body!);
                 Touch(calendar, stored);
                 return Ok(stored.DeepClone());

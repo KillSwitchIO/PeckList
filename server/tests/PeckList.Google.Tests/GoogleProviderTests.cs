@@ -197,6 +197,42 @@ public sealed class GoogleProviderTests
     }
 
     [Fact]
+    public async Task A_refused_change_says_Googles_status_and_reason_and_never_the_events_text()
+    {
+        var rig = new GoogleRig();
+        var connection = rig.Connection();
+        var calendar = rig.Google.AddCalendar(rig.Address, "Work");
+        var seeded = rig.Google.Seed(rig.Address, calendar, new JsonObject
+        {
+            ["summary"] = "Kim's birthday",
+            ["eventType"] = "birthday",
+            ["start"] = new JsonObject { ["date"] = "2026-12-01" },
+            ["end"] = new JsonObject { ["date"] = "2026-12-02" },
+        });
+        var basis = await ReadAsync(rig, connection, calendar, (string)seeded["id"]!);
+
+        var problem = await Assert.ThrowsAsync<CalendarProblem>(() => rig.Provider.UpdateEventAsync(connection, calendar, basis, basis.Data with { Summary = "Party" }, Cancel));
+
+        Assert.Equal(CalendarProblemKind.Refused, problem.Kind);
+        Assert.Equal("calendar_refused", problem.Code);
+        Assert.Equal("Google answered 400 (eventTypeRestriction)", problem.Message);
+        Assert.DoesNotContain("birthday", problem.Describe(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task A_refresh_Google_refuses_is_named_as_the_refresh_whatever_call_needed_it()
+    {
+        var rig = new GoogleRig();
+        rig.Google.Expire(rig.RefreshToken);
+
+        var problem = await Assert.ThrowsAsync<CalendarProblem>(() => rig.Provider.ChangesAsync(rig.Connection(), rig.Address, null, Cancel));
+
+        Assert.Equal(CalendarCalls.Refresh, problem.Call);
+        Assert.Equal(CalendarCalls.Refresh, problem.At(CalendarCalls.List).Call);
+        Assert.Equal("calendar_auth_failed (Google refused the sign-in) in refresh", problem.Describe());
+    }
+
+    [Fact]
     public async Task Without_the_calendar_scopes_Google_refuses_and_the_problem_says_so()
     {
         var rig = new GoogleRig(scope: FakeGoogle.EventsScope);

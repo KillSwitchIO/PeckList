@@ -48,9 +48,10 @@ public sealed class CalendarChannels(CalendarSync engine, ICalendarStore store, 
         catch (Exception error) when (!cancellation.IsCancellationRequested)
         {
             refused[linkId] = time.GetUtcNow() + RetryAfter;
-            // No message: a provider's words may quote what it was sent.
+            // A calendar problem's words are the status and reason only (never content); any other
+            // exception's message may quote what it was sent, so only its type.
             logger.LogInformation("Calendar link {Link} has no push channel ({Error}); it is checked on its interval instead", linkId,
-                error is CalendarProblem problem ? problem.Code : error.GetType().Name);
+                error is CalendarProblem problem ? problem.At(CalendarCalls.Watch).Describe() : error.GetType().Name);
         }
     }
 
