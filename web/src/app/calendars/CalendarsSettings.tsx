@@ -34,6 +34,15 @@ import { useCalendarsApi, useEventsStore } from './useCalendarEvents.ts';
 type TagDialog =
   { kind: 'sync'; link: CalendarLinkInfo } | { kind: 'create'; account: CalendarAccountInfo };
 
+/** How often the list is read again while a calendar is syncing. */
+const SYNC_POLL_MS = 2000;
+
+/** How long the page keeps reading it: a run ends within its 5-minute deadline on the server. */
+const SYNC_WATCH_MS = 6 * 60 * 1000;
+
+const syncingIn = (accounts: readonly CalendarAccountInfo[] | null) =>
+  accounts?.some((account) => account.calendars.some((each) => each.syncing)) ?? false;
+
 /**
  * Settings > Calendars (spec: PL-134): the accounts connected, each calendar's use, and
  * connecting another. Only on servers with calendar sync on, for someone signed in.
@@ -96,6 +105,34 @@ function Calendars({ api }: { api: CalendarsApi }) {
       live = false;
     };
   }, [api]);
+
+  // Runs go on the server, not in the request (PL-134): while one is going, read the list again
+  // until it ends, then the views fetch the events it brought.
+  const anySyncing = syncingIn(accounts);
+  useEffect(() => {
+    if (!anySyncing) return;
+    let live = true;
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      if (Date.now() - started > SYNC_WATCH_MS) {
+        window.clearInterval(timer);
+        return;
+      }
+      api.list().then(
+        (found) => {
+          if (!live) return;
+          setAccounts(found.accounts);
+          setProviders(found.providers);
+          if (!syncingIn(found.accounts)) void events?.refresh();
+        },
+        () => undefined,
+      );
+    }, SYNC_POLL_MS);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+    };
+  }, [anySyncing, api, events]);
 
   const tagName = (id: string) => getEntity(workspace, 'tags', id)?.name ?? null;
 
@@ -303,6 +340,10 @@ function Calendars({ api }: { api: CalendarsApi }) {
           action={t('calendars.tag.syncAction')}
           initialTag={tagDialog.link.tagId}
           initialList={tagDialog.link.listId}
+          preview={async () => {
+            const counted = await api.importPreview(tagDialog.link.id);
+            return counted.ok ? counted.value : null;
+          }}
           run={async ({ tagId, listId }) => {
             const link = tagDialog.link;
             const result = await api.setMode(link.id, {

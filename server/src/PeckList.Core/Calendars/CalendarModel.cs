@@ -54,6 +54,11 @@ public sealed record RemoteChanges(IReadOnlyList<RemoteEvent> Changed, IReadOnly
 /// The adapter's own copy (ICS text, Google's JSON). The engine stores it unread and hands it back as
 /// the basis of an update, so what the engine does not map survives.
 /// </param>
+/// <param name="Foreign">
+/// An event the person can't own, so it never becomes a task (spec: PL-134, decision 8): a kind the
+/// service keeps to itself (Google's birthdays, out of office, focus time, working location, events
+/// from Gmail) or an invitation someone else organises.
+/// </param>
 public sealed record RemoteEvent(
     string Id,
     string Etag,
@@ -62,7 +67,8 @@ public sealed record RemoteEvent(
     string? SeriesId = null,
     CalendarTime? OriginalStart = null,
     bool Cancelled = false,
-    string? Raw = null);
+    string? Raw = null,
+    bool Foreign = false);
 
 /// <summary>The parts of an event PeckList maps to a task (spec: PL-134, Task to Event Mapping).</summary>
 /// <param name="Description">Plain text; a task's notes go here as written.</param>

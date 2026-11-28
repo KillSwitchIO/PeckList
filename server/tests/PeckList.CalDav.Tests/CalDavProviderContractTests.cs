@@ -47,6 +47,26 @@ public sealed class CalDavProviderContractTests(RadicaleServer radicale) : Calen
             });
     }
 
+    [Fact]
+    public async Task An_invitation_someone_else_organises_comes_back_foreign_and_an_own_event_does_not()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        var provider = new CalDavCalendarProvider(CalDavCalendarProvider.CreateHttpClient(new CalDavNetworkPolicy(allowPrivateNetwork: true)), TimeProvider.System);
+        var connection = new CalendarConnection(radicale.Url.ToString(), RadicaleServer.NewUser(), "app-password");
+        var calendar = await provider.CreateCalendarAsync(connection, "Work", cancellation);
+        var other = RadicaleServer.Client(connection.Username!);
+        static string Ics(string uid, params string[] extra) => string.Join("\r\n",
+            ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Example//Test//EN", "BEGIN:VEVENT", "UID:" + uid, "DTSTAMP:20261120T100000Z",
+                "DTSTART;VALUE=DATE:20261205", "SUMMARY:" + uid, .. extra, "END:VEVENT", "END:VCALENDAR"]) + "\r\n";
+        await other.CreateAsync(new Uri(calendar.Id), "invite.ics", Ics("invite", "ORGANIZER;CN=Kim:mailto:kim@example.com", "ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:ben@example.com"), cancellation);
+        await other.CreateAsync(new Uri(calendar.Id), "mine.ics", Ics("mine"), cancellation);
+
+        var listed = (await provider.ChangesAsync(connection, calendar.Id, null, cancellation)).Changed;
+
+        Assert.True(Assert.Single(listed, e => e.Id == "invite.ics").Foreign);
+        Assert.False(Assert.Single(listed, e => e.Id == "mine.ics").Foreign);
+    }
+
     // The event as another app writes it: with a location and an alarm, which the port doesn't map.
     private static string WithExtras(EventData data)
     {

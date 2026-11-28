@@ -16,10 +16,19 @@ public sealed record CalendarAccountView(
     string Id, string Provider, string Name, string ServerUrl, string? Username, string Status, string? Problem,
     bool CanCreateCalendar, IReadOnlyList<CalendarLinkView> Calendars);
 
-/// <summary>One calendar of an account and how this person uses it.</summary>
+/// <summary>
+/// One calendar of an account and how this person uses it. <see cref="Syncing"/> is true while a run
+/// someone asked for is queued or going: the app shows "Syncing..." and reads the list again.
+/// </summary>
+/// <summary>
+/// How many of a calendar's events would become tasks if it synced with a tag now: events from today
+/// on that the person owns (spec: PL-134, decision 8). Settings shows it before "Sync with a tag" is saved.
+/// </summary>
+public sealed record CalendarImportPreview(int Events);
+
 public sealed record CalendarLinkView(
     string Id, string Name, string? Color, bool ReadOnly, string Mode, string? TagId, string? ListId, bool MadeByPeckList,
-    DateTimeOffset? SyncedAt, string? Problem, DateTimeOffset? NextAttempt);
+    DateTimeOffset? SyncedAt, string? Problem, DateTimeOffset? NextAttempt, bool Syncing);
 
 /// <summary>The person's accounts, and the kinds this server can connect now (<c>caldav</c>, and <c>google</c> when a Google client is set up).</summary>
 public sealed record CalendarAccountsView(IReadOnlyList<CalendarAccountView> Accounts, IReadOnlyList<string> Providers);
@@ -76,6 +85,18 @@ public static class CalendarEndpoints
 
     public static readonly TimeSpan SyncNowWindow = TimeSpan.FromMinutes(1);
 
+    /// <summary>
+    /// The rate limit on the import preview: each one lists the whole calendar at the provider, on the
+    /// provider's quota, though it writes nothing and takes no turn in the run lane.
+    /// </summary>
+    public const string ImportPreviewRateLimit = "calendar-import-preview";
+
+    /// <summary>Import previews a person may ask for per <see cref="SyncNowWindow"/>.</summary>
+    public const int PreviewsPerWindow = 10;
+
+    /// <summary>The longest a preview waits for the calendar's listing, so a slow service answers 504 rather than holding the request.</summary>
+    internal static readonly TimeSpan ImportPreviewWithin = TimeSpan.FromSeconds(30);
+
     /// <summary>The audit entries of connecting and disconnecting a calendar account, any provider; the detail is its kind.</summary>
     public const string ConnectedAudit = "account.calendar-connected";
 
@@ -90,11 +111,11 @@ public static class CalendarEndpoints
         var calendars = api.MapGroup("/calendars").AddEndpointFilter(async (context, next) =>
             context.HttpContext.RequestServices.GetRequiredService<LiveSettings>().Current.CalendarSync ? await next(context) : Results.NotFound());
 
-        calendars.MapGet("", async (ClaimsPrincipal user, ICalendarStore store, CalendarSync engine, GoogleConnect google, CancellationToken cancellation) =>
-            new CalendarAccountsView(await AccountViewsAsync(user.UserId(), store, engine, cancellation), Providers(engine, google)))
+        calendars.MapGet("", async (ClaimsPrincipal user, ICalendarStore store, CalendarSync engine, CalendarRuns runs, GoogleConnect google, CancellationToken cancellation) =>
+            new CalendarAccountsView(await AccountViewsAsync(user.UserId(), store, engine, runs, cancellation), Providers(engine, google)))
             .Doc<CalendarAccountsView>("Your connected calendar accounts and how each calendar is used");
 
-        calendars.MapPost("/accounts", async (CalendarConnectRequest request, ClaimsPrincipal user, ICalendarStore store, CalendarSync engine,
+        calendars.MapPost("/accounts", async (CalendarConnectRequest request, ClaimsPrincipal user, ICalendarStore store, CalendarSync engine, CalendarRuns runs,
             ICalendarSecrets secrets, AuditLog audit, HttpContext context, TimeProvider time, CancellationToken cancellation) =>
         {
             var kind = request.Provider ?? "caldav";
@@ -128,7 +149,7 @@ public static class CalendarEndpoints
             await store.SaveAccountAsync(account, cancellation);
             foreach (var remote in found) await store.SaveLinkAsync(NewLink(Ids.NewUlid(time), account, remote, CalendarModes.Off, null, null, false), cancellation);
             audit.RecordEvent(context, ConnectedAudit, user.UserId(), user.FindFirstValue(ClaimTypes.Name), account.Id, null, kind);
-            var view = (await AccountViewsAsync(user.UserId(), store, engine, cancellation)).Single(each => each.Id == account.Id);
+            var view = (await AccountViewsAsync(user.UserId(), store, engine, runs, cancellation)).Single(each => each.Id == account.Id);
             return Results.Created($"/api/calendars/accounts/{account.Id}", view);
         }).RequireRateLimiting(ConnectRateLimit).Doc<CalendarAccountView>("Connect a CalDAV account (the server checks it first)", StatusCodes.Status201Created)
             .Refuses(400, 429, 502);
@@ -168,8 +189,8 @@ public static class CalendarEndpoints
             }
             var link = NewLink(Ids.NewUlid(time), account, made, CalendarModes.Sync, request.TagId, request.ListId, true);
             await store.SaveLinkAsync(link, cancellation);
-            await runs.RunNowAsync(link.Id, cancellation);
-            return Results.Created($"/api/calendars/{link.Id}", View((await store.LinkAsync(link.Id, cancellation))!));
+            await runs.QueueAsync(link.Id, cancellation);
+            return Results.Created($"/api/calendars/{link.Id}", View((await store.LinkAsync(link.Id, cancellation))!, runs));
         }).Doc<CalendarLinkView>("Make a new calendar in the account, synced with a tag", StatusCodes.Status201Created).Refuses(400, 404, 502);
 
         calendars.MapPut("/{linkId}", async (string linkId, CalendarLinkRequest request, ClaimsPrincipal user, ICalendarStore store, CalendarRuns runs,
@@ -193,23 +214,57 @@ public static class CalendarEndpoints
             {
                 // Another use starts over: a fresh listing, and the markers pair PeckList's own events again.
                 // A calendar still backing off keeps its backoff: changing the mode is no way around it.
-                await store.ClearItemsAsync(link.Id, cancellation);
                 changed = changed with { SyncToken = null, TaskCursor = 0, SyncedAt = null };
                 if (link.NextAttempt is not { } wait || wait <= time.GetUtcNow()) changed = changed with { Problem = null, Failures = 0, NextAttempt = null };
             }
             await store.SaveLinkAsync(changed, cancellation);
+            // The new use first, then the items: a run of the old use still going can't save its items
+            // after they are cleared (the store checks the use it went by).
+            if (restart) await store.ClearItemsAsync(link.Id, cancellation);
             // Off: its calendar's pushes are no longer wanted.
             if (changed.Mode == CalendarModes.Off) await channels.StopAsync(link, cancellation);
-            if (restart && changed.Mode != CalendarModes.Off) await runs.RunNowAsync(link.Id, cancellation);
-            return Results.Ok(View((await store.LinkAsync(link.Id, cancellation))!));
+            // Queued, not run here: a first sync can outlast the request (PL-134 live test).
+            if (restart && changed.Mode != CalendarModes.Off) await runs.QueueAsync(link.Id, cancellation);
+            return Results.Ok(View((await store.LinkAsync(link.Id, cancellation))!, runs));
         }).Doc<CalendarLinkView>("Choose how a calendar is used: off, show events, or sync with a tag").Refuses(400, 404);
 
         calendars.MapPost("/{linkId}/sync", async (string linkId, ClaimsPrincipal user, ICalendarStore store, CalendarRuns runs, CancellationToken cancellation) =>
         {
             if (await store.LinkAsync(linkId, cancellation) is not { } link || link.AccountId != user.UserId()) return Results.NotFound();
-            await runs.RunNowAsync(linkId, cancellation);
-            return Results.Ok(View((await store.LinkAsync(linkId, cancellation))!));
+            await runs.QueueAsync(linkId, cancellation);
+            return Results.Ok(View((await store.LinkAsync(linkId, cancellation))!, runs));
         }).RequireRateLimiting(SyncNowRateLimit).Doc<CalendarLinkView>("Sync a calendar now").Refuses(404, 429);
+
+        calendars.MapGet("/{linkId}/import-preview", async (string linkId, ClaimsPrincipal user, ICalendarStore store, CalendarSync engine, ILogger<CalendarSync> logger,
+            CancellationToken cancellation) =>
+        {
+            if (await store.LinkAsync(linkId, cancellation) is not { } link || link.AccountId != user.UserId()) return Results.NotFound();
+            if (link.ReadOnly) return Refuse(400, "calendar_read_only", "a read-only calendar can only show its events");
+            using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+            bounded.CancelAfter(ImportPreviewWithin);
+            try
+            {
+                return Results.Ok(new CalendarImportPreview(await engine.ImportCountAsync(link, bounded.Token)));
+            }
+            catch (CalendarProblem problem)
+            {
+                // The fixed code only, as a run records it: never the service's own words.
+                return Refuse(502, problem.Code, "the calendar service did not list the calendar");
+            }
+            catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
+            {
+                return Refuse(504, CalendarSync.TimedOut, "the calendar took too long to list");
+            }
+            catch (Exception error) when (!cancellation.IsCancellationRequested)
+            {
+                // A bug, not the calendar's answer. The type only, as a failed run logs it: parsing errors
+                // quote their input, which came from the calendar server.
+                logger.LogError("Calendar link {Link} import preview failed: {Error}{NewLine}{Stack}", linkId, error.GetType().FullName, Environment.NewLine, error.StackTrace);
+                return Refuse(502, CalendarSync.Failed, "the calendar could not be counted");
+            }
+        }).RequireRateLimiting(ImportPreviewRateLimit)
+            .Doc<CalendarImportPreview>("Count the upcoming events that would become tasks if the calendar synced with a tag")
+            .Refuses(400, 404, 429, 502, 504);
 
         calendars.MapGet("/events", async (string? from, string? to, ClaimsPrincipal user, ICalendarStore store, CancellationToken cancellation) =>
         {
@@ -309,17 +364,19 @@ public static class CalendarEndpoints
         new(id, account.Id, account.AccountId, remote.Id, remote.Name, remote.Color, remote.ReadOnly, mode, tagId, listId, made,
             null, 0, null, null, null, null, 0, null);
 
-    private static async Task<IReadOnlyList<CalendarAccountView>> AccountViewsAsync(string userId, ICalendarStore store, CalendarSync engine, CancellationToken cancellation)
+    private static async Task<IReadOnlyList<CalendarAccountView>> AccountViewsAsync(string userId, ICalendarStore store, CalendarSync engine, CalendarRuns runs,
+        CancellationToken cancellation)
     {
         var links = (await store.LinksAsync(userId, cancellation)).ToLookup(each => each.CalendarAccountId, StringComparer.Ordinal);
         return [.. (await store.AccountsAsync(userId, cancellation)).Select(account => new CalendarAccountView(
             account.Id, account.Provider, account.Name, account.ServerUrl, account.Username, account.Status, account.Problem,
             engine.Provider(account.Provider)?.Capabilities.CreateCalendar == true,
-            [.. links[account.Id].Select(View)]))];
+            [.. links[account.Id].Select(link => View(link, runs))]))];
     }
 
-    private static CalendarLinkView View(CalendarLink link) =>
-        new(link.Id, link.Name, link.Color, link.ReadOnly, link.Mode, link.TagId, link.ListId, link.MadeByPeckList, link.SyncedAt, link.Problem, link.NextAttempt);
+    private static CalendarLinkView View(CalendarLink link, CalendarRuns runs) =>
+        new(link.Id, link.Name, link.Color, link.ReadOnly, link.Mode, link.TagId, link.ListId, link.MadeByPeckList, link.SyncedAt, link.Problem, link.NextAttempt,
+            runs.IsSyncing(link.Id));
 
     /// <summary>The kinds people can connect here: CalDAV when the server has it, Google when a client is set up and its name is free.</summary>
     private static IReadOnlyList<string> Providers(CalendarSync engine, GoogleConnect google) =>

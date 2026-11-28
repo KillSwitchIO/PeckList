@@ -2655,6 +2655,100 @@
         }
       }
     },
+    "/api/calendars/{linkId}/import-preview": {
+      "get": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Count the upcoming events that would become tasks if the calendar synced with a tag",
+        "description": "API keys can't use this route: sign in to the web app instead.",
+        "parameters": [
+          {
+            "name": "linkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarImportPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not a working one"
+          },
+          "403": {
+            "description": "Not allowed: password_change_required, a key without the scope (scope), or a missing permission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/calendars/events": {
       "get": {
         "tags": [
@@ -11296,6 +11390,18 @@
           }
         }
       },
+      "CalendarImportPreview": {
+        "required": [
+          "events"
+        ],
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "CalendarLinkRequest": {
         "required": [
           "mode",
@@ -11336,7 +11442,8 @@
           "madeByPeckList",
           "syncedAt",
           "problem",
-          "nextAttempt"
+          "nextAttempt",
+          "syncing"
         ],
         "type": "object",
         "properties": {
@@ -11392,6 +11499,9 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "syncing": {
+            "type": "boolean"
           }
         }
       },

@@ -52,6 +52,12 @@ public sealed class SqlCalendarStore(SqlDatabase database) : ICalendarStore
             },
             cancellation);
 
+    public async Task<bool> UpdateAccountStatusAsync(string id, string status, string? problem, CancellationToken cancellation = default) =>
+        await ChangedAsync("UPDATE calendar_accounts SET status = @status, problem = @problem WHERE id = @id", new { id, status, problem }, cancellation) > 0;
+
+    public async Task<bool> UpdateAccountSecretAsync(string id, string secret, CancellationToken cancellation = default) =>
+        await ChangedAsync("UPDATE calendar_accounts SET secret = @secret WHERE id = @id", new { id, secret }, cancellation) > 0;
+
     public async Task DeleteAccountAsync(string id, CancellationToken cancellation = default)
     {
         await using var connection = await database.OpenAsync(cancellation);
@@ -103,6 +109,34 @@ public sealed class SqlCalendarStore(SqlDatabase database) : ICalendarStore
             },
             cancellation);
 
+    // The link as a run went by it: there, in the same use. Writes are serialized (SQLite's immediate
+    // transactions, Postgres's write lock), so a check inside a write transaction holds until it commits.
+    private const string SameUse = "id = @Id AND mode = @Mode AND COALESCE(tag_id, '') = @Tag";
+
+    public async Task<bool> UpdateLinkRunAsync(CalendarLink link, CancellationToken cancellation = default) =>
+        await ChangedAsync(
+            $"""
+            UPDATE calendar_links SET sync_token = @SyncToken, task_cursor = @TaskCursor, synced_at = @SyncedAt, problem = @Problem,
+                failures = @Failures, next_attempt = @NextAttempt
+            WHERE {SameUse}
+            """,
+            new
+            {
+                link.Id, link.Mode, Tag = link.TagId ?? "", link.SyncToken, link.TaskCursor, SyncedAt = link.SyncedAt?.ToUnixTimeMilliseconds(),
+                link.Problem, Failures = (long)link.Failures, NextAttempt = link.NextAttempt?.ToUnixTimeMilliseconds(),
+            },
+            cancellation) > 0;
+
+    public async Task<bool> UpdateLinkChannelAsync(string id, PushChannel? channel, string? channelTokenHash, CancellationToken cancellation = default) =>
+        await ChangedAsync(
+            """
+            UPDATE calendar_links SET channel_id = @ChannelId, channel_resource = @ChannelResource, channel_expires = @ChannelExpires,
+                channel_token_hash = @channelTokenHash
+            WHERE id = @id
+            """,
+            new { id, ChannelId = channel?.Id, ChannelResource = channel?.ResourceId, ChannelExpires = channel?.Expires.ToUnixTimeMilliseconds(), channelTokenHash },
+            cancellation) > 0;
+
     public async Task DeleteLinkAsync(string id, CancellationToken cancellation = default)
     {
         await using var connection = await database.OpenAsync(cancellation);
@@ -120,11 +154,23 @@ public sealed class SqlCalendarStore(SqlDatabase database) : ICalendarStore
         return [.. rows.Select(row => row.ToItem())];
     }
 
-    public async Task SaveItemsAsync(string linkId, IReadOnlyList<CalendarItem> put, IReadOnlyList<string> removed, CancellationToken cancellation = default)
+    public Task SaveItemsAsync(string linkId, IReadOnlyList<CalendarItem> put, IReadOnlyList<string> removed, CancellationToken cancellation = default) =>
+        PutItemsAsync(linkId, "id = @Id", new { Id = linkId }, put, removed, cancellation);
+
+    public Task<bool> SaveRunItemsAsync(CalendarLink link, IReadOnlyList<CalendarItem> put, IReadOnlyList<string> removed, CancellationToken cancellation = default) =>
+        PutItemsAsync(link.Id, SameUse, new { link.Id, link.Mode, Tag = link.TagId ?? "" }, put, removed, cancellation);
+
+    /// <summary>Items put and removed in one transaction, only while a link matching <paramref name="linkWhere"/> is there.</summary>
+    private async Task<bool> PutItemsAsync(string linkId, string linkWhere, object linkParameters, IReadOnlyList<CalendarItem> put, IReadOnlyList<string> removed,
+        CancellationToken cancellation)
     {
-        if (put.Count == 0 && removed.Count == 0) return;
+        if (put.Count == 0 && removed.Count == 0) return true;
         await using var connection = await database.OpenAsync(cancellation);
         await using var transaction = await database.BeginWriteAsync(connection, cancellation);
+        var there = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM calendar_links WHERE {linkWhere}", linkParameters, transaction, cancellationToken: cancellation));
+        // Gone or started over meanwhile: its items went with it, and none come back.
+        if (there == 0) return false;
         foreach (var eventId in removed)
         {
             await connection.ExecuteAsync(new CommandDefinition(
@@ -144,6 +190,7 @@ public sealed class SqlCalendarStore(SqlDatabase database) : ICalendarStore
                 transaction, cancellationToken: cancellation));
         }
         await transaction.CommitAsync(cancellation);
+        return true;
     }
 
     public Task ClearItemsAsync(string linkId, CancellationToken cancellation = default) =>
@@ -171,6 +218,16 @@ public sealed class SqlCalendarStore(SqlDatabase database) : ICalendarStore
         var rows = await connection.QueryAsync<LinkRow>(new CommandDefinition(
             $"SELECT {LinkColumns} FROM calendar_links WHERE {where}", parameters, cancellationToken: cancellation));
         return [.. rows.Select(row => row.ToLink())];
+    }
+
+    /// <summary>One write in its own transaction; the rows it changed.</summary>
+    private async Task<int> ChangedAsync(string sql, object parameters, CancellationToken cancellation)
+    {
+        await using var connection = await database.OpenAsync(cancellation);
+        await using var transaction = await database.BeginWriteAsync(connection, cancellation);
+        var changed = await connection.ExecuteAsync(new CommandDefinition(sql, parameters, transaction, cancellationToken: cancellation));
+        await transaction.CommitAsync(cancellation);
+        return changed;
     }
 
     private async Task ExecuteAsync(string sql, object parameters, CancellationToken cancellation)

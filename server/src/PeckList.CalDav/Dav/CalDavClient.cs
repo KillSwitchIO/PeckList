@@ -16,7 +16,8 @@ public sealed record CalDavCredentials(string Username, string Password)
 }
 
 /// <summary>Where an account's calendars live, found by <see cref="CalDavClient.DiscoverAsync"/>.</summary>
-public sealed record DavAccount(Uri Principal, Uri Home);
+/// <param name="Addresses">The principal's calendar-user-address-set hrefs (RFC 6638), as given: who the account is in ORGANIZER and ATTENDEE.</param>
+public sealed record DavAccount(Uri Principal, Uri Home, IReadOnlyList<string>? Addresses = null);
 
 /// <summary>One calendar in an account's home.</summary>
 /// <param name="Url">The collection's address, ending in a slash.</param>
@@ -93,12 +94,15 @@ public sealed partial class CalDavClient(HttpClient http, CalDavCredentials cred
         // A server without current-user-principal: the address given is taken to be the principal.
         var principal = principalHref is null ? found.Url : Resolve(found.Url, principalHref);
         CheckHop(found.Url, principal, crossHost: true, "pointed");
-        var home = await SendAsync(PropFindMethod, principal, () => Xml(PropFind(C + "calendar-home-set")), 0, crossHost: true, cancellationToken);
+        var home = await SendAsync(PropFindMethod, principal, () => Xml(PropFind(C + "calendar-home-set", C + "calendar-user-address-set")), 0, crossHost: true, cancellationToken);
         var homeHref = Read(home, r => r.Ok(C + "calendar-home-set")?.Element(D + "href")?.Value.Trim()).FirstOrDefault(h => !string.IsNullOrEmpty(h))
             ?? throw new CalDavException(CalDavFailure.NotCalDav, "the server named no calendar home");
         var calendarHome = Collection(Resolve(home.Url, homeHref));
         CheckHop(home.Url, calendarHome, crossHost: true, "pointed");
-        return new DavAccount(home.Url, calendarHome);
+        var addresses = Multistatus(home)
+            .SelectMany(r => r.Ok(C + "calendar-user-address-set")?.Elements(D + "href").Select(e => e.Value.Trim()) ?? [])
+            .Where(h => h.Length > 0).ToList();
+        return new DavAccount(home.Url, calendarHome, addresses);
     }
 
     /// <summary>The event calendars in a home (collections that hold VEVENTs).</summary>

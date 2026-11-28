@@ -36,6 +36,20 @@ public static class EventWriter
         return CalText.Write(root);
     }
 
+    /// <summary>
+    /// <paramref name="existing"/> with only its master event's <c>X-PECKLIST-TASK</c> set, and
+    /// <c>LAST-MODIFIED</c> with it: every other line stays as the calendar wrote it. Null when the
+    /// object holds no master event.
+    /// </summary>
+    public static string? Mark(string existing, string marker, DateTimeOffset now)
+    {
+        var root = CalText.Parse(existing);
+        if (root.Components("VEVENT").FirstOrDefault(e => e.Property("RECURRENCE-ID") is null) is not { } vevent) return null;
+        SetText(vevent, "X-PECKLIST-TASK", marker);
+        vevent.Set(new CalProperty("LAST-MODIFIED", CalValues.FormatUtc(now)));
+        return CalText.Write(root);
+    }
+
     private static CalComponent NewCalendar()
     {
         var root = new CalComponent("VCALENDAR");

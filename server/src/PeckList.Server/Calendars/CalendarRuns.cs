@@ -103,6 +103,70 @@ public sealed class CalendarRuns(
     private static readonly TimeSpan Tick = TimeSpan.FromSeconds(30);
 
     private readonly SemaphoreSlim gate = new(1, 1);
+    // Not single-reader: RunDueAsync drains it too, and tests call that beside the background loop.
+    private readonly Channel<string> asked = Channel.CreateUnbounded<string>();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> waiting = new(StringComparer.Ordinal);
+    private volatile string? running;
+    private readonly Dictionary<string, Queue<DateTimeOffset>> queuedBy = new(StringComparer.Ordinal);
+
+    /// <summary>Whether a run of the link is queued or going now: the app shows "Syncing..." and reads the link again.</summary>
+    public bool IsSyncing(string linkId) => waiting.ContainsKey(linkId) || running == linkId;
+
+    /// <summary>
+    /// Queues a run of one link and returns at once ("Sync now", a mode just chosen): the run is not
+    /// tied to the request, so a person leaving the page or a client timing out cuts nothing short. It
+    /// runs on the server's lifetime with the engine's run deadline, ahead of the next due pass. A link
+    /// still waiting out a failure's backoff is not queued, as <see cref="RunNowAsync"/> explains.
+    /// </summary>
+    /// <remarks>
+    /// Each person queues at most <see cref="CalendarEndpoints.SyncsPerWindow"/> runs a
+    /// <see cref="CalendarEndpoints.SyncNowWindow"/>, all their links and every route together, so
+    /// changing a calendar's use over and over can't keep the one run lane busy or spend a provider's
+    /// shared quota (Security, PL-134 live-sync M1). Past that nothing is queued: a link just started
+    /// over has never synced, so the next due pass takes it anyway.
+    /// </remarks>
+    /// <returns>Whether a run was queued (or one already was).</returns>
+    public async Task<bool> QueueAsync(string linkId, CancellationToken cancellation)
+    {
+        if (await calendars.LinkAsync(linkId, cancellation) is not { } link) return false;
+        if (link.NextAttempt is { } wait && wait > time.GetUtcNow()) return false;
+        if (waiting.ContainsKey(linkId)) return true;
+        if (!TakeQueueTurn(link.AccountId)) return false;
+        if (waiting.TryAdd(linkId, 0)) asked.Writer.TryWrite(linkId);
+        return true;
+    }
+
+    /// <summary>One of the person's queued runs for this window, if they have one left.</summary>
+    private bool TakeQueueTurn(string person)
+    {
+        var now = time.GetUtcNow();
+        lock (queuedBy)
+        {
+            if (!queuedBy.TryGetValue(person, out var times)) queuedBy[person] = times = new Queue<DateTimeOffset>();
+            while (times.Count > 0 && now - times.Peek() >= CalendarEndpoints.SyncNowWindow) times.Dequeue();
+            if (times.Count >= CalendarEndpoints.SyncsPerWindow) return false;
+            times.Enqueue(now);
+            return true;
+        }
+    }
+
+    /// <summary>Queued links, one at a time, ahead of anything due; at most <paramref name="most"/> of them.</summary>
+    private async Task RunAskedAsync(CancellationToken stopping, int most = int.MaxValue)
+    {
+        for (var ran = 0; ran < most && asked.Reader.TryRead(out var linkId); ran++)
+        {
+            running = linkId;
+            waiting.TryRemove(linkId, out _);
+            try
+            {
+                if (live.Current.CalendarSync) await RunNowAsync(linkId, stopping);
+            }
+            finally
+            {
+                running = null;
+            }
+        }
+    }
 
     /// <summary>
     /// One link now, waiting for any run already going ("Sync now", a mode just chosen). A link still
@@ -130,14 +194,20 @@ public sealed class CalendarRuns(
         {
             var nudged = nudges.WaitAsync(stopping).AsTask();
             var ticked = Task.Delay(Tick, time, stopping);
+            var queued = asked.Reader.WaitToReadAsync(stopping).AsTask();
             // WhenAny never throws: a cancelled wait just ends it.
-            await Task.WhenAny(nudged, ticked);
+            await Task.WhenAny(nudged, ticked, queued);
             if (stopping.IsCancellationRequested) return;
-            if (nudged.IsCompletedSuccessfully) await Task.Delay(Settle, time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            // A run someone asked for starts now; nudges settle first, so a burst of edits makes one run.
+            if (nudged.IsCompletedSuccessfully && !queued.IsCompletedSuccessfully)
+            {
+                await Task.Delay(Settle, time, stopping).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            }
             var (people, links) = nudges.DrainAll();
-            if (!live.Current.CalendarSync || stopping.IsCancellationRequested) continue;
             try
             {
+                await RunAskedAsync(stopping);
+                if (!live.Current.CalendarSync || stopping.IsCancellationRequested) continue;
                 await RunDueAsync(people, links, stopping);
             }
             catch (Exception error) when (!stopping.IsCancellationRequested)
@@ -160,6 +230,9 @@ public sealed class CalendarRuns(
         var every = TimeSpan.FromMinutes(live.Current.CalendarSyncMinutes);
         foreach (var link in await calendars.ActiveLinksAsync(cancellation))
         {
+            // Someone waiting on "Syncing..." goes ahead of the rest of a long pass, one asked run
+            // between due links, so the lane is shared.
+            await RunAskedAsync(cancellation, most: 1);
             if (link.NextAttempt is { } wait && wait > now) continue;
             var due = pushed.Contains(link.Id)
                 || (link.Mode == CalendarModes.Sync && nudged.Contains(link.AccountId))
@@ -183,6 +256,12 @@ public sealed class CalendarRuns(
             // The detail is the code, the service's status and reason, the call and the event id: never event text.
             if (run.Problem is { } problem) logger.LogWarning("Calendar link {Link} could not sync: {Problem}", linkId, run.Detail ?? problem);
             else if (run.Refused > 0) logger.LogInformation("Calendar link {Link}: {Refused} task changes refused by sharing rules", linkId, run.Refused);
+            // Events the calendar keeps to itself (birthdays, others' invites): counted, the run went on.
+            if (run.EventsRefused > 0)
+            {
+                logger.LogWarning("Calendar link {Link}: the calendar refused {Count} event changes; they stay the calendar's. First: {First}",
+                    linkId, run.EventsRefused, run.FirstRefusal);
+            }
             // A calendar that synced and can push keeps a channel open, so its changes come within seconds.
             if (run.Problem is null && !run.Skipped) await channels.KeepAsync(linkId, cancellation);
             return run;
@@ -243,7 +322,12 @@ public static class CalendarSetup
                     provider.GetRequiredService<Core.Push.IPushStore>(), provider.GetRequiredService<ServerSettings>(), cancellation);
                 if (zone.HasIanaId) return zone.Id;
                 return TimeZoneInfo.TryConvertWindowsIdToIanaId(zone.Id, out var iana) ? iana : "UTC";
-            }));
+            })
+        {
+            // The type only: messages can quote what a calendar server sent (as RunLoggedAsync).
+            SalvageFailed = error => provider.GetRequiredService<ILogger<CalendarSync>>().LogWarning(
+                "A calendar run cut short could not save what it had written: {Error}", error.GetType().FullName),
+        });
         services.AddSingleton<CalendarRuns>();
         services.AddHostedService(provider => provider.GetRequiredService<CalendarRuns>());
         return services;

@@ -73,6 +73,12 @@ public sealed record CalEvent
     /// </summary>
     public string? PeckListTask { get; init; }
 
+    /// <summary>
+    /// ORGANIZER's address, without <c>mailto:</c> and in lower case; null when the event names none
+    /// (an event with no attendees usually doesn't).
+    /// </summary>
+    public string? Organizer { get; init; }
+
     /// <summary>RECURRENCE-ID: set on a changed occurrence of a series, null on the series itself.</summary>
     public EventTime? RecurrenceId { get; init; }
 

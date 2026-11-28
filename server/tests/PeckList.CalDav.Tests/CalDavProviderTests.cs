@@ -22,14 +22,14 @@ public sealed class CalDavProviderTests
         $"<d:response><d:href>/cal/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/><c:calendar/></d:resourcetype>" +
         $"<cs:getctag xmlns:cs=\"http://calendarserver.org/ns/\">{ctag}</cs:getctag></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>");
 
-    private static FakeServer WithoutSyncTokens(Func<string> ctag) => new FakeServer()
+    private static FakeServer WithoutSyncTokens(Func<string> ctag, string? ics = null) => new FakeServer()
         .On("REPORT", Calendar, _ => new HttpResponseMessage(HttpStatusCode.NotImplemented), bodyHas: "sync-collection")
         .On("PROPFIND", "https://dav.example.com/", _ => CalendarWithCTag(ctag()))
         .On("REPORT", Calendar, _ => Multistatus(
             "<d:response><d:href>/cal/a.ics</d:href><d:propstat><d:prop><d:getetag>\"1\"</d:getetag></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>"),
             bodyHas: "calendar-query")
         .On("REPORT", Calendar, _ => Multistatus(
-            $"<d:response><d:href>/cal/a.ics</d:href><d:propstat><d:prop><d:getetag>\"1\"</d:getetag><c:calendar-data>{WebUtility.HtmlEncode(Event)}</c:calendar-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>"),
+            $"<d:response><d:href>/cal/a.ics</d:href><d:propstat><d:prop><d:getetag>\"1\"</d:getetag><c:calendar-data>{WebUtility.HtmlEncode(ics ?? Event)}</c:calendar-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>"),
             bodyHas: "calendar-multiget");
 
     [Fact]
@@ -76,6 +76,54 @@ public sealed class CalDavProviderTests
             Provider(new FakeServer()).UpdateEventAsync(Connection, Calendar, occurrence, occurrence.Data, Token));
 
         Assert.Equal(CalendarProblemKind.Refused, refused.Kind);
+    }
+
+    [Fact]
+    public async Task A_marker_write_sets_only_the_marker_and_leaves_the_events_own_lines_as_the_calendar_wrote_them()
+    {
+        string[] own = ["SEQUENCE:3", "DTSTART;VALUE=DATE:20261127", "DURATION:P2D", "RRULE:INTERVAL=2;FREQ=WEEKLY;WKST=SU",
+            "SUMMARY;LANGUAGE=en:Bins out", "DESCRIPTION:Green bin\\, then blue", "X-OTHER-APP:kept"];
+        var ics = string.Join("\r\n", ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Other//EN", "BEGIN:VEVENT", "UID:a@example.com",
+            "DTSTAMP:20261120T100000Z", .. own, "END:VEVENT", "END:VCALENDAR"]) + "\r\n";
+        var server = WithoutSyncTokens(() => "c1", ics).On("PUT", "https://dav.example.com/cal/a.ics", _ =>
+        {
+            var stored = new HttpResponseMessage(HttpStatusCode.NoContent);
+            stored.Headers.ETag = new System.Net.Http.Headers.EntityTagHeaderValue("\"2\"");
+            return stored;
+        });
+        var provider = Provider(server);
+        var basis = Assert.Single((await provider.ChangesAsync(Connection, Calendar, null, Token)).Changed);
+        var marker = new EventMarker("01JDZK6Q1Y9V3W5T7R8P0N2M4K", "01JDZK7A2B3C4D5E6F7G8H9J0K");
+
+        var marked = await provider.UpdateEventAsync(Connection, Calendar, basis, basis.Data with { Marker = marker }, Token);
+
+        var put = server.Bodies[server.Requests.FindIndex(request => request.Method == HttpMethod.Put)]!;
+        Assert.All(own, line => Assert.Contains(line + "\r\n", put, StringComparison.Ordinal));
+        Assert.Contains("X-PECKLIST-TASK:" + marker.Instance + "/" + marker.TaskId + "\r\n", put, StringComparison.Ordinal);
+        Assert.DoesNotContain("DTEND", put, StringComparison.Ordinal);
+        Assert.Equal(marker, marked.Data.Marker);
+        Assert.True(CalendarJson.Same(basis.Data, marked.Data with { Marker = null }));
+    }
+
+    private static string WithOrganizer(string? organizer) => string.Join("\r\n",
+        ["BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT", "UID:a@example.com", "DTSTAMP:20261120T100000Z", "DTSTART;VALUE=DATE:20261127",
+            "SUMMARY:Lunch", .. (organizer is null ? Array.Empty<string>() : ["ORGANIZER:" + organizer, "ATTENDEE:mailto:ben@example.com"]), "END:VEVENT", "END:VCALENDAR"]) + "\r\n";
+
+    [Theory]
+    [InlineData("mailto:kim@example.com", "ben", true)]
+    [InlineData("mailto:kim@example.com", "ben@example.com", true)]
+    [InlineData("mailto:Ben@Example.com", "ben@example.com", false)]
+    [InlineData(null, "ben", false)]
+    public async Task An_event_someone_else_organises_is_foreign(string? organizer, string username, bool foreign)
+    {
+        var server = WithoutSyncTokens(() => "c1", WithOrganizer(organizer));
+        var connection = new CalendarConnection("https://dav.example.com/", username, "app-password");
+
+        var listed = Assert.Single((await Provider(server).ChangesAsync(connection, Calendar, null, Token)).Changed);
+
+        Assert.Equal(foreign, listed.Foreign);
+        // Who the account is is asked only when an event names an organizer.
+        Assert.Equal(organizer is not null, server.Requests.Any(request => request.RequestUri!.AbsolutePath == "/.well-known/caldav"));
     }
 
     [Theory]

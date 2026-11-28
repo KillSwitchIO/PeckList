@@ -156,10 +156,23 @@ public sealed partial record Recurrence(
     /// <summary>The date after <paramref name="after"/> the series falls on, counted from <paramref name="start"/>.</summary>
     public DateOnly? NextOccurrence(DateOnly start, DateOnly after)
     {
+        var unlimited = int.MaxValue;
+        return NextOccurrence(start, after, ref unlimited);
+    }
+
+    /// <summary>
+    /// <see cref="NextOccurrence(DateOnly, DateOnly)"/>, looking at no more days than
+    /// <paramref name="budget"/> and taking each day it looks at from it, for a rule read from
+    /// somewhere else (a calendar's event). Null with the budget at 0: it gave up rather than found none.
+    /// </summary>
+    public DateOnly? NextOccurrence(DateOnly start, DateOnly after, ref int budget)
+    {
         var limit = (long)LookAheadDays * Interval;
         var date = after.AddDays(1);
         for (var step = 0; step < limit; step++, date = date.AddDays(1))
         {
+            if (budget <= 0) return null;
+            budget--;
             if (UntilDate is { } until && date > until) return null;
             if (date >= start && Matches(start, date)) return date;
         }

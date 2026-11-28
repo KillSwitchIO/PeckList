@@ -127,6 +127,68 @@ describe('Settings > Calendars (PL-134)', () => {
     expect(backend.calendars.calls[0]).toBe('mode link-home show');
   });
 
+  it('says how many upcoming events will become tasks before syncing, and Cancel changes nothing', async () => {
+    const backend = backendWithCalendars();
+    connected(backend);
+    backend.calendars.previewCount = 3;
+    let listed!: () => void;
+    backend.calendars.previewWait = new Promise((done) => (listed = done));
+    await signedIn(backend, '/settings/calendars');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Home: Off' }, slow));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Sync with a tag/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Sync Home with a tag' });
+    // Counting holds the line the count takes, so nothing moves when it comes.
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Counting upcoming events...');
+    listed();
+    expect(
+      await within(dialog).findByText('About 3 upcoming events will become tasks.'),
+    ).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(backend.calendars.calls).toEqual(['preview link-home']);
+    expect(await screen.findByRole('button', { name: 'Home: Off' })).toBeInTheDocument();
+  });
+
+  it('still offers to sync when the upcoming events could not be counted', async () => {
+    const backend = backendWithCalendars();
+    connected(backend);
+    backend.calendars.previewCount = 'calendar_timed_out';
+    await signedIn(backend, '/settings/calendars');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Home: Off' }, slow));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Sync with a tag/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Sync Home with a tag' });
+
+    expect(
+      await within(dialog).findByText('Upcoming events from this calendar will become tasks.'),
+    ).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByLabelText('New tag name'), 'Family');
+    expect(within(dialog).getByRole('button', { name: 'Sync' })).toBeEnabled();
+  });
+
+  it('says Syncing while the server runs a calendar, and when it synced once the run ends', async () => {
+    const backend = backendWithCalendars();
+    connected(backend);
+    // A slow first run: still going at the first read after the change.
+    backend.calendars.listsPerRun = 2;
+    await signedIn(backend, '/settings/calendars');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Home: Off' }, slow));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Show events/ }));
+
+    // The change answers at once; the run goes on on the server.
+    expect(await screen.findByText('Syncing...')).toBeInTheDocument();
+    expect(await screen.findByText(/^Synced /, {}, slow)).toBeInTheDocument();
+    expect(screen.queryByText('Syncing...')).toBeNull();
+    const reads = backend.calendars.lists;
+    // Nothing is syncing now, so the page stops asking.
+    await new Promise((done) => setTimeout(done, 2_500));
+    expect(backend.calendars.lists).toBe(reads);
+  }, 20_000);
+
   it('offers only Off and Show events for a read-only calendar', async () => {
     const backend = backendWithCalendars();
     connected(backend, fakeLink({ name: 'Holidays', readOnly: true }));

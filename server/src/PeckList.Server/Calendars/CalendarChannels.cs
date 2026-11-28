@@ -76,10 +76,7 @@ public sealed class CalendarChannels(CalendarSync engine, ICalendarStore store, 
         {
             // Google stops calling when the channel ends; until then a push for an Off link nudges nothing.
         }
-        if (await store.LinkAsync(link.Id, cancellation) is { } fresh)
-        {
-            await store.SaveLinkAsync(fresh with { Channel = null, ChannelTokenHash = null }, cancellation);
-        }
+        await store.UpdateLinkChannelAsync(link.Id, null, null, cancellation);
     }
 
     private async Task KeepCoreAsync(string linkId, CancellationToken cancellation)
@@ -95,11 +92,9 @@ public sealed class CalendarChannels(CalendarSync engine, ICalendarStore store, 
         var token = Tokens.New();
         if (await provider.WatchAsync(connection, link.RemoteId, callback, token, cancellation) is not { } opened) return;
         refused.TryRemove(linkId, out _);
-        if (await store.LinkAsync(linkId, cancellation) is { } fresh)
-        {
-            // Only the token's hash is kept (Security N1); the push route compares hashes.
-            await store.SaveLinkAsync(fresh with { Channel = opened, ChannelTokenHash = Tokens.Hash(token) }, cancellation);
-        }
+        // Only the token's hash is kept (Security N1); the push route compares hashes. Kept only while the
+        // link is: one disconnected meanwhile comes back with no channel.
+        await store.UpdateLinkChannelAsync(linkId, opened, Tokens.Hash(token), cancellation);
         if (link.Channel is { } old)
         {
             try

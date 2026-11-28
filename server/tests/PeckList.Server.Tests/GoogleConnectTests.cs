@@ -84,6 +84,20 @@ public sealed partial class GoogleConnectTests(ServerFixture fixture) : IClassFi
     private static async Task<JsonObject> Calendars(HttpClient browser) =>
         (await browser.GetFromJsonAsync<JsonObject>("/api/calendars", Token))!;
 
+    /// <summary>Show a calendar's events and wait for the run that starts, as the app does while it shows "Syncing...".</summary>
+    private static async Task ShowAsync(HttpClient browser, string linkId)
+    {
+        (await browser.PutAsJsonAsync($"/api/calendars/{linkId}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        for (var tries = 0; tries < 400; tries++)
+        {
+            var syncing = (await Calendars(browser))["accounts"]!.AsArray().SelectMany(account => account!["calendars"]!.AsArray())
+                .Any(link => (string)link!["id"]! == linkId && (bool)link["syncing"]!);
+            if (!syncing) return;
+            await Task.Delay(25, Token);
+        }
+        throw new TimeoutException($"calendar {linkId} still syncing");
+    }
+
     /// <summary>The web's way, start to end: link route, Google, callback.</summary>
     private async Task<HttpResponseMessage> ConnectOnWeb(HttpClient browser, string scope = FakeGoogle.AllScopes)
     {
@@ -271,7 +285,7 @@ public sealed partial class GoogleConnectTests(ServerFixture fixture) : IClassFi
         await ConnectOnWeb(browser);
         var first = (await Calendars(browser))["accounts"]![0]!;
         var linkId = (string)first["calendars"]![0]!["id"]!;
-        (await browser.PutAsJsonAsync($"/api/calendars/{linkId}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        await ShowAsync(browser, linkId);
 
         var again = await ConnectOnWeb(browser);
 
@@ -308,7 +322,7 @@ public sealed partial class GoogleConnectTests(ServerFixture fixture) : IClassFi
         var account = (await Calendars(browser))["accounts"]![0]!;
         var accountId = (string)account["id"]!;
         var linkIds = account["calendars"]!.AsArray().Select(each => (string)each!["id"]!).ToList();
-        foreach (var linkId in linkIds) (await browser.PutAsJsonAsync($"/api/calendars/{linkId}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        foreach (var linkId in linkIds) await ShowAsync(browser, linkId);
         Assert.Equal(linkIds.Count, google.Channels.Count);
         var store = server.Services.GetRequiredService<ICalendarStore>();
         // As after a CONFIG_KEY change: the secret is there, sealed under a key this server no longer has.
@@ -332,7 +346,7 @@ public sealed partial class GoogleConnectTests(ServerFixture fixture) : IClassFi
         await ConnectOnWeb(browser);
         var account = (await Calendars(browser))["accounts"]![0]!;
         var accountId = (string)account["id"]!;
-        (await browser.PutAsJsonAsync($"/api/calendars/{(string)account["calendars"]![0]!["id"]!}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        await ShowAsync(browser, (string)account["calendars"]![0]!["id"]!);
         Assert.Single(google.Channels);
         google.Silent = true;
         var clock = System.Diagnostics.Stopwatch.StartNew();
@@ -414,7 +428,7 @@ public sealed partial class GoogleConnectTests(ServerFixture fixture) : IClassFi
         await ConnectOnWeb(browser);
         var linkId = (string)(await Calendars(browser))["accounts"]![0]!["calendars"]![0]!["id"]!;
 
-        (await browser.PutAsJsonAsync($"/api/calendars/{linkId}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        await ShowAsync(browser, linkId);
 
         var channel = Assert.Single(google.Channels);
         Assert.Equal("https://tasks.example.com/api/calendars/google/push", channel.Address);
@@ -436,7 +450,7 @@ public sealed partial class GoogleConnectTests(ServerFixture fixture) : IClassFi
         await ConnectOnWeb(browser);
         var linkId = (string)(await Calendars(browser))["accounts"]![0]!["calendars"]![0]!["id"]!;
 
-        (await browser.PutAsJsonAsync($"/api/calendars/{linkId}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        await ShowAsync(browser, linkId);
 
         Assert.Empty(google.Channels);
     }
@@ -448,7 +462,7 @@ public sealed partial class GoogleConnectTests(ServerFixture fixture) : IClassFi
         var (browser, _) = await SignIn(server, "ben");
         await ConnectOnWeb(browser);
         var linkId = (string)(await Calendars(browser))["accounts"]![0]!["calendars"]![0]!["id"]!;
-        (await browser.PutAsJsonAsync($"/api/calendars/{linkId}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        await ShowAsync(browser, linkId);
         var channel = Assert.Single(google.Channels);
         var nudges = server.Services.GetRequiredService<CalendarNudges>();
         nudges.DrainAll();

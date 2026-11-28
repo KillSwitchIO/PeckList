@@ -196,6 +196,118 @@ public sealed class GoogleProviderTests
         Assert.Contains(stored["recurrence"]!.AsArray(), line => (string?)line == "RDATE;TZID=America/Chicago:20261225T090000");
     }
 
+    /// <summary>An event with parts PeckList's reading doesn't keep exactly, and another app's private key.</summary>
+    private static JsonObject Lossy() => new()
+    {
+        ["summary"] = "Flight",
+        ["description"] = "<b>Gate</b> B12",
+        ["start"] = new JsonObject { ["dateTime"] = "2026-12-04T09:00:00-06:00", ["timeZone"] = "America/Chicago" },
+        ["end"] = new JsonObject { ["dateTime"] = "2026-12-04T13:30:00-05:00", ["timeZone"] = "America/New_York" },
+        ["recurrence"] = new JsonArray("RRULE:INTERVAL=2;FREQ=WEEKLY;BYDAY=FR;WKST=SU", "RDATE;TZID=America/Chicago:20261225T090000"),
+        ["location"] = "ORD",
+        ["extendedProperties"] = new JsonObject { ["private"] = new JsonObject { ["otherApp"] = "kept" } },
+    };
+
+    [Fact]
+    public async Task A_marker_write_patches_only_extendedProperties_and_leaves_the_event_as_Google_holds_it()
+    {
+        var rig = new GoogleRig();
+        var connection = rig.Connection();
+        var calendar = rig.Google.AddCalendar(rig.Address, "Work");
+        var seeded = rig.Google.Seed(rig.Address, calendar, Lossy());
+        var basis = await ReadAsync(rig, connection, calendar, (string)seeded["id"]!);
+
+        var marked = await rig.Provider.UpdateEventAsync(connection, calendar, basis, basis.Data with { Marker = new EventMarker("instance-1", "task-1") }, Cancel);
+
+        var (eventId, body) = Assert.Single(rig.Google.Patches);
+        Assert.Equal(basis.Id, eventId);
+        Assert.Equal(["extendedProperties"], body.Select(pair => pair.Key));
+        Assert.Equal(new EventMarker("instance-1", "task-1"), marked.Data.Marker);
+        var stored = rig.Google.Event(rig.Address, calendar, basis.Id)!;
+        foreach (var field in new[] { "summary", "description", "start", "end", "recurrence", "location" })
+        {
+            Assert.True(JsonNode.DeepEquals(seeded[field], stored[field]), field);
+        }
+        Assert.Equal("kept", (string?)stored["extendedProperties"]!["private"]!["otherApp"]);
+    }
+
+    [Fact]
+    public async Task An_update_that_changes_nothing_sends_nothing_and_one_that_changes_the_title_sends_only_the_title()
+    {
+        var rig = new GoogleRig();
+        var connection = rig.Connection();
+        var calendar = rig.Google.AddCalendar(rig.Address, "Work");
+        var seeded = rig.Google.Seed(rig.Address, calendar, Lossy());
+        var basis = await ReadAsync(rig, connection, calendar, (string)seeded["id"]!);
+
+        var same = await rig.Provider.UpdateEventAsync(connection, calendar, basis, basis.Data, Cancel);
+
+        Assert.Empty(rig.Google.Patches);
+        Assert.Equal(basis.Etag, same.Etag);
+
+        await rig.Provider.UpdateEventAsync(connection, calendar, basis, basis.Data with { Summary = "Flight home" }, Cancel);
+
+        var (_, body) = Assert.Single(rig.Google.Patches);
+        Assert.Equal(["summary"], body.Select(pair => pair.Key));
+        var stored = rig.Google.Event(rig.Address, calendar, basis.Id)!;
+        Assert.Equal("Flight home", (string?)stored["summary"]);
+        Assert.True(JsonNode.DeepEquals(seeded["end"], stored["end"]));
+        Assert.True(JsonNode.DeepEquals(seeded["recurrence"], stored["recurrence"]));
+    }
+
+    [Theory]
+    [InlineData(null, true, false)]
+    [InlineData("default", true, false)]
+    [InlineData("birthday", true, true)]
+    [InlineData("outOfOffice", true, true)]
+    [InlineData("focusTime", true, true)]
+    [InlineData("workingLocation", true, true)]
+    [InlineData("fromGmail", true, true)]
+    [InlineData(null, false, true)]
+    public async Task Kinds_Google_keeps_to_itself_and_invitations_from_others_are_foreign(string? eventType, bool organisedHere, bool foreign)
+    {
+        var rig = new GoogleRig();
+        var connection = rig.Connection();
+        var calendar = rig.Google.AddCalendar(rig.Address, "Work");
+        var body = new JsonObject
+        {
+            ["summary"] = "Something",
+            ["start"] = new JsonObject { ["date"] = "2026-12-01" },
+            ["end"] = new JsonObject { ["date"] = "2026-12-02" },
+        };
+        if (eventType is not null) body["eventType"] = eventType;
+        if (!organisedHere) body["organizer"] = new JsonObject { ["email"] = "kim@example.com" };
+        var seeded = rig.Google.Seed(rig.Address, calendar, body);
+
+        var read = await ReadAsync(rig, connection, calendar, (string)seeded["id"]!);
+
+        Assert.Equal(foreign, read.Foreign);
+    }
+
+    [Fact]
+    public async Task A_birthday_takes_a_marker_but_not_a_change_to_its_own_fields()
+    {
+        var rig = new GoogleRig();
+        var connection = rig.Connection();
+        var calendar = rig.Google.AddCalendar(rig.Address, "Work");
+        var seeded = rig.Google.Seed(rig.Address, calendar, new JsonObject
+        {
+            ["summary"] = "Kim's birthday",
+            ["eventType"] = "birthday",
+            ["start"] = new JsonObject { ["date"] = "2026-12-01" },
+            ["end"] = new JsonObject { ["date"] = "2026-12-02" },
+            ["recurrence"] = new JsonArray("RRULE:FREQ=YEARLY"),
+        });
+        var basis = await ReadAsync(rig, connection, calendar, (string)seeded["id"]!);
+
+        var marked = await rig.Provider.UpdateEventAsync(connection, calendar, basis, basis.Data with { Marker = new EventMarker("instance-1", "task-1") }, Cancel);
+
+        Assert.Equal(new EventMarker("instance-1", "task-1"), marked.Data.Marker);
+        var problem = await Assert.ThrowsAsync<CalendarProblem>(() =>
+            rig.Provider.UpdateEventAsync(connection, calendar, marked, marked.Data with { Start = CalendarTime.Date("2026-12-02"), End = CalendarTime.Date("2026-12-03") }, Cancel));
+        Assert.Equal("calendar_refused", problem.Code);
+    }
+
     [Fact]
     public async Task A_refused_change_says_Googles_status_and_reason_and_never_the_events_text()
     {

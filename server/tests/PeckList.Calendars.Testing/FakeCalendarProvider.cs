@@ -19,6 +19,7 @@ public sealed class FakeCalendarProvider : ICalendarProvider
     private readonly Queue<Exception> failures = new();
     private readonly HashSet<string> hanging = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CalendarProblem> refusing = new(StringComparer.Ordinal);
+    private readonly HashSet<string> hangingWrites = new(StringComparer.Ordinal);
     private bool raceNextWrite;
     private int next;
 
@@ -71,12 +72,13 @@ public sealed class FakeCalendarProvider : ICalendarProvider
     }
 
     /// <summary>An event added by another client. <paramref name="raw"/> stands for what the fake does not map.</summary>
-    public RemoteEvent Seed(string calendarId, EventData data, string? raw = null)
+    /// <param name="foreign">Not the person's to own (an invitation from someone else, a birthday): never imported.</param>
+    public RemoteEvent Seed(string calendarId, EventData data, string? raw = null, bool foreign = false)
     {
         lock (gate)
         {
             var calendar = CalendarOf(calendarId);
-            var created = new RemoteEvent(NewId("ev"), NewEtag(), data, time.GetUtcNow(), Raw: raw);
+            var created = new RemoteEvent(NewId("ev"), NewEtag(), data, time.GetUtcNow(), Raw: raw, Foreign: foreign);
             Put(calendar, created);
             return created;
         }
@@ -174,11 +176,41 @@ public sealed class FakeCalendarProvider : ICalendarProvider
         lock (gate) refusing[eventId] = problem ?? new CalendarProblem(CalendarProblemKind.Refused, "calendar_refused", "Google answered 400 (eventTypeRestriction)");
     }
 
+    /// <summary>The service stops answering partway through a run: an update of this event waits until cancelled. <paramref name="hang"/> false lets it answer again.</summary>
+    public void HangWrites(string eventId, bool hang = true)
+    {
+        lock (gate)
+        {
+            if (hang) hangingWrites.Add(eventId);
+            else hangingWrites.Remove(eventId);
+        }
+    }
+
     /// <summary>The service stops answering for a calendar: reading its changes waits until cancelled.</summary>
     public void Hang(string calendarId)
     {
         lock (gate) hanging.Add(calendarId);
     }
+
+    /// <summary>
+    /// The next read of a calendar's changes waits until the returned source is set: a result lets it
+    /// answer as usual, an exception makes it fail with that. <see cref="Held"/> completes once it waits.
+    /// </summary>
+    public TaskCompletionSource Hold(string calendarId)
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (gate)
+        {
+            held[calendarId] = release;
+            Held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+        return release;
+    }
+
+    /// <summary>Completes when a read held by <see cref="Hold"/> starts waiting.</summary>
+    public TaskCompletionSource Held { get; private set; } = new();
+
+    private readonly Dictionary<string, TaskCompletionSource> held = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Another client writes the event between the engine's read and its next update or delete, so
@@ -261,10 +293,24 @@ public sealed class FakeCalendarProvider : ICalendarProvider
     public async Task<RemoteChanges> ChangesAsync(CalendarConnection connection, string calendarId, string? syncToken, CancellationToken cancellation)
     {
         bool hangs;
-        lock (gate) hangs = hanging.Contains(calendarId);
+        TaskCompletionSource? release;
+        lock (gate)
+        {
+            hangs = hanging.Contains(calendarId);
+            if (held.Remove(calendarId, out release)) Held.TrySetResult();
+        }
         if (hangs) await Task.Delay(Timeout.Infinite, cancellation);
-        return await ChangesNowAsync(connection, calendarId, syncToken);
+        if (release is not null) await release.Task.WaitAsync(cancellation);
+        var changes = await ChangesNowAsync(connection, calendarId, syncToken);
+        AfterListing?.Invoke();
+        return changes;
     }
+
+    /// <summary>Called once a listing is made, before it is answered: a deadline that passes just then.</summary>
+    public Action? AfterListing { get; set; }
+
+    /// <summary>Full listings in reverse id order: a server's order is its own, and a run must not depend on it.</summary>
+    public bool ListsInReverse { get; set; }
 
     private Task<RemoteChanges> ChangesNowAsync(CalendarConnection connection, string calendarId, string? syncToken)
     {
@@ -274,7 +320,8 @@ public sealed class FakeCalendarProvider : ICalendarProvider
             var token = Token(calendar);
             if (syncToken is null)
             {
-                return Task.FromResult(new RemoteChanges([.. calendar.Events.Values.OrderBy(each => each.Id, StringComparer.Ordinal)], [], token, Reset: true));
+                var listed = calendar.Events.Values.OrderBy(each => each.Id, StringComparer.Ordinal);
+                return Task.FromResult(new RemoteChanges([.. ListsInReverse ? listed.Reverse() : listed], [], token, Reset: true));
             }
             var parts = syncToken.Split('~');
             if (parts.Length != 3
@@ -305,7 +352,15 @@ public sealed class FakeCalendarProvider : ICalendarProvider
     }
 
     /// <inheritdoc/>
-    public Task<RemoteEvent> UpdateEventAsync(CalendarConnection connection, string calendarId, RemoteEvent basis, EventData data, CancellationToken cancellation)
+    public async Task<RemoteEvent> UpdateEventAsync(CalendarConnection connection, string calendarId, RemoteEvent basis, EventData data, CancellationToken cancellation)
+    {
+        bool hangs;
+        lock (gate) hangs = hangingWrites.Contains(basis.Id);
+        if (hangs) await Task.Delay(Timeout.Infinite, cancellation);
+        return await UpdateNowAsync(connection, calendarId, basis, data);
+    }
+
+    private Task<RemoteEvent> UpdateNowAsync(CalendarConnection connection, string calendarId, RemoteEvent basis, EventData data)
     {
         lock (gate)
         {
@@ -456,8 +511,12 @@ public sealed class FakeCalendarProvider : ICalendarProvider
     /// As a service stores a write: no end becomes 30 minutes, or one day when all-day (decision 5,
     /// which the CalDAV and Google adapters apply when writing too).
     /// </summary>
+    // As a CalDAV server holds an event: an end always, and text with line breaks as LF and no
+    // control characters but tab (CalText.Escape).
     private static EventData Stored(EventData data) =>
-        data.End is not null ? data : data with { End = DefaultEnd(data.Start) };
+        (data.End is not null ? data : data with { End = DefaultEnd(data.Start) }) with { Summary = Plain(data.Summary), Description = Plain(data.Description) };
+
+    private static string Plain(string text) => CalendarMapping.Plain(System.Text.Json.Nodes.JsonValue.Create(text));
 
     private static CalendarTime DefaultEnd(CalendarTime start) => start.IsDate
         ? CalendarTime.Date(Day(DateOnly.ParseExact(start.Value, "yyyy-MM-dd", CultureInfo.InvariantCulture).AddDays(1)))
