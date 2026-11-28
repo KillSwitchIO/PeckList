@@ -50,7 +50,30 @@ public static class CalendarMapping
             end = CalendarTime.Local(LocalText(to), timeZone);
         }
         var (rrule, exDates) = RuleOf((string?)task["recurrence"], start);
-        return new EventData((string?)task["title"] ?? "", (string?)task["notes"] ?? "", start, end, rrule, exDates, marker);
+        return new EventData(Plain(task["title"]), Plain(task["notes"]), start, end, rrule, exDates, marker);
+    }
+
+    /// <summary>
+    /// A task's text as a calendar keeps it: line breaks as LF (a calendar writes CR and CRLF as one),
+    /// and no control characters but tab and LF (a calendar's text can't hold them). Compared as
+    /// written, notes with CRLF would read as changed after every write and be sent again (QA F6).
+    /// Text of another JSON kind counts as empty.
+    /// </summary>
+    public static string Plain(JsonNode? node)
+    {
+        if (node is not JsonValue value || !value.TryGetValue<string>(out var text) || text.Length == 0) return "";
+        var builder = new System.Text.StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '\r')
+            {
+                builder.Append('\n');
+                if (i + 1 < text.Length && text[i + 1] == '\n') i++;
+            }
+            else if (c == '\n' || c == '\t' || (c >= ' ' && c != '\u007f')) builder.Append(c);
+        }
+        return builder.ToString();
     }
 
     /// <summary>
@@ -95,6 +118,17 @@ public static class CalendarMapping
             ["recurrence"] = RecurrenceOf(data),
         };
     }
+
+    /// <summary>
+    /// An event as a task holds it: through the task fields and back. Where a task can't hold an event
+    /// exactly (an end in another zone, a rule's wording or parts a task has no room for, a time with
+    /// no length), a task made from it and left alone maps to this, not to the event, so the engine
+    /// compares with this to tell an edit from what the mapping drops.
+    /// </summary>
+    public static EventData AsTaskHolds(EventData data, string zone) =>
+        EventOf(TaskFieldsOf(data, zone), data.Marker ?? NoMarker, zone)! with { Marker = data.Marker };
+
+    private static readonly EventMarker NoMarker = new("", "");
 
     /// <summary>
     /// Whether <paramref name="day"/> is one of the series' occurrences (its start, or a date its rule

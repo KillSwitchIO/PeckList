@@ -9,7 +9,7 @@ import {
   MenuItem,
   TextField,
 } from '@mui/material';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { findInbox, visibleLists } from '../../core/lists.ts';
 import { canEditList } from '../../core/sharing.ts';
 import { createTag, visibleTags } from '../../core/tags.ts';
@@ -36,6 +36,7 @@ export function CalendarTagDialog({
   name: initialName,
   initialTag,
   initialList,
+  preview,
   run,
   onClose,
 }: {
@@ -46,6 +47,11 @@ export function CalendarTagDialog({
   name?: string;
   initialTag?: string | null;
   initialList?: string | null;
+  /**
+   * Linking a calendar that has events: how many would become tasks (spec: PL-134 decision 8),
+   * said before the person saves. Null when it couldn't be counted.
+   */
+  preview?: () => Promise<number | null>;
   run: (choice: {
     name: string;
     tagId: string;
@@ -66,7 +72,23 @@ export function CalendarTagDialog({
   const [list, setList] = useState(initialList ?? inbox?.id ?? lists[0]?.id ?? '');
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // undefined while counting, null when it couldn't be counted.
+  const [upcoming, setUpcoming] = useState<number | null | undefined>(undefined);
   const asksName = initialName !== undefined;
+
+  useEffect(() => {
+    if (!preview) return;
+    let live = true;
+    preview().then(
+      (count) => live && setUpcoming(count),
+      () => live && setUpcoming(null),
+    );
+    return () => {
+      live = false;
+    };
+    // Counted once, as the dialog opens: the count doesn't depend on the tag or list chosen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const ready =
     (!asksName || name.trim() !== '') && (tag !== NEW_TAG || newTag.trim() !== '') && list !== '';
 
@@ -110,6 +132,17 @@ export function CalendarTagDialog({
         <DialogTitle>{title}</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2 }}>
           <DialogContentText>{text}</DialogContentText>
+          {preview && (
+            // Two lines' room whatever it says, counting or counted, so nothing below it moves on a
+            // phone, where the count wraps and "Counting..." may not.
+            <DialogContentText role="status" sx={{ color: 'text.primary', minHeight: '3em' }}>
+              {upcoming === undefined
+                ? t('calendars.tag.previewCounting')
+                : upcoming === null
+                  ? t('calendars.tag.previewUnknown')
+                  : t('calendars.tag.preview', { count: upcoming })}
+            </DialogContentText>
+          )}
           {asksName && (
             <TextField
               size="small"

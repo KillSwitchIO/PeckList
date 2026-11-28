@@ -42,6 +42,15 @@ public sealed class FakeGoogle : HttpMessageHandler
     /// <summary>Calls made, as <c>METHOD path</c>, for tests that check what was asked.</summary>
     public List<string> Calls { get; } = [];
 
+    /// <summary>Each event PATCH's body, with the event's id, in order.</summary>
+    public List<(string EventId, JsonObject Body)> Patches { get; } = [];
+
+    /// <summary>
+    /// The fields a PATCH of a birthday event may carry; any other is refused with a 400. Google keeps
+    /// a birthday's own fields to itself; set this empty for a Google that won't take a marker either.
+    /// </summary>
+    public HashSet<string> BirthdayFields { get; } = new(["extendedProperties", "colorId", "reminders"], StringComparer.Ordinal);
+
     /// <summary>The time tokens are checked against.</summary>
     public TimeProvider Time { get; set; } = TimeProvider.System;
 
@@ -146,6 +155,18 @@ public sealed class FakeGoogle : HttpMessageHandler
         }
     }
 
+    /// <summary>Changes an event as another client would: a new etag and update time, so a token listing brings it.</summary>
+    public void Edit(string address, string calendarId, string eventId, Action<JsonObject> change)
+    {
+        lock (gate)
+        {
+            var calendar = accounts[address].Calendars[calendarId];
+            var stored = calendar.Events[eventId];
+            change(stored);
+            Touch(calendar, stored);
+        }
+    }
+
     /// <summary>The event as stored, or null.</summary>
     public JsonObject? Event(string address, string calendarId, string eventId)
     {
@@ -234,9 +255,13 @@ public sealed class FakeGoogle : HttpMessageHandler
                     Cancel(calendar, eventId);
                     return new HttpResponseMessage(HttpStatusCode.NoContent);
                 }
-                // Google keeps birthday events to itself: a change is refused with a 400. The reason
-                // name is the fake's own; only the status matters to the adapter.
-                if ((string?)stored["eventType"] == "birthday") return Error(HttpStatusCode.BadRequest, "eventTypeRestriction");
+                Patches.Add((eventId, (JsonObject)body!.DeepClone()));
+                // Google keeps a birthday's own fields to itself: a change to one is refused with a
+                // 400. The reason name is the fake's own; only the status matters to the adapter.
+                if ((string?)stored["eventType"] == "birthday" && body.Select(pair => pair.Key).Any(name => !BirthdayFields.Contains(name)))
+                {
+                    return Error(HttpStatusCode.BadRequest, "eventTypeRestriction");
+                }
                 Merge(stored, body!);
                 Touch(calendar, stored);
                 return Ok(stored.DeepClone());
@@ -281,6 +306,9 @@ public sealed class FakeGoogle : HttpMessageHandler
         var stored = (JsonObject)body.DeepClone();
         stored["kind"] = "calendar#event";
         stored["id"] ??= Guid.NewGuid().ToString("N");
+        // As Google: an event made on a calendar is organised by that calendar. Seed an invitation
+        // with an organizer of its own ({"email": "kim@example.com"}, no "self").
+        stored["organizer"] ??= new JsonObject { ["email"] = calendar.Id, ["self"] = true };
         stored["status"] ??= "confirmed";
         stored["iCalUID"] = (string)stored["id"]! + "@google.com";
         stored["htmlLink"] = "https://calendar.google.test/event?eid=" + (string)stored["id"]!;

@@ -77,6 +77,31 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
 
     private static string LinkOf(JsonObject account) => (string)account["calendars"]![0]!["id"]!;
 
+    /// <summary>The link as the list gives it.</summary>
+    private static async Task<JsonObject> ListedAsync(HttpClient client, string linkId) =>
+        (await client.GetFromJsonAsync<JsonObject>("/api/calendars", Token))!["accounts"]!.AsArray()
+            .SelectMany(account => account!["calendars"]!.AsArray())
+            .Single(link => (string)link!["id"]! == linkId)!.AsObject();
+
+    /// <summary>The link once no run of it is queued or going, read as the app reads it while it shows "Syncing...".</summary>
+    private static async Task<JsonObject> SettledAsync(HttpClient client, string linkId)
+    {
+        for (var tries = 0; tries < 400; tries++)
+        {
+            var link = await ListedAsync(client, linkId);
+            if (!(bool)link["syncing"]!) return link;
+            await Task.Delay(25, Token);
+        }
+        throw new TimeoutException($"calendar {linkId} still syncing");
+    }
+
+    /// <summary>Choose how a calendar is used and wait for the run that starts, as the app does.</summary>
+    private static async Task<JsonObject> UseAsync(HttpClient client, string linkId, object request)
+    {
+        (await client.PutAsJsonAsync($"/api/calendars/{linkId}", request, Token)).EnsureSuccessStatusCode();
+        return await SettledAsync(client, linkId);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -209,7 +234,7 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
         await using var server = Server();
         var (client, _) = await SignIn(server, "ben");
         var account = await ConnectAsync(client);
-        (await client.PutAsJsonAsync($"/api/calendars/{LinkOf(account)}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        await UseAsync(client, LinkOf(account), new { mode = "show" });
         var calls = fake.Calls;
         var statuses = new List<HttpStatusCode>();
 
@@ -228,7 +253,7 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
         var (kim, _) = await SignIn(server, "kim");
         var account = await ConnectAsync(ben);
         var linkId = LinkOf(account);
-        (await ben.PutAsJsonAsync($"/api/calendars/{linkId}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        await UseAsync(ben, linkId, new { mode = "show" });
         var store = server.Services.GetRequiredService<ICalendarStore>();
         // As a run that timed out leaves it.
         var wait = DateTimeOffset.UtcNow.AddMinutes(10);
@@ -248,8 +273,103 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
         Assert.Equal(wait.ToUnixTimeMilliseconds(), link.NextAttempt?.ToUnixTimeMilliseconds());
 
         var other = await ConnectAsync(kim);
-        var shown = (await (await kim.PutAsJsonAsync($"/api/calendars/{LinkOf(other)}", new { mode = "show" }, Token)).Content.ReadFromJsonAsync<JsonObject>(Token))!;
-        Assert.NotNull(shown["syncedAt"]);
+        var shown = await UseAsync(kim, LinkOf(other), new { mode = "show" });
+        Assert.True(shown["syncedAt"] is not null, $"not synced: {shown.ToJsonString()}");
+    }
+
+    [Fact]
+    public async Task Choosing_a_use_answers_at_once_while_the_run_goes_on_on_the_server()
+    {
+        await using var server = Server();
+        var (client, _) = await SignIn(server, "ben");
+        var account = await ConnectAsync(client);
+        var linkId = LinkOf(account);
+        var calendarId = (await server.Services.GetRequiredService<ICalendarStore>().LinkAsync(linkId, Token))!.RemoteId;
+        // A calendar that takes longer than any request may: its listing never answers.
+        fake.Hang(calendarId);
+        var started = System.Diagnostics.Stopwatch.StartNew();
+
+        var answer = await client.PutAsJsonAsync($"/api/calendars/{linkId}", new { mode = "show" }, Token);
+        var pressed = await client.PostAsync($"/api/calendars/{linkId}/sync", null, Token);
+
+        Assert.Equal(HttpStatusCode.OK, answer.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, pressed.StatusCode);
+        Assert.True(started.Elapsed < TimeSpan.FromSeconds(10), $"answered after {started.Elapsed}");
+        Assert.True((bool)(await answer.Content.ReadFromJsonAsync<JsonObject>(Token))!["syncing"]!);
+        var listed = await ListedAsync(client, linkId);
+        Assert.True((bool)listed["syncing"]!);
+        Assert.Null(listed["syncedAt"]);
+    }
+
+    [Fact]
+    public async Task The_import_preview_counts_upcoming_events_for_the_owner_only_and_writes_nothing()
+    {
+        await using var server = Server();
+        var (ben, _) = await SignIn(server, "ben");
+        var (kim, _) = await SignIn(server, "kim");
+        var account = await ConnectAsync(ben);
+        var linkId = LinkOf(account);
+        var calendarId = (await server.Services.GetRequiredService<ICalendarStore>().LinkAsync(linkId, Token))!.RemoteId;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        CalendarTime Day(int from) => CalendarTime.Date(today.AddDays(from).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+        fake.Seed(calendarId, new EventData("Last week", "", Day(-7), Day(-6)));
+        fake.Seed(calendarId, new EventData("Next week", "", Day(7), Day(8)));
+        fake.Seed(calendarId, new EventData("Week after", "", Day(14), Day(15)));
+        fake.Seed(calendarId, new EventData("Kim's party", "", Day(7), Day(8)), foreign: true);
+        var etags = fake.Events(calendarId).Select(each => each.Etag).ToList();
+
+        var preview = await ben.GetAsync($"/api/calendars/{linkId}/import-preview", Token);
+        var theirs = await kim.GetAsync($"/api/calendars/{linkId}/import-preview", Token);
+
+        Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
+        Assert.Equal(2, (int)(await preview.Content.ReadFromJsonAsync<JsonObject>(Token))!["events"]!);
+        Assert.Equal(HttpStatusCode.NotFound, theirs.StatusCode);
+        Assert.Equal(etags, fake.Events(calendarId).Select(each => each.Etag));
+        Assert.Equal("off", (string?)(await ListedAsync(ben, linkId))["mode"]);
+    }
+
+    [Fact]
+    public async Task An_import_preview_that_breaks_answers_502_with_the_fixed_code_and_no_message()
+    {
+        await using var server = Server();
+        var (ben, _) = await SignIn(server, "ben");
+        var linkId = LinkOf(await ConnectAsync(ben));
+        var calendarId = (await server.Services.GetRequiredService<ICalendarStore>().LinkAsync(linkId, Token))!.RemoteId;
+        fake.Hold(calendarId).SetException(new InvalidOperationException("SUMMARY:secret words from the calendar"));
+
+        var preview = await ben.GetAsync($"/api/calendars/{linkId}/import-preview", Token);
+
+        Assert.Equal(HttpStatusCode.BadGateway, preview.StatusCode);
+        var body = await preview.Content.ReadAsStringAsync(Token);
+        Assert.Contains(CalendarSync.Failed, body, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret words", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Changing_uses_over_and_over_queues_no_more_runs_than_Sync_now_allows()
+    {
+        await using var server = Server();
+        var (client, _) = await SignIn(server, "ben");
+        var connection = fake.AddAccount(username: $"sam{Guid.NewGuid():N}", password: Password);
+        // Calendars that never answer, so every run asked for stays queued behind the first.
+        var calendars = Enumerable.Range(1, CalendarEndpoints.SyncsPerWindow + 2).Select(each => fake.AddCalendar(connection, $"Calendar {each}")).ToList();
+        foreach (var calendarId in calendars) fake.Hang(calendarId);
+        var answer = await client.PostAsJsonAsync("/api/calendars/accounts",
+            new { provider = "fake", serverUrl = connection.ServerUrl, username = connection.Username, password = Password }, Token);
+        var links = (await answer.Content.ReadFromJsonAsync<JsonObject>(Token))!["calendars"]!.AsArray().Select(link => (string)link!["id"]!).ToList();
+
+        var syncing = new List<bool>();
+        foreach (var linkId in links)
+        {
+            var put = await client.PutAsJsonAsync($"/api/calendars/{linkId}", new { mode = "show" }, Token);
+            Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+            syncing.Add((bool)(await put.Content.ReadFromJsonAsync<JsonObject>(Token))!["syncing"]!);
+        }
+
+        // The rest wait for the next due pass: they have never synced.
+        Assert.Equal(CalendarEndpoints.SyncsPerWindow, syncing.Count(each => each));
+        Assert.All(syncing.Skip(CalendarEndpoints.SyncsPerWindow), Assert.False);
+        foreach (var linkId in links.Skip(CalendarEndpoints.SyncsPerWindow)) Assert.Null((await ListedAsync(client, linkId))["syncedAt"]);
     }
 
     [Fact]
@@ -258,7 +378,7 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
         await using var server = Server();
         var (client, _) = await SignIn(server, "ben");
         var account = await ConnectAsync(client);
-        (await client.PutAsJsonAsync($"/api/calendars/{LinkOf(account)}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        await UseAsync(client, LinkOf(account), new { mode = "show" });
         var lines = new LogLines();
         var services = server.Services;
         var runs = new CalendarRuns(services.GetRequiredService<CalendarSync>(), services.GetRequiredService<ICalendarStore>(),
@@ -282,7 +402,7 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
         await using var server = Server();
         var (client, _) = await SignIn(server, "ben");
         var account = await ConnectAsync(client);
-        (await client.PutAsJsonAsync($"/api/calendars/{LinkOf(account)}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        await UseAsync(client, LinkOf(account), new { mode = "show" });
         var lines = new LogLines();
         var services = server.Services;
         var runs = new CalendarRuns(services.GetRequiredService<CalendarSync>(), services.GetRequiredService<ICalendarStore>(),
@@ -345,7 +465,8 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
         Assert.Equal(HttpStatusCode.OK, answer.StatusCode);
         var link = (await answer.Content.ReadFromJsonAsync<JsonObject>(Token))!;
         Assert.Equal("sync", (string?)link["mode"]);
-        Assert.NotNull(link["syncedAt"]);
+        var settled = await SettledAsync(client, LinkOf(account));
+        Assert.NotNull(settled["syncedAt"]);
         var calendarId = (await server.Services.GetRequiredService<ICalendarStore>().LinkAsync(LinkOf(account), Token))!.RemoteId;
         Assert.Equal("Dentist", Assert.Single(fake.Events(calendarId)).Data.Summary);
     }
@@ -360,7 +481,7 @@ public sealed class CalendarEndpointTests(ServerFixture fixture) : IClassFixture
         var calendarId = (await server.Services.GetRequiredService<ICalendarStore>().LinkAsync(LinkOf(account), Token))!.RemoteId;
         fake.Seed(calendarId, new EventData("Dentist", "", CalendarTime.Local("2026-11-30T09:00", "Europe/London"), CalendarTime.Local("2026-11-30T09:30", "Europe/London")));
         fake.Seed(calendarId, new EventData("Gym", "", CalendarTime.Date("2026-11-02"), CalendarTime.Date("2026-11-03"), "FREQ=WEEKLY;BYDAY=MO"));
-        (await client.PutAsJsonAsync($"/api/calendars/{LinkOf(account)}", new { mode = "show" }, Token)).EnsureSuccessStatusCode();
+        await UseAsync(client, LinkOf(account), new { mode = "show" });
 
         var events = (await client.GetFromJsonAsync<JsonObject>("/api/calendars/events?from=2026-11-23&to=2026-12-06", Token))!["events"]!.AsArray();
 

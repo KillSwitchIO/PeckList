@@ -168,6 +168,7 @@ function createEmptyStore(): EventsStore {
       setMode: () => Promise.resolve({ ok: false, code: 'calendar_failed' }),
       createCalendar: () => Promise.resolve({ ok: false, code: 'calendar_failed' }),
       syncNow: () => Promise.resolve({ ok: false, code: 'calendar_failed' }),
+      importPreview: () => Promise.resolve({ ok: false, code: 'calendar_failed' }),
       events: () => Promise.resolve([]),
       editEvent: () => Promise.resolve({ ok: false, code: 'calendar_failed' }),
       hide: () => Promise.resolve(),

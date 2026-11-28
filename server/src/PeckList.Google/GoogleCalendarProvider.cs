@@ -149,7 +149,9 @@ public sealed partial class GoogleCalendarProvider(HttpClient http, IGoogleClien
         {
             throw new CalendarProblem(CalendarProblemKind.Refused, "calendar_occurrence_read_only", "a changed occurrence of a repeating event can't be edited here");
         }
-        var body = GoogleEvents.Patch(data, basis.Raw);
+        var body = GoogleEvents.Patch(data, basis);
+        // Nothing differs from the event as read: nothing to send.
+        if (body.Count == 0) return basis;
         var updated = await OkAsync(connection, () =>
         {
             var request = Json(HttpMethod.Patch, Api($"calendars/{Escape(calendarId)}/events/{Escape(basis.Id)}"), body);

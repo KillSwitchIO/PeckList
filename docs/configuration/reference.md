@@ -224,6 +224,16 @@ again and their tasks are all still there. Turn it off and the calendar pages an
 and nothing syncs; connections already made are kept for when it comes back on. Always off on a
 demo server. **Default:** `false`. **Where:** any, live.
 
+When someone syncs a calendar with a tag, only its events from today on become tasks: a repeating
+event comes in if it still has an occurrence today or later, and its task starts on that occurrence,
+while the series on the calendar stays as it is. Earlier events stay on the calendar
+untouched, and so do events someone else organises and Google's birthdays, out of office, focus
+time, working location and events from Gmail. Before the change is saved, Settings says about how
+many events will become tasks. Tasks with the tag go to the calendar whatever their date.
+Changing the tag doesn't move events already on the calendar; tasks with the new tag are added.
+While a calendar is off, date changes made in PeckList aren't kept: when you turn it back on, the
+calendar's dates are used. Ticks and renames are kept.
+
 ### `CALENDAR_SYNC_MINUTES`
 
 How often, in minutes, the server checks each synced calendar for changes when nothing prompts it

@@ -13,5 +13,7 @@
     <ProjectReference Include="..\PeckList.Calendars.Testing\PeckList.Calendars.Testing.csproj" />
     <!-- The engine runs against a real entity store and SyncService, on SQLite. -->
     <ProjectReference Include="..\..\src\PeckList.Storage.Sqlite\PeckList.Storage.Sqlite.csproj" />
+    <!-- And with the real Google adapter against the fake Google service (PL-134 live-test fixes). -->
+    <ProjectReference Include="..\..\src\PeckList.Google\PeckList.Google.csproj" />
   </ItemGroup>
 </Project>

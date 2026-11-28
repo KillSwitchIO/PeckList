@@ -87,6 +87,22 @@ public sealed class CalDavClientTests
     }
 
     [Fact]
+    public async Task Discovery_reads_who_the_account_is_as_an_organizer()
+    {
+        var server = new FakeServer()
+            .On("PROPFIND", "https://dav.example.com/", _ => Principal("/", "/principals/ben/"))
+            .On("PROPFIND", "https://dav.example.com/principals/ben/", _ => Multistatus(
+                "<d:response><d:href>/principals/ben/</d:href><d:propstat><d:prop>" +
+                "<c:calendar-home-set><d:href>/calendars/ben/</d:href></c:calendar-home-set>" +
+                "<c:calendar-user-address-set><d:href>mailto:ben@example.com</d:href><d:href>/principals/ben/</d:href></c:calendar-user-address-set>" +
+                "</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>"));
+
+        var account = await Client(server).DiscoverAsync("https://dav.example.com", Token);
+
+        Assert.Equal(["mailto:ben@example.com", "/principals/ben/"], account.Addresses);
+    }
+
+    [Fact]
     public async Task Never_follows_a_redirect_from_https_to_http()
     {
         var server = new FakeServer()

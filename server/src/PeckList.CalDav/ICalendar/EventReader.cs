@@ -71,11 +71,21 @@ public static class EventReader
                     .Select(value => Time(new CalProperty("EXDATE", value, p.Parameters), zones)))
                 .ToList(),
             PeckListTask = Text(vevent, "X-PECKLIST-TASK"),
+            Organizer = Address(vevent.Property("ORGANIZER")?.Value),
             RecurrenceId = vevent.Property("RECURRENCE-ID") is { } rid ? Time(rid, zones) : null,
             Cancelled = string.Equals(vevent.Property("STATUS")?.Value.Trim(), "CANCELLED", StringComparison.OrdinalIgnoreCase),
             LastModified = stamp is null ? null : Instant(stamp.Value),
             Sequence = int.TryParse(vevent.Property("SEQUENCE")?.Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var sequence) ? sequence : 0,
         };
+    }
+
+    /// <summary>A calendar user's address (<c>mailto:Kim@Example.com</c>) as compared: no scheme, lower case; null when empty.</summary>
+    public static string? Address(string? value)
+    {
+        var text = value?.Trim();
+        if (string.IsNullOrEmpty(text)) return null;
+        if (text.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase)) text = text[7..].Trim();
+        return text.Length == 0 ? null : text.ToLowerInvariant();
     }
 
     private static string? Text(CalComponent vevent, string name) =>

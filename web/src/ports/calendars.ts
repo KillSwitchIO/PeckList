@@ -26,6 +26,11 @@ export interface CalendarLinkInfo {
   problem: string | null;
   /** When the server tries again after a problem, or null. */
   nextAttempt: string | null;
+  /**
+   * A run someone asked for (a mode just chosen, Sync now) is queued or going on the server. The
+   * route answers at once; the app shows "Syncing..." and reads the list again until it ends.
+   */
+  syncing: boolean;
 }
 
 /** A connected calendar account as Settings shows it. Never its password or token. */
@@ -93,6 +98,11 @@ export interface CalendarsApi {
     input: { name: string; tagId: string; listId?: string },
   ): Promise<CalendarResult<CalendarLinkInfo>>;
   syncNow(linkId: string): Promise<CalendarResult<CalendarLinkInfo>>;
+  /**
+   * How many of the calendar's events would become tasks if it synced with a tag now: its own events
+   * from today on (spec: PL-134 decision 8). The server lists the calendar and writes nothing.
+   */
+  importPreview(linkId: string): Promise<CalendarResult<number>>;
   /** Shown calendars' events from one day to another, both included (at most 62 days). */
   events(from: string, to: string): Promise<ShownEvent[]>;
   editEvent(id: string, edit: ShownEventEdit): Promise<CalendarResult<ShownEvent>>;

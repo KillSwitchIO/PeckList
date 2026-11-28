@@ -43,7 +43,9 @@ public interface ICalendarProvider
     /// Change an event to <paramref name="data"/>, sending the etag of <paramref name="basis"/> as
     /// If-Match: a stale one throws <see cref="CalendarProblemKind.Conflict"/>. <paramref name="basis"/>
     /// is the event as last read, so the adapter keeps everything the engine does not map (location,
-    /// alarms, attendees, overrides) from its <see cref="RemoteEvent.Raw"/>.
+    /// alarms, attendees, overrides) from its <see cref="RemoteEvent.Raw"/>. A change of marker
+    /// alone writes only the marker, leaving the event's own fields as the calendar holds them rather
+    /// than as the adapter read them; an adapter that can patch (Google) sends only what differs.
     /// </summary>
     Task<RemoteEvent> UpdateEventAsync(CalendarConnection connection, string calendarId, RemoteEvent basis, EventData data, CancellationToken cancellation);
 

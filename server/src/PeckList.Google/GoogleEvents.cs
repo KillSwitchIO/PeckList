@@ -39,8 +39,19 @@ internal static class GoogleEvents
             Text(item, "recurringEventId"),
             original,
             Text(item, "status") == "cancelled",
-            item.ToJsonString());
+            item.ToJsonString(),
+            Foreign(item));
     }
+
+    /// <summary>
+    /// Not the person's to own (spec: PL-134, decision 8): any kind but a plain event (Google's
+    /// <c>birthday</c>, <c>outOfOffice</c>, <c>focusTime</c>, <c>workingLocation</c>, <c>fromGmail</c>,
+    /// and any kind added later), or an event this calendar didn't organise (<c>organizer.self</c> not
+    /// true: an invitation). Google names the organizer on every event.
+    /// </summary>
+    internal static bool Foreign(JsonObject item) =>
+        (Text(item, "eventType") ?? "default") != "default"
+        || !(item["organizer"] is JsonObject organizer && organizer["self"] is JsonValue self && self.TryGetValue<bool>(out var mine) && mine);
 
     /// <summary>A new event's body. An event without an end gets 30 minutes or one day (decision 5): Google needs one.</summary>
     public static JsonObject Create(EventData data)
@@ -58,28 +69,37 @@ internal static class GoogleEvents
     }
 
     /// <summary>
-    /// A patch of the mapped fields only, so location, attendees, reminders and the rest stay as
-    /// Google holds them. Times name both forms, the unused one null, so a timed event can become
-    /// all-day and back. Recurrence lines the port does not map (RDATE, EXRULE) are kept from
-    /// <paramref name="basisRaw"/>.
+    /// A patch of the mapped fields that differ from <paramref name="basis"/>, the event as last read,
+    /// and nothing else: empty when nothing differs. A marker written alone patches only
+    /// <c>extendedProperties</c>, so an event the person has is never rewritten from PeckList's reading
+    /// of it (a zone, a rule's wording, a description), and Google takes it even where it limits what
+    /// may change (a birthday). Location, attendees, reminders and the rest are never sent. Changed times
+    /// name both forms, the unused one null, so a timed event can become all-day and back. Recurrence
+    /// lines the port does not map (RDATE, EXRULE) are kept from the basis.
     /// </summary>
-    public static JsonObject Patch(EventData data, string? basisRaw)
+    public static JsonObject Patch(EventData data, RemoteEvent basis)
     {
-        var kept = new List<string>();
-        if (basisRaw is not null && JsonNode.Parse(basisRaw) is JsonObject basis && basis["recurrence"] is JsonArray lines)
+        var was = basis.Data;
+        var body = new JsonObject();
+        if (data.Summary != was.Summary) body["summary"] = data.Summary;
+        if (data.Description != was.Description) body["description"] = data.Description;
+        if (data.Start != was.Start || data.End != was.End)
         {
-            kept.AddRange(lines.OfType<JsonValue>().Select(line => line.GetValue<string>())
-                .Where(line => !line.StartsWith("RRULE", StringComparison.OrdinalIgnoreCase) && !line.StartsWith("EXDATE", StringComparison.OrdinalIgnoreCase)));
+            body["start"] = WriteTime(data.Start, patch: true);
+            body["end"] = WriteTime(data.End ?? DefaultEnd(data.Start), patch: true);
         }
-        var body = new JsonObject
+        if (data.RRule != was.RRule || !(data.ExDates ?? []).SequenceEqual(was.ExDates ?? []))
         {
-            ["summary"] = data.Summary,
-            ["description"] = data.Description,
-            ["start"] = WriteTime(data.Start, patch: true),
-            ["end"] = WriteTime(data.End ?? DefaultEnd(data.Start), patch: true),
-            ["recurrence"] = RecurrenceLines(data, kept),
-        };
-        if (MarkerProperties(data.Marker) is { } marker) body["extendedProperties"] = marker;
+            var kept = new List<string>();
+            if (basis.Raw is not null && JsonNode.Parse(basis.Raw) is JsonObject raw && raw["recurrence"] is JsonArray lines)
+            {
+                kept.AddRange(lines.OfType<JsonValue>().Select(line => line.GetValue<string>())
+                    .Where(line => !line.StartsWith("RRULE", StringComparison.OrdinalIgnoreCase) && !line.StartsWith("EXDATE", StringComparison.OrdinalIgnoreCase)));
+            }
+            body["recurrence"] = RecurrenceLines(data, kept);
+        }
+        // Google merges the keys of extendedProperties.private, so other apps' keys stay.
+        if (data.Marker != was.Marker && MarkerProperties(data.Marker) is { } marker) body["extendedProperties"] = marker;
         return body;
     }
 

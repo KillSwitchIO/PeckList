@@ -81,6 +81,12 @@ export function createHttpCalendars(
         await call(`/api/calendars/${path(linkId)}/sync`, { method: 'POST' }),
       );
     },
+    async importPreview(linkId) {
+      const answer = await result<{ events: number }>(
+        await call(`/api/calendars/${path(linkId)}/import-preview`),
+      );
+      return answer.ok ? { ok: true, value: answer.value.events } : answer;
+    },
     async events(from, to) {
       const query = new URLSearchParams({ from, to });
       const response = await call(`/api/calendars/events?${query.toString()}`);

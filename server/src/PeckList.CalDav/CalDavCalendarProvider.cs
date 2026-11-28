@@ -67,7 +67,7 @@ public sealed partial class CalDavCalendarProvider(HttpClient http, TimeProvider
             var client = Client(connection);
             var calendar = CalendarUrl(calendarId);
             if (syncToken is not null && syncToken.StartsWith(CTagTokenPrefix, StringComparison.Ordinal))
-                return await CTagChangesAsync(client, calendar, syncToken[CTagTokenPrefix.Length..], cancellation);
+                return await CTagChangesAsync(client, connection, calendar, syncToken[CTagTokenPrefix.Length..], cancellation);
             DavChanges changes;
             try
             {
@@ -76,10 +76,11 @@ public sealed partial class CalDavCalendarProvider(HttpClient http, TimeProvider
             catch (CalDavException e) when (syncToken is null && e.Failure is CalDavFailure.Rejected or CalDavFailure.Forbidden)
             {
                 // No sync-collection on this server: list everything, and remember its ctag.
-                return await CTagChangesAsync(client, calendar, null, cancellation);
+                return await CTagChangesAsync(client, connection, calendar, null, cancellation);
             }
             var objects = await client.GetAsync(calendar, changes.Changed.Select(c => c.Href).ToList(), cancellation);
-            var events = objects.SelectMany(o => Events(calendar, o)).ToList();
+            var own = await OwnAddressesAsync(client, connection, objects, cancellation);
+            var events = objects.SelectMany(o => Events(calendar, o, own)).ToList();
             // A resource changed and gone again before it was fetched counts as removed.
             var fetched = objects.Select(o => o.Href).ToHashSet();
             var removed = changes.Removed.Concat(changes.Changed.Select(c => c.Href).Where(h => !fetched.Contains(h)))
@@ -121,9 +122,19 @@ public sealed partial class CalDavCalendarProvider(HttpClient http, TimeProvider
                 raw = current.Data;
             }
             var master = Read(raw).Master ?? throw new CalendarProblem(CalendarProblemKind.Refused, "calendar_not_an_event", "the resource holds no event");
-            // RDATE and EXRULE aren't mapped: keep them from the event as it was.
-            var kept = master.Recurrence.Where(l => !l.StartsWith("RRULE", StringComparison.OrdinalIgnoreCase) && !l.StartsWith("EXDATE", StringComparison.OrdinalIgnoreCase)).ToList();
-            var text = EventWriter.Write(raw, ToCalEvent(master.Uid, data, kept, master.Cancelled), time.GetUtcNow());
+            string text;
+            if (data.Marker is { } marker && CalendarJson.Same(data with { Marker = basis.Data.Marker }, basis.Data))
+            {
+                // Only the marker changes: the event's own lines stay as the calendar wrote them.
+                text = EventWriter.Mark(raw, marker.Instance + "/" + marker.TaskId, time.GetUtcNow())
+                    ?? throw new CalendarProblem(CalendarProblemKind.Refused, "calendar_not_an_event", "the resource holds no event");
+            }
+            else
+            {
+                // RDATE and EXRULE aren't mapped: keep them from the event as it was.
+                var kept = master.Recurrence.Where(l => !l.StartsWith("RRULE", StringComparison.OrdinalIgnoreCase) && !l.StartsWith("EXDATE", StringComparison.OrdinalIgnoreCase)).ToList();
+                text = EventWriter.Write(raw, ToCalEvent(master.Uid, data, kept, master.Cancelled), time.GetUtcNow());
+            }
             var etag = await client.UpdateAsync(href, basis.Etag, text, cancellation);
             return Events(calendar, new DavObject(href, etag, text)).First(e => e.SeriesId is null);
         });
@@ -155,7 +166,7 @@ public sealed partial class CalDavCalendarProvider(HttpClient http, TimeProvider
     /// <inheritdoc />
     public Task StopWatchAsync(CalendarConnection connection, PushChannel channel, CancellationToken cancellation) => Task.CompletedTask;
 
-    private async Task<RemoteChanges> CTagChangesAsync(CalDavClient client, Uri calendar, string? known, CancellationToken cancellation)
+    private async Task<RemoteChanges> CTagChangesAsync(CalDavClient client, CalendarConnection connection, Uri calendar, string? known, CancellationToken cancellation)
     {
         var account = new Uri(calendar, "..");
         var listed = (await client.CalendarsAsync(account, cancellation)).FirstOrDefault(c => c.Url == calendar);
@@ -163,7 +174,32 @@ public sealed partial class CalDavCalendarProvider(HttpClient http, TimeProvider
         if (known is not null && ctag is not null && ctag == known) return new RemoteChanges([], [], CTagTokenPrefix + ctag, Reset: false);
         var etags = await client.EtagsAsync(calendar, cancellation);
         var objects = await client.GetAsync(calendar, etags.Select(e => e.Href).ToList(), cancellation);
-        return new RemoteChanges(objects.SelectMany(o => Events(calendar, o)).ToList(), [], ctag is null ? null : CTagTokenPrefix + ctag, Reset: true);
+        var own = await OwnAddressesAsync(client, connection, objects, cancellation);
+        return new RemoteChanges(objects.SelectMany(o => Events(calendar, o, own)).ToList(), [], ctag is null ? null : CTagTokenPrefix + ctag, Reset: true);
+    }
+
+    /// <summary>
+    /// Who the account is as an ORGANIZER, asked only when a listed event names one: the principal's
+    /// calendar-user-address-set, and the username when it is an address. An event whose ORGANIZER is
+    /// none of these is an invitation, never imported (spec: PL-134, decision 8). A server that won't
+    /// say leaves the username alone; null when no event names an organizer.
+    /// </summary>
+    private static async Task<IReadOnlySet<string>?> OwnAddressesAsync(CalDavClient client, CalendarConnection connection, IReadOnlyList<DavObject> objects,
+        CancellationToken cancellation)
+    {
+        if (!objects.Any(o => o.Data.Contains("ORGANIZER", StringComparison.OrdinalIgnoreCase))) return null;
+        var own = new HashSet<string>(StringComparer.Ordinal);
+        if (EventReader.Address(connection.Username) is { } username && username.Contains('@', StringComparison.Ordinal)) own.Add(username);
+        try
+        {
+            var account = await client.DiscoverAsync(connection.ServerUrl, cancellation);
+            foreach (var address in account.Addresses ?? []) if (EventReader.Address(address) is { } found) own.Add(found);
+        }
+        catch (CalDavException)
+        {
+            // Discovery worked when the account was connected; if it doesn't now, the username has to do.
+        }
+        return own;
     }
 
     private CalDavClient Client(CalendarConnection connection) =>
@@ -205,16 +241,17 @@ public sealed partial class CalDavCalendarProvider(HttpClient http, TimeProvider
         return name.Length == 0 || name.Contains('/', StringComparison.Ordinal) ? null : name;
     }
 
-    private static IReadOnlyList<RemoteEvent> Events(Uri calendar, DavObject resource)
+    /// <param name="own">Who the account is as an ORGANIZER (<see cref="OwnAddressesAsync"/>); null when no event names one.</param>
+    private static IReadOnlyList<RemoteEvent> Events(Uri calendar, DavObject resource, IReadOnlySet<string>? own = null)
     {
         if (EventId(calendar, resource.Href) is not { } id) return [];
         try
         {
             var read = Read(resource.Data);
             var events = new List<RemoteEvent>();
-            if (read.Master is { } master) events.Add(Remote(id, resource, master, null));
+            if (read.Master is { } master) events.Add(Remote(id, resource, master, null, own));
             foreach (var moved in read.Overrides)
-                events.Add(Remote(id + "#" + RecurrenceKey(moved.RecurrenceId!), resource, moved, read.Master is null ? null : id));
+                events.Add(Remote(id + "#" + RecurrenceKey(moved.RecurrenceId!), resource, moved, read.Master is null ? null : id, own));
             return events;
         }
         catch (Exception e) when (e is not OperationCanceledException)
@@ -225,7 +262,7 @@ public sealed partial class CalDavCalendarProvider(HttpClient http, TimeProvider
         }
     }
 
-    private static RemoteEvent Remote(string id, DavObject resource, CalEvent calEvent, string? seriesId) => new(
+    private static RemoteEvent Remote(string id, DavObject resource, CalEvent calEvent, string? seriesId, IReadOnlySet<string>? own) => new(
         id,
         resource.ETag,
         ToData(calEvent),
@@ -233,7 +270,8 @@ public sealed partial class CalDavCalendarProvider(HttpClient http, TimeProvider
         SeriesId: seriesId,
         OriginalStart: calEvent.RecurrenceId is { } rid ? ToTime(rid) : null,
         Cancelled: calEvent.Cancelled,
-        Raw: resource.Data);
+        Raw: resource.Data,
+        Foreign: own is not null && calEvent.Organizer is { } organizer && !own.Contains(organizer));
 
     private static string RecurrenceKey(EventTime time) =>
         time.AllDay ? CalValues.FormatDate(time.Date) : CalValues.FormatDateTime(time.Local, time.TimeZone == EventTime.Utc);

@@ -23,6 +23,7 @@ export function fakeLink(over: Partial<CalendarLinkInfo> = {}): CalendarLinkInfo
     syncedAt: null,
     problem: null,
     nextAttempt: null,
+    syncing: false,
     ...over,
   };
 }
@@ -68,6 +69,10 @@ export class FakeCalendars implements CalendarsApi {
   offline = false;
   /** Sync now answers 429 after this many. */
   syncsAllowed = Infinity;
+  /** What the import preview counts, or refuses with when a string. */
+  previewCount: number | string = 0;
+  /** Preview answers held until this resolves, as a calendar slow to list. */
+  previewWait: Promise<void> | null = null;
   private hidden = new Set<string>();
   private made = 0;
 
@@ -86,8 +91,36 @@ export class FakeCalendars implements CalendarsApi {
     }));
   }
 
+  /** Runs asked for stay "syncing" until this many more lists have been read, as a slow first sync. */
+  listsPerRun = 1;
+  /** How many times the list was read. */
+  lists = 0;
+  private runReads = new Map<string, number>();
+
+  /** A run asked for: the server answers at once with the link syncing, and finishes it later. */
+  private queue(link: CalendarLinkInfo): CalendarLinkInfo {
+    this.runReads.set(link.id, this.listsPerRun);
+    return { ...link, syncing: true };
+  }
+
+  /** Each list read brings queued runs nearer their end; an ended run has synced now. */
+  private advanceRuns() {
+    for (const [id, left] of this.runReads) {
+      const link = this.link(id);
+      if (!link) continue;
+      if (left > 1) {
+        this.runReads.set(id, left - 1);
+        continue;
+      }
+      this.runReads.delete(id);
+      this.replace({ ...link, syncing: false, syncedAt: new Date().toISOString() });
+    }
+  }
+
   list(): Promise<CalendarAccounts> {
     this.check();
+    this.lists += 1;
+    this.advanceRuns();
     return Promise.resolve({
       accounts: structuredClone(this.accounts),
       providers: [...this.providers],
@@ -140,12 +173,14 @@ export class FakeCalendars implements CalendarsApi {
     if (input.mode === 'sync' && link.readOnly) {
       return Promise.resolve({ ok: false, code: 'calendar_read_only' });
     }
-    const next = {
+    const changed = {
       ...link,
       mode: input.mode,
       tagId: input.mode === 'sync' ? (input.tagId ?? null) : null,
       listId: input.mode === 'sync' ? (input.listId ?? null) : null,
     };
+    const restart = changed.mode !== link.mode || changed.tagId !== link.tagId;
+    const next = restart && changed.mode !== 'off' ? this.queue(changed) : changed;
     this.replace(next);
     return Promise.resolve({ ok: true, value: next });
   }
@@ -156,13 +191,15 @@ export class FakeCalendars implements CalendarsApi {
   ): Promise<CalendarResult<CalendarLinkInfo>> {
     this.check();
     this.calls.push(`create ${accountId} ${input.name} tag:${input.tagId}`);
-    const link = fakeLink({
-      id: `made-${input.name}`,
-      name: input.name,
-      mode: 'sync',
-      tagId: input.tagId,
-      madeByPeckList: true,
-    });
+    const link = this.queue(
+      fakeLink({
+        id: `made-${input.name}`,
+        name: input.name,
+        mode: 'sync',
+        tagId: input.tagId,
+        madeByPeckList: true,
+      }),
+    );
     this.accounts = this.accounts.map((account) =>
       account.id === accountId ? { ...account, calendars: [...account.calendars, link] } : account,
     );
@@ -177,9 +214,18 @@ export class FakeCalendars implements CalendarsApi {
     this.syncsAllowed -= 1;
     const link = this.link(linkId);
     if (!link) return Promise.resolve({ ok: false, code: 'calendar_not_found' });
-    const next = { ...link, syncedAt: new Date().toISOString() };
+    const next = this.queue(link);
     this.replace(next);
     return Promise.resolve({ ok: true, value: next });
+  }
+
+  async importPreview(linkId: string): Promise<CalendarResult<number>> {
+    this.check();
+    this.calls.push(`preview ${linkId}`);
+    if (this.previewWait) await this.previewWait;
+    return typeof this.previewCount === 'string'
+      ? { ok: false, code: this.previewCount }
+      : { ok: true, value: this.previewCount };
   }
 
   events(from: string, to: string): Promise<ShownEvent[]> {

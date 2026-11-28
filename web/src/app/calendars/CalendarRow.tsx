@@ -40,19 +40,21 @@ export function CalendarRow({
   };
   const status = problem
     ? { text: problem, error: true }
-    : link.problem && link.mode !== 'off'
-      ? {
-          text: link.nextAttempt
-            ? t('calendars.row.problemRetry', {
-                problem: problemText(link.problem),
-                when: when(link.nextAttempt),
-              })
-            : problemText(link.problem),
-          error: true,
-        }
-      : link.mode !== 'off' && link.syncedAt
-        ? { text: t('calendars.row.synced', { when: when(link.syncedAt) }), error: false }
-        : null;
+    : link.syncing && link.mode !== 'off'
+      ? { text: t('calendars.row.syncing'), error: false }
+      : link.problem && link.mode !== 'off'
+        ? {
+            text: link.nextAttempt
+              ? t('calendars.row.problemRetry', {
+                  problem: problemText(link.problem),
+                  when: when(link.nextAttempt),
+                })
+              : problemText(link.problem),
+            error: true,
+          }
+        : link.mode !== 'off' && link.syncedAt
+          ? { text: t('calendars.row.synced', { when: when(link.syncedAt) }), error: false }
+          : null;
   return (
     <Box sx={{ py: 0.75 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minHeight: 36 }}>

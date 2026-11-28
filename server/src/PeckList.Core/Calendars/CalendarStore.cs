@@ -116,6 +116,15 @@ public interface ICalendarStore
     /// <summary>Add or replace an account.</summary>
     Task SaveAccountAsync(CalendarAccount account, CancellationToken cancellation = default);
 
+    /// <summary>
+    /// A run's verdict on an account (stopped for a refused sign-in, or well again), only while the
+    /// account is there: never adds one. False when it is gone (disconnected during the run).
+    /// </summary>
+    Task<bool> UpdateAccountStatusAsync(string id, string status, string? problem, CancellationToken cancellation = default);
+
+    /// <summary>A refreshed secret (already encrypted), only while the account is there: never adds one.</summary>
+    Task<bool> UpdateAccountSecretAsync(string id, string secret, CancellationToken cancellation = default);
+
     /// <summary>Remove an account with its links and their items.</summary>
     Task DeleteAccountAsync(string id, CancellationToken cancellation = default);
 
@@ -134,14 +143,35 @@ public interface ICalendarStore
     /// <summary>Add or replace a link.</summary>
     Task SaveLinkAsync(CalendarLink link, CancellationToken cancellation = default);
 
+    /// <summary>
+    /// A run's record on its link: the sync token, task cursor, sync time, problem, failures and next
+    /// try of <paramref name="link"/>, written only while the stored link is still there with the mode
+    /// and tag the run went by (<paramref name="link"/>'s). A run that outlives a disconnect, a deletion
+    /// or a change of use (which starts the link over) writes nothing and gets false. Never adds a link,
+    /// and never changes what the person chose.
+    /// </summary>
+    Task<bool> UpdateLinkRunAsync(CalendarLink link, CancellationToken cancellation = default);
+
+    /// <summary>A link's push channel, only while the link is there: never adds one.</summary>
+    Task<bool> UpdateLinkChannelAsync(string id, PushChannel? channel, string? channelTokenHash, CancellationToken cancellation = default);
+
     /// <summary>Remove a link with its items (its calendar is gone from the account).</summary>
     Task DeleteLinkAsync(string id, CancellationToken cancellation = default);
 
     /// <summary>A link's items.</summary>
     Task<IReadOnlyList<CalendarItem>> ItemsAsync(string linkId, CancellationToken cancellation = default);
 
-    /// <summary>Add or replace <paramref name="put"/> and remove the items of <paramref name="removed"/> event ids, in one transaction.</summary>
+    /// <summary>
+    /// Add or replace <paramref name="put"/> and remove the items of <paramref name="removed"/> event ids,
+    /// in one transaction, only while the link is there: items never outlive their link.
+    /// </summary>
     Task SaveItemsAsync(string linkId, IReadOnlyList<CalendarItem> put, IReadOnlyList<string> removed, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// A run's items, as <see cref="SaveItemsAsync"/>, only while the stored link is there with the mode
+    /// and tag the run went by (<paramref name="link"/>'s); false, and nothing written, when it is not.
+    /// </summary>
+    Task<bool> SaveRunItemsAsync(CalendarLink link, IReadOnlyList<CalendarItem> put, IReadOnlyList<string> removed, CancellationToken cancellation = default);
 
     /// <summary>Remove all of a link's items (its tag or mode changed).</summary>
     Task ClearItemsAsync(string linkId, CancellationToken cancellation = default);

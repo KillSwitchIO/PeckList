@@ -164,6 +164,10 @@ public static class AuthSetup
             options.AddPolicy(Calendars.CalendarEndpoints.SyncNowRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
                 "calendar-sync:" + (context.User.Identity?.IsAuthenticated == true ? "account:" + context.User.UserId() : "address:" + AddressKey(context)),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = Calendars.CalendarEndpoints.SyncsPerWindow, Window = Calendars.CalendarEndpoints.SyncNowWindow }));
+            // The import preview lists a whole calendar at the provider (PL-134, decision 8).
+            options.AddPolicy(Calendars.CalendarEndpoints.ImportPreviewRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+                "calendar-preview:" + (context.User.Identity?.IsAuthenticated == true ? "account:" + context.User.UserId() : "address:" + AddressKey(context)),
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = Calendars.CalendarEndpoints.PreviewsPerWindow, Window = Calendars.CalendarEndpoints.SyncNowWindow }));
             // Thirty a minute per account, shared by the endpoints that take it: far more than a person
             // typing, far too few to walk through names or friend codes (audit S13).
             options.AddPolicy(AccountRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(

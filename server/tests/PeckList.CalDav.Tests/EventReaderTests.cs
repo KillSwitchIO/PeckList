@@ -20,6 +20,21 @@ public sealed class EventReaderTests
         Assert.True(calEvent.Start.AllDay);
     }
 
+    [Theory]
+    [InlineData("ORGANIZER;CN=Kim:mailto:Kim@Example.com", "kim@example.com")]
+    [InlineData("ORGANIZER:MAILTO:ben@example.com", "ben@example.com")]
+    [InlineData("ORGANIZER:urn:uuid:1234", "urn:uuid:1234")]
+    public void Reads_the_organizer_as_an_address_compared_without_case(string line, string address)
+    {
+        Assert.Equal(address, Read("DTSTART;VALUE=DATE:20261127", line).Master!.Organizer);
+    }
+
+    [Fact]
+    public void An_event_with_no_organizer_names_none()
+    {
+        Assert.Null(Read("DTSTART;VALUE=DATE:20261127").Master!.Organizer);
+    }
+
     [Fact]
     public void Reads_a_date_without_VALUE_DATE_as_all_day_too()
     {

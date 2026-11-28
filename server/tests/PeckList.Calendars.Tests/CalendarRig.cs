@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using PeckList.Calendars.Testing;
 using PeckList.Core.Calendars;
+using PeckList.Google;
 using PeckList.Core.Sharing;
 using PeckList.Core.Storage;
 using PeckList.Core.Sync;
@@ -93,10 +94,45 @@ internal sealed class CalendarRig : IAsyncDisposable
     }
 
     public CalendarSync NewEngine(CalendarInstance? instance = null, TimeSpan? deadline = null) =>
-        new(Calendars, [Fake], new PrefixSecrets(), Entities, Sync, Sharing, Clock, instance ?? Instance, Time, (_, _) => Task.FromResult(Zone))
+        new(Calendars, GoogleProvider is null ? [Fake] : [Fake, GoogleProvider], new PrefixSecrets(), Entities, Sync, Sharing, Clock, instance ?? Instance, Time,
+            (_, _) => Task.FromResult(Zone))
         {
             RunDeadline = deadline ?? TimeSpan.FromMinutes(5),
         };
+
+    /// <summary>The fake Google service, once <see cref="UseGoogleAsync"/> linked its primary calendar.</summary>
+    public FakeGoogle? GoogleService { get; private set; }
+
+    public GoogleCalendarProvider? GoogleProvider { get; private set; }
+
+    public string GoogleAddress { get; } = "ben@example.com";
+
+    /// <summary>
+    /// The real Google adapter against the fake Google service, its primary calendar linked to the tag
+    /// as <see cref="LinkId"/>: the engine and the adapter together, as the server runs them.
+    /// </summary>
+    public async Task UseGoogleAsync()
+    {
+        const string clientId = "client-1.apps.googleusercontent.test";
+        GoogleService = new FakeGoogle();
+        GoogleService.AddClient(clientId, "fake-client-secret");
+        var refresh = GoogleService.AddAccount(GoogleAddress, clientId);
+        GoogleProvider = new GoogleCalendarProvider(new HttpClient(GoogleService), new OneGoogleClient(new GoogleClient(clientId, "fake-client-secret", Relay: false)),
+            TimeProvider.System, new GoogleAddresses(FakeGoogle.Api, FakeGoogle.TokenUrl, FakeGoogle.RevokeUrl, FakeGoogle.AuthorizeUrl));
+        Engine = NewEngine();
+        var secret = new GoogleToken(refresh, null, DateTimeOffset.UnixEpoch, clientId, FakeGoogle.AllScopes).Write();
+        await Calendars.SaveAccountAsync(new CalendarAccount("acct-google", Ben, GoogleProvider.Kind, GoogleAddress, GoogleCalendarProvider.ServerUrl, null,
+            await new PrefixSecrets().ProtectAsync(secret, Token), CalendarAccount.Ok, null, Time.Now), Token);
+        LinkId = "link-google";
+        await Calendars.SaveLinkAsync(NewLink(LinkId, GoogleAddress, Tag) with { CalendarAccountId = "acct-google" }, Token);
+    }
+
+    private sealed class OneGoogleClient(GoogleClient client) : IGoogleClients
+    {
+        public GoogleClient? Current => client;
+
+        public GoogleClient? ById(string id) => id == client.Id ? client : null;
+    }
 
     public static CalendarLink NewLink(string id, string remoteId, string tag) =>
         new(id, "acct1", Ben, remoteId, "Personal", null, false, CalendarModes.Sync, tag, null, false, null, 0, null, null, null, null, 0, null);
